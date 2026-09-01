@@ -80,7 +80,8 @@ export async function getQuotaState(userId: string, plan: string): Promise<Quota
     },
     overFrontierIn: frontierInUsed >= capIn,
     overFrontierOut: frontierOutUsed >= capOut,
-    overTheta5h: thetaLast5h >= p.thetaPer5h,
+    // thetaPer5h === 0 means "no rolling window cap" (monthly ceiling governs).
+    overTheta5h: p.thetaPer5h > 0 ? thetaLast5h >= p.thetaPer5h : false,
     overThetaMonth: thetaThisMonth >= p.thetaMonthly,
   };
 }

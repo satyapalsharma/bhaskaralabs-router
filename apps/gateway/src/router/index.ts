@@ -101,16 +101,39 @@ export function route(signals: RouterSignals): RouterDecision {
   };
 }
 
-// theta routing: cheap turns → agnes/stepfun flash; hard → devpass deepseek (bootstrap).
-// v0: everything cheap to agnes if enabled, else stepfun, else devpass (which is also the hard target).
-export function routeTheta(text: string): RouterDecision {
-  const hard = classifyHardness(text) === "debugging" || classifyHardness(text) === "planning";
+// theta routing: cheap turns → first enabled bootstrap backend (agnes → stepfun → devpass);
+// hard turns → devpass deepseek (best reasoning of the three; falls back through chain too).
+export interface ThetaBackends {
+  agnes: boolean;
+  stepfun: boolean;
+  devpass: boolean;
+}
+
+export function routeTheta(text: string, backends: ThetaBackends): RouterDecision {
+  const hardness = classifyHardness(text);
+  const hard = hardness === "debugging" || hardness === "planning";
+  // Preference: hard → devpass first (deepseek reasons best); routine → agnes first (flat cost).
+  const chain: Array<{ id: "devpass" | "agnes" | "stepfun"; model: string }> = hard
+    ? [
+        { id: "devpass", model: "deepseek-v4-flash-0731" },
+        { id: "stepfun", model: "step-3.7-flash" },
+        { id: "agnes", model: "agnes-2.5-flash" },
+      ]
+    : [
+        { id: "agnes", model: "agnes-2.5-flash" },
+        { id: "stepfun", model: "step-3.7-flash" },
+        { id: "devpass", model: "deepseek-v4-flash-0731" },
+      ];
+  const pick = chain.find((b) => backends[b.id]);
+  if (!pick) {
+    return { provider: "devpass", upstreamModel: "deepseek-v4-flash-0731", tier: "flash", effort: "low", reason: "theta-no-backend", hardCapped: false };
+  }
   return {
-    provider: hard ? "devpass" : "agnes",
-    upstreamModel: hard ? "deepseek-v4-flash-0731" : "agnes-2.5-flash",
+    provider: pick.id,
+    upstreamModel: pick.model,
     tier: "flash",
     effort: "low",
-    reason: hard ? "theta-hard" : "theta-routine",
+    reason: hard ? `theta-hard=${hardness}` : `theta-routine=${hardness}`,
     hardCapped: false,
   };
 }

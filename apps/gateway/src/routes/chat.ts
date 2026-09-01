@@ -60,6 +60,20 @@ interface PendingTurn {
 
 // Writes ledger after stream completes, using tapped usage.
 function trackTurn(pending: PendingTurn, usage: HyperUsage | null, providerMeta?: Record<string, unknown>) {
+  const u = usage ?? { promptTokens: 0, completionTokens: 0 } as HyperUsage;
+  console.log(JSON.stringify({
+    ev: "turn",
+    user: pending.userId.slice(0, 8),
+    session: pending.sessionId.slice(0, 8),
+    ep: pending.endpointModel,
+    to: pending.decision.upstreamModel,
+    tier: pending.decision.tier,
+    why: pending.decision.reason,
+    tok: `${u.promptTokens}/${u.completionTokens}`,
+    cached: u.cachedTokens ?? 0,
+    ms: Date.now() - pending.startedAt,
+    ttft: pending.ttftMs ?? null,
+  }));
   void writeLedger({
     userId: pending.userId,
     apiKeyId: pending.apiKeyId,
@@ -260,7 +274,7 @@ async function decide(auth: AuthContext, sessionId: string, endpointModel: strin
   if (endpointModel === "theta") {
     const lastUser = [...messages].reverse().find((m) => m.role === "user");
     const text = typeof lastUser?.content === "string" ? lastUser.content : "";
-    return routeTheta(text);
+    return routeTheta(text, { agnes: agnesEnabled(), stepfun: stepfunEnabled(), devpass: devpassEnabled() });
   }
 
   // Session-sticky lock: an active lock pins the workhorse for the whole session
