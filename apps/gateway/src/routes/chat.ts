@@ -13,7 +13,7 @@ import { getQuotaState, quotaRejection } from "../lib/quotas";
 import { getLock, setLock, touchSession } from "../lib/session-lock";
 import { setQuotaHeaders, setRetryHeaders } from "../lib/quota-headers";
 import { writeLedger } from "../lib/ledger";
-import { pickKeyForSession, hyperChat, SseUsageAccumulator, type HyperUsage } from "../providers/hyper";
+import { pickKeyForSession, hyperChat, parseUsageNonStream, SseUsageAccumulator, type HyperUsage } from "../providers/hyper";
 import { agnesChat, agnesEnabled } from "../providers/agnes";
 import { stepfunChat, stepfunEnabled } from "../providers/stepfun";
 import { devpassChat, devpassEnabled } from "../providers/devpass";
@@ -253,8 +253,7 @@ function dispatchUpstream(
 
 function extractUsage(json: unknown): HyperUsage | null {
   if (typeof json !== "object" || json === null || !("usage" in json)) return null;
-  const acc = new SseUsageAccumulator();
-  return acc.feed(JSON.stringify((json as { usage: unknown }).usage));
+  return parseUsageNonStream(json);
 }
 
 async function decide(auth: AuthContext, sessionId: string, endpointModel: string, messages: ChatMessage[]): Promise<RouterDecision> {

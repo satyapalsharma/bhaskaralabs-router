@@ -22,6 +22,12 @@ export const auth = betterAuth({
     provider: "pg",
     schema,
   }),
+  // Email+password: local dev / QA only — prod UI offers GitHub; remove before launch.
+  emailAndPassword: {
+    enabled: true,
+    minPasswordLength: 10,
+    autoSignIn: true,
+  },
   socialProviders: {
     github: {
       clientId: process.env.GITHUB_CLIENT_ID ?? "",

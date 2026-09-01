@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import "./globals.css";
+import { auth } from "@/lib/auth";
 
 export const metadata: Metadata = {
   title: "Bhaskara Labs — Frontier intelligence, honestly priced",
@@ -7,9 +9,11 @@ export const metadata: Metadata = {
     "From the land that gave zero to the world — an attempt at solving the price-per-intelligence metric. Smart-routed GLM-5.3 and Qwen-3.8 APIs for coding agents.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const session = await auth.api.getSession({ headers: await headers() });
+
   return (
     <html lang="en">
       <body className="antialiased bg-zinc-950 text-zinc-100">
@@ -21,12 +25,21 @@ export default function RootLayout({
             <div className="hidden sm:flex items-center gap-6 text-sm text-zinc-400">
               <a href="/plans" className="hover:text-zinc-100 transition-colors">Plans</a>
               <a href="/academics" className="hover:text-zinc-100 transition-colors">Academics</a>
-              <a
-                href="/plans"
-                className="rounded-md bg-amber-500 px-3 py-1.5 text-zinc-950 font-medium hover:bg-amber-400 transition-colors"
-              >
-                Get API Key
-              </a>
+              {session?.user ? (
+                <a
+                  href="/dashboard"
+                  className="rounded-md bg-amber-500 px-3 py-1.5 text-zinc-950 font-medium hover:bg-amber-400 transition-colors"
+                >
+                  Dashboard
+                </a>
+              ) : (
+                <a
+                  href="/login"
+                  className="rounded-md bg-amber-500 px-3 py-1.5 text-zinc-950 font-medium hover:bg-amber-400 transition-colors"
+                >
+                  Get API Key
+                </a>
+              )}
             </div>
           </div>
         </nav>
