@@ -141,7 +141,7 @@ app.post("/v1/chat/completions", async (c) => {
     const json: unknown = await upstream.json();
     const usage = extractUsage(json);
     trackTurn(pending, usage);
-    return c.json(sanitizeUserResponse(json));
+    return c.json(sanitizeUserResponse(json, endpointModel));
   }
 
   // Streaming pass-through with usage tap (SSE)
@@ -177,7 +177,7 @@ app.post("/v1/chat/completions", async (c) => {
           continue;
         }
         acc.feed(data);
-        const sanitized = sanitizeSseChunk(data);
+        const sanitized = sanitizeSseChunk(data, endpointModel);
         if (sanitized !== "__DROP__") await stream.write(`data: ${sanitized}\n\n`);
       }
     }
@@ -187,13 +187,14 @@ app.post("/v1/chat/completions", async (c) => {
 
 // ── User-response sanitization: internal pricing (cost/remaining) NEVER reaches users ──
 
-function sanitizeUserResponse(json: unknown): unknown {
+function sanitizeUserResponse(json: unknown, endpointModel: string): unknown {
   if (typeof json !== "object" || json === null) return json;
   const clone = { ...(json as Record<string, unknown>) };
   if (clone.usage && typeof clone.usage === "object") {
     clone.usage = sanitizeUsage(clone.usage);
   }
-  // Never leak the actual upstream model we routed to — user asked for the endpoint model.
+  // Never leak the upstream model we routed to — user sees the endpoint model they requested.
+  if (typeof clone.model === "string") clone.model = endpointModel;
   delete clone.cost;
   return clone;
 }
@@ -205,8 +206,8 @@ function sanitizeUsage(usage: unknown): Record<string, unknown> {
   return u;
 }
 
-/** SSE chunk: strip usage.cost/usage.remaining; drop empty-choices usage-only chunks entirely. */
-function sanitizeSseChunk(data: string): string {
+/** SSE chunk: strip usage.cost/usage.remaining; rewrite model to endpoint model; drop usage-only chunks. */
+function sanitizeSseChunk(data: string, endpointModel: string): string {
   try {
     const chunk: unknown = JSON.parse(data);
     if (typeof chunk !== "object" || chunk === null) return data;
@@ -216,6 +217,7 @@ function sanitizeSseChunk(data: string): string {
       if (hasEmptyChoices) return "__DROP__"; // usage-only chunk — internal, never forward
       c.usage = sanitizeUsage(c.usage);
     }
+    if (typeof c.model === "string") c.model = endpointModel;
     return JSON.stringify(c);
   } catch {
     return data;

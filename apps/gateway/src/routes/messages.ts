@@ -34,7 +34,18 @@ function extractAnthropicUsage(json: unknown): AnthropicUsage | null {
     outputTokens: typeof u.output_tokens === "number" ? u.output_tokens : 0,
   };
 }
-
+function sanitizeAnthropicResponse(json: unknown, endpointModel: string): unknown {
+  if (typeof json !== "object" || json === null) return json;
+  const clone = { ...(json as Record<string, unknown>) };
+  if (clone.usage && typeof clone.usage === "object") {
+    clone.usage = { ...(clone.usage as Record<string, unknown>) };
+    delete (clone.usage as Record<string, unknown>).cost;
+    delete (clone.usage as Record<string, unknown>).remaining;
+  }
+  // Never leak the upstream model — user sees what they requested.
+  if (typeof clone.model === "string") clone.model = endpointModel;
+  return clone;
+}
 /** Convert Anthropic messages shape to internal ChatMessage[]. */
 function toChatMessages(body: Record<string, unknown>): ChatMessage[] {
   const messages: ChatMessage[] = [];
@@ -77,16 +88,6 @@ function buildAnthropicPayload(body: Record<string, unknown>, decision: RouterDe
   return payload;
 }
 
-function sanitizeAnthropicResponse(json: unknown): unknown {
-  if (typeof json !== "object" || json === null) return json;
-  const clone = { ...(json as Record<string, unknown>) };
-  if (clone.usage && typeof clone.usage === "object") {
-    clone.usage = { ...(clone.usage as Record<string, unknown>) };
-    delete (clone.usage as Record<string, unknown>).cost;
-    delete (clone.usage as Record<string, unknown>).remaining;
-  }
-  return clone;
-}
 
 async function weeklyFullShare(userId: string): Promise<number> {
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -182,11 +183,78 @@ app.post("/v1/messages", async (c) => {
         latencyMs: 0,
       }).catch((err) => console.error("[ledger] write failed", err));
     }
-    return c.json(sanitizeAnthropicResponse(json));
+    return c.json(sanitizeAnthropicResponse(json, endpointModel));
   }
 
-  // Streaming pass-through (Anthropic SSE shape)
-  return new Response(upstream.body, {
+  // Streaming pass-through with model rewrite: user must never see the upstream model.
+  // We tap each SSE line for usage accounting AND rewrite model fields before forwarding.
+  const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
+  const writer = writable.getWriter();
+  void (async () => {
+    const reader = upstream.body?.getReader();
+    if (!reader) {
+      await writer.close();
+      return;
+    }
+    const decoder = new TextDecoder();
+    const encoder = new TextEncoder();
+    let buffer = "";
+    const usageBox: { value: AnthropicUsage | null } = { value: null };
+    const flushLine = async (line: string) => {
+      if (!line.startsWith("data: ")) {
+        await writer.write(encoder.encode(line + "\n"));
+        return;
+      }
+      const data = line.slice(6).trim();
+      if (!data) {
+        await writer.write(encoder.encode(line + "\n"));
+        return;
+      }
+      try {
+        const parsed: unknown = JSON.parse(data);
+        if (typeof parsed === "object" && parsed !== null) {
+          const p = parsed as Record<string, unknown>;
+          // Tap usage from message_delta / message_start
+          const u = extractAnthropicUsage(parsed);
+          if (u) usageBox.value = u;
+          if (p.message && typeof p.message === "object") {
+            const msg = { ...(p.message as Record<string, unknown>) };
+            if (typeof msg.model === "string") msg.model = endpointModel;
+            p.message = msg;
+          }
+          if (typeof p.model === "string") p.model = endpointModel;
+          await writer.write(encoder.encode(`data: ${JSON.stringify(p)}\n\n`));
+          return;
+        }
+      } catch {
+        // non-JSON — forward as-is
+      }
+      await writer.write(encoder.encode(`data: ${data}\n\n`));
+    };
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) await flushLine(line);
+    }
+    if (usageBox.value !== null) {
+      void writeLedger({
+        userId: auth.userId,
+        apiKeyId: auth.apiKeyId,
+        sessionId: auth.apiKeyId,
+        endpointModel,
+        usage: { promptTokens: usageBox.value.inputTokens, completionTokens: usageBox.value.outputTokens, model: decision.upstreamModel, provider: decision.provider },
+        routedTo: decision.tier,
+        routerEffort: decision.effort,
+        latencyMs: 0,
+      }).catch((err) => console.error("[ledger] write failed", err));
+    }
+    await writer.close();
+  })().catch((err) => console.error("[messages stream] error:", (err as Error).message));
+
+  return new Response(readable, {
     headers: {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
