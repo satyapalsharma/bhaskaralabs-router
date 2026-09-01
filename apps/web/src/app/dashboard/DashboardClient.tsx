@@ -153,6 +153,22 @@ export default function DashboardClient({ user, initialSnapshot, initialUsage, i
           </div>
         </section>
       )}
+      {snapshot && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-900/60 px-5 py-4">
+          <p className="text-sm text-zinc-300">
+            This month at direct API list rates you would have paid{" "}
+            <span className="font-semibold text-zinc-100">${snapshot.equivCostMonthUsd.toFixed(2)}</span>
+            {snapshot.plan !== "free" && (
+              <>
+                {" "}
+                — on <span className="capitalize font-medium text-amber-400">{snapshot.plan}</span>:{" "}
+                <span className="font-semibold">${snapshot.plan === "basic" ? 15 : 30}/mo</span>
+              </>
+            )}
+          </p>
+          <span className="text-xs text-zinc-600">frontier at full-model list rates · theta at $0.20/$0.04/$0.40 per 1M</span>
+        </div>
+      )}
 
       <section className="mt-10 grid gap-6 lg:grid-cols-2">
         {/* API keys */}

@@ -22,6 +22,7 @@ export interface QuotaSnapshot {
   subRenews: Date | null;
   trainingOptOut: boolean;
   cohort: number;
+  equivCostMonthUsd: number; // what this month's traffic would cost at direct API list rates
 }
 
 export async function getQuotaSnapshot(userId: string): Promise<QuotaSnapshot | null> {
@@ -69,6 +70,10 @@ export async function getQuotaSnapshot(userId: string): Promise<QuotaSnapshot | 
       ),
     );
 
+  const equivRows = await db
+    .select({ total: sql<number>`coalesce(sum(${usageLedger.userEquivalentCostUsd}::numeric), 0)` })
+    .from(usageLedger)
+    .where(and(eq(usageLedger.userId, userId), gte(usageLedger.createdAt, since)));
   return {
     plan,
     frontierInUsed: Number(frontierRows[0]?.in ?? 0),
@@ -85,6 +90,7 @@ export async function getQuotaSnapshot(userId: string): Promise<QuotaSnapshot | 
     subRenews: subRows[0]?.periodEnd ?? null,
     trainingOptOut: user.trainingOptOut,
     cohort: user.cohort,
+    equivCostMonthUsd: Number(equivRows[0]?.total ?? 0),
   };
 }
 

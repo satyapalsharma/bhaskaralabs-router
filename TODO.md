@@ -42,14 +42,14 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done · `[POST-BETA]` deferred 
 
 ## Phase 3 — Site v1
 
-- [ ] Home: hero (zero tagline, price-per-intelligence), pillars, model cards, CTA
+- [x] Home: hero (zero tagline, price-per-intelligence), pillars, model cards, CTA
 - [ ] Brand: "building toward" research claims only (no fabricated research) — copy review pass
-- [ ] Plans page: 3 cards, regional pricing display (₹1500/₹3000 India · $15/$30 international — geo-detected, Q3 resolved), feature table
-- [ ] Transparency block: cache engineering + context management + smart routing + training disclosure with opt-out link
-- [ ] Calculator: sliders (tokens, in/out split, cache-hit % default 80) → headline = FULL direct frontier API cost, no cache discounts (GLM5.3 & Qwen3.8-Max list) vs plan price → savings %; secondary collapsible: theta metered at USER-FACING rates ($0.20/$0.04/$0.40) + DIY-with-caching (Q4 resolved)
-- [ ] Checkout: Stripe subscriptions (USD, international) — Q3 resolved
-- [ ] Checkout: Razorpay (INR/UPI, India) — Q3 resolved
-- [ ] Coupons: schema (code, discount %, usage limit, per-user limit, window, plans) + redemption at checkout + code validation API
+- [x] Plans page: 3 cards, regional pricing display (₹1500/₹3000 India · $15/$30 international — geo-detected, Q3 resolved), feature table
+- [x] Transparency block: cache engineering + context management + smart routing + training disclosure with opt-out link
+- [x] Calculator: sliders (tokens, in/out split, cache-hit % default 80) → headline = FULL direct frontier API cost, no cache discounts (GLM5.3 & Qwen3.8-Max list) vs plan price → savings %; secondary collapsible: theta metered at USER-FACING rates ($0.20/$0.04/$0.40) + DIY-with-caching (Q4 resolved)
+- [ ] Checkout: Stripe subscriptions (USD, international) — Q3 resolved. ⏳ keys pending; stub live, swap via `payments.ts` TODO(psp)
+- [ ] Checkout: Razorpay (INR/UPI, India) — Q3 resolved. ⏳ keys pending; same swap path
+- [x] Coupons: schema (code, discount %, usage limit, per-user limit, window, plans) + redemption at checkout + code validation API
 - [ ] Free trial flow: 1-day, email verification + abuse friction (recommend $0 card-auth)
 - [x] Signup cohort gate: `signup_enabled` + `cohort_cap` (default 100) — auto-close at cap; waitlist email capture while closed; manual reopen only after cohort review
 - [ ] Legal pages: ToS, privacy, training-data disclosure (DPDP 2023 consent language), refund policy
