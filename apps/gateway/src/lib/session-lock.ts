@@ -4,7 +4,7 @@
 // Lock auto-releases after IDLE_TTL (task-boundary approximation for v0).
 
 import { db } from "../db";
-import { sessions } from "../db/schema";
+import { routerSessions as sessions } from "../db/schema";
 import { eq } from "drizzle-orm";
 
 const IDLE_TTL_MS = 2 * 60 * 60 * 1000; // 2h idle → next request starts a fresh lock

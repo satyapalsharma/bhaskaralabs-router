@@ -2,7 +2,7 @@
 // Keys stored hashed (sha256); prefix stored for display.
 
 import { db } from "../db";
-import { apiKeys, users, subscriptions } from "../db/schema";
+import { apiKeys, user as users, subscriptions } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { createHash, randomBytes } from "node:crypto";
 

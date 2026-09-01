@@ -1,12 +1,12 @@
 import { db } from "./index";
-import { users, apiKeys, subscriptions } from "./schema";
+import { user as users, apiKeys, subscriptions } from "./schema";
 import { newApiKey } from "../lib/auth";
 import { randomUUID } from "node:crypto";
 
 const email = process.argv[2] ?? "test@bhaskaralabs.dev";
 const plan = process.argv[3] ?? "basic";
 const userId = randomUUID();
-await db.insert(users).values({ id: userId, email, plan, cohort: 1, passwordHash: "seed-no-login" });
+await db.insert(users).values({ id: userId, name: email.split("@")[0], email, plan, cohort: 1, emailVerified: true });
 
 const key = newApiKey();
 await db.insert(apiKeys).values({
