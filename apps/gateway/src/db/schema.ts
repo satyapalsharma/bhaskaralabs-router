@@ -77,6 +77,22 @@ export const rateWindows = pgTable(
   (t) => [uniqueIndex("rate_window_unique").on(t.userId, t.kind, t.windowStart)],
 );
 
+// Session-sticky model lock (cache commandment #5: model stickiness per session).
+// A frontier session locks its workhorse model on first turn; switch = cache wipe.
+// Lock releases on idle TTL (2h) — task-boundary unlock semantics.
+export const sessions = pgTable(
+  "sessions",
+  {
+    id: text("id").primaryKey(),            // apiKeyId or x-bhaskara-session value
+    userId: text("user_id").notNull(),
+    lockedModel: text("locked_model"),      // e.g. glm-5.3-flash | glm-5.3 | null (unlocked)
+    lockedAt: timestamp("locked_at", { withTimezone: true }),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("session_user_idx").on(t.userId)],
+);
+
+
 export const coupons = pgTable("coupons", {
   code: text("code").primaryKey(),
   discountPct: integer("discount_pct").notNull(),

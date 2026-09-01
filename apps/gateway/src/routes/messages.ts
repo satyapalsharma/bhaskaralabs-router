@@ -10,6 +10,7 @@ import { authenticate, type AuthContext } from "../lib/auth";
 import { estimateTokens, type ChatMessage } from "../lib/prefix";
 import { getQuotaState, quotaRejection } from "../lib/quotas";
 import { writeLedger } from "../lib/ledger";
+import { getLock, setLock, touchSession } from "../lib/session-lock";
 import { setQuotaHeaders, setRetryHeaders } from "../lib/quota-headers";
 import { pickKeyForSession, hyperMessages } from "../providers/hyper";
 import { route, classifyHardness, type RouterDecision } from "../router";
@@ -129,17 +130,27 @@ app.post("/v1/messages", async (c) => {
   }
   setQuotaHeaders(c, quota, endpointModel, auth.plan);
 
-  // Route decision — same policy as chat endpoint
-  const share = await weeklyFullShare(auth.userId);
-  const lastUser = [...messages].reverse().find((m) => m.role === "user");
-  const lastText = typeof lastUser?.content === "string" ? lastUser.content : "";
-  const decision = route({
-    endpointModel: endpointModel as "glm-5.3" | "qwen-3.8",
-    prefixTokens: estimateTokens(messages),
-    isNewSession: true,
-    fullShareThisWeek: share,
-    hardness: classifyHardness(lastText),
-  });
+  // Route decision — session-sticky lock first (cache commandment #5)
+  const sessionId = auth.apiKeyId; // v0: per-key session; x-bhaskara-session lands with harness support
+  const lock = await getLock(sessionId, auth.userId);
+  let decision: RouterDecision;
+  if (lock.lockedModel && !lock.stale) {
+    const tier = lock.lockedModel.includes("flash") ? "flash" : "full";
+    await touchSession(sessionId, auth.userId);
+    decision = { provider: "hyper", upstreamModel: lock.lockedModel, tier, effort: "low", reason: "session-sticky", hardCapped: false };
+  } else {
+    const share = await weeklyFullShare(auth.userId);
+    const lastUser = [...messages].reverse().find((m) => m.role === "user");
+    const lastText = typeof lastUser?.content === "string" ? lastUser.content : "";
+    decision = route({
+      endpointModel: endpointModel as "glm-5.3" | "qwen-3.8",
+      prefixTokens: estimateTokens(messages),
+      isNewSession: true,
+      fullShareThisWeek: share,
+      hardness: classifyHardness(lastText),
+    });
+    await setLock(sessionId, auth.userId, decision.upstreamModel);
+  }
 
   const payload = buildAnthropicPayload(obj, decision, messages);
   const keys = (process.env.HYPER_API_KEYS ?? process.env.HYPER_API_KEY ?? "")

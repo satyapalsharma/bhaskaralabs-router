@@ -10,6 +10,7 @@ import { and, eq, gte, sql } from "drizzle-orm";
 import { authenticate, type AuthContext } from "../lib/auth";
 import { assemble, estimateTokens, deriveSessionId, type ChatMessage } from "../lib/prefix";
 import { getQuotaState, quotaRejection } from "../lib/quotas";
+import { getLock, setLock, touchSession } from "../lib/session-lock";
 import { setQuotaHeaders, setRetryHeaders } from "../lib/quota-headers";
 import { writeLedger } from "../lib/ledger";
 import { pickKeyForSession, hyperChat, SseUsageAccumulator, type HyperUsage } from "../providers/hyper";
@@ -262,17 +263,36 @@ async function decide(auth: AuthContext, sessionId: string, endpointModel: strin
     const text = typeof lastUser?.content === "string" ? lastUser.content : "";
     return routeTheta(text);
   }
-  // weekly full-share: query ledger aggregate; classify hardness from latest user turn
+
+  // Session-sticky lock: an active lock pins the workhorse for the whole session
+  // (cache commandment #5 — model switch mid-session = prefix cache wipe).
+  const lock = await getLock(sessionId, auth.userId);
+  if (lock.lockedModel && !lock.stale) {
+    const tier = lock.lockedModel.includes("flash") ? "flash" : "full";
+    await touchSession(sessionId, auth.userId);
+    return {
+      provider: "hyper",
+      upstreamModel: lock.lockedModel,
+      tier,
+      effort: "low",
+      reason: "session-sticky",
+      hardCapped: false,
+    };
+  }
+
+  // Fresh (or stale) session: decide from signals, then LOCK the result
   const share = await weeklyFullShare(auth.userId);
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
   const lastText = typeof lastUser?.content === "string" ? lastUser.content : "";
-  return route({
+  const decision = route({
     endpointModel: endpointModel as "glm-5.3" | "qwen-3.8",
     prefixTokens: estimateTokens(messages),
-    isNewSession: true, // v0: sticky lock store lands in Phase 2
+    isNewSession: true,
     fullShareThisWeek: share,
     hardness: classifyHardness(lastText),
   });
+  await setLock(sessionId, auth.userId, decision.upstreamModel);
+  return decision;
 }
 
 async function weeklyFullShare(userId: string): Promise<number> {
