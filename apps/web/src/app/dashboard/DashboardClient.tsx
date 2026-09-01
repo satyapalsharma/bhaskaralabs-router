@@ -218,8 +218,9 @@ export default function DashboardClient({ user, initialSnapshot, initialUsage, i
 
           <p className="mt-4 text-xs text-zinc-600">
             Point your agent at <code className="text-zinc-400">POST /v1/messages</code> (Anthropic-style) or{" "}
-            <code className="text-zinc-400">/v1/chat/completions</code> with <code className="text-zinc-400">Authorization: Bearer &lt;key&gt;</code>. Models:{" "}
-            <code className="text-zinc-400">glm-5.3 · glm-5.3-flash · qwen-3.8 · theta</code>
+            <code className="text-zinc-400">/v1/chat/completions</code> with <code className="text-zinc-400">Authorization: Bearer &lt;key&gt;</code>. Endpoint
+            names: <code className="text-zinc-400">glm-5.3 · qwen-3.8 · theta</code> — the router picks the variant. Details:{" "}
+            <a href="/docs" className="text-amber-400/80 underline hover:text-amber-300">docs</a>
           </p>
         </div>
 
