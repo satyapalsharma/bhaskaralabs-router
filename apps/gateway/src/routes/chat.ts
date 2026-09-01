@@ -10,12 +10,14 @@ import { and, eq, gte, sql } from "drizzle-orm";
 import { authenticate, type AuthContext } from "../lib/auth";
 import { assemble, estimateTokens, deriveSessionId, type ChatMessage } from "../lib/prefix";
 import { getQuotaState, quotaRejection } from "../lib/quotas";
+import { setQuotaHeaders, setRetryHeaders } from "../lib/quota-headers";
 import { writeLedger } from "../lib/ledger";
 import { pickKeyForSession, hyperChat, SseUsageAccumulator, type HyperUsage } from "../providers/hyper";
 import { agnesChat, agnesEnabled } from "../providers/agnes";
 import { stepfunChat, stepfunEnabled } from "../providers/stepfun";
 import { devpassChat, devpassEnabled } from "../providers/devpass";
 import { route, routeTheta, classifyHardness, type RouterDecision } from "../router";
+import messagesApp from "./messages";
 import { randomUUID } from "node:crypto";
 
 const app = new Hono();
@@ -103,7 +105,11 @@ app.post("/v1/chat/completions", async (c) => {
   const assembled = assemble(obj);
   const quota = await getQuotaState(auth.userId, auth.plan);
   const reject = quotaRejection(quota, endpointModel);
-  if (reject) return c.json({ error: { message: reject, type: "quota_exceeded" } }, 429);
+  if (reject) {
+    setRetryHeaders(c, quota, endpointModel, reject);
+    return c.json({ error: { message: reject, type: "quota_exceeded" } }, 429);
+  }
+  setQuotaHeaders(c, quota, endpointModel, auth.plan);
   for (const w of assembled.warnings) console.warn(`[prefix-lint] ${auth.userId}: ${w}`);
 
   const sessionId = deriveSessionId(auth.apiKeyId, c.req.raw.headers);
@@ -135,7 +141,7 @@ app.post("/v1/chat/completions", async (c) => {
     const json: unknown = await upstream.json();
     const usage = extractUsage(json);
     trackTurn(pending, usage);
-    return c.json(json);
+    return c.json(sanitizeUserResponse(json));
   }
 
   // Streaming pass-through with usage tap (SSE)
@@ -157,20 +163,64 @@ app.post("/v1/chat/completions", async (c) => {
         pending.ttftMs = Date.now() - pending.startedAt;
         ttftSet = true;
       }
-      await stream.write(text);
       buffer += text;
       const lines = buffer.split("\n");
       buffer = lines.pop() ?? "";
       for (const line of lines) {
-        if (line.startsWith("data: ")) {
-          const data = line.slice(6).trim();
-          if (data && data !== "[DONE]") acc.feed(data);
+        if (!line.startsWith("data: ")) {
+          await stream.write(line + "\n");
+          continue;
         }
+        const data = line.slice(6).trim();
+        if (!data || data === "[DONE]") {
+          await stream.write(line + "\n");
+          continue;
+        }
+        acc.feed(data);
+        const sanitized = sanitizeSseChunk(data);
+        if (sanitized !== "__DROP__") await stream.write(`data: ${sanitized}\n\n`);
       }
     }
     trackTurn(pending, acc.usage);
   });
 });
+
+// ── User-response sanitization: internal pricing (cost/remaining) NEVER reaches users ──
+
+function sanitizeUserResponse(json: unknown): unknown {
+  if (typeof json !== "object" || json === null) return json;
+  const clone = { ...(json as Record<string, unknown>) };
+  if (clone.usage && typeof clone.usage === "object") {
+    clone.usage = sanitizeUsage(clone.usage);
+  }
+  // Never leak the actual upstream model we routed to — user asked for the endpoint model.
+  delete clone.cost;
+  return clone;
+}
+
+function sanitizeUsage(usage: unknown): Record<string, unknown> {
+  const u = { ...(usage as Record<string, unknown>) };
+  delete u.cost;
+  delete u.remaining;
+  return u;
+}
+
+/** SSE chunk: strip usage.cost/usage.remaining; drop empty-choices usage-only chunks entirely. */
+function sanitizeSseChunk(data: string): string {
+  try {
+    const chunk: unknown = JSON.parse(data);
+    if (typeof chunk !== "object" || chunk === null) return data;
+    const c = chunk as Record<string, unknown>;
+    if (c.usage && typeof c.usage === "object") {
+      const hasEmptyChoices = Array.isArray(c.choices) && c.choices.length === 0;
+      if (hasEmptyChoices) return "__DROP__"; // usage-only chunk — internal, never forward
+      c.usage = sanitizeUsage(c.usage);
+    }
+    return JSON.stringify(c);
+  } catch {
+    return data;
+  }
+}
 
 function dispatchUpstream(
   endpointModel: string,
@@ -234,8 +284,8 @@ async function weeklyFullShare(userId: string): Promise<number> {
   return Number(rows[0]?.full ?? 0) / total;
 }
 
-// Anthropic-compat endpoint reuses the same pipeline (Phase-2 refines headers/params)
-app.post("/v1/messages", (c) => c.json({ error: { message: "use /v1/chat/completions in v0.1" } }, 501));
+// Anthropic-compat endpoint (Claude Code / Crush) — full router pipeline
+app.route("/", messagesApp);
 
 app.get("/health", (c) => c.json({ ok: true, providers: { agnes: agnesEnabled(), stepfun: stepfunEnabled(), devpass: devpassEnabled() } }));
 
