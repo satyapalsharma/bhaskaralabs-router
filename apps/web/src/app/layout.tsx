@@ -24,6 +24,7 @@ export default async function RootLayout({
             </a>
             <div className="hidden sm:flex items-center gap-6 text-sm text-zinc-400">
               <a href="/plans" className="hover:text-zinc-100 transition-colors">Plans</a>
+              <a href="/docs" className="hover:text-zinc-100 transition-colors">Docs</a>
               <a href="/academics" className="hover:text-zinc-100 transition-colors">Academics</a>
               {session?.user ? (
                 <a
@@ -45,9 +46,18 @@ export default async function RootLayout({
         </nav>
         {children}
         <footer className="border-t border-zinc-800 mt-24">
-          <div className="mx-auto max-w-6xl px-6 py-8 text-sm text-zinc-500 flex flex-col sm:flex-row justify-between gap-2">
-            <span>© {new Date().getFullYear()} Bhaskara Labs — building toward domain-specific small models for sensitive data.</span>
-            <span>Named for Bhāskara II · theta after Ramanujan&apos;s mock theta functions</span>
+          <div className="mx-auto max-w-6xl px-6 py-8 text-sm text-zinc-500">
+            <div className="flex flex-col sm:flex-row justify-between gap-2">
+              <span>© {new Date().getFullYear()} Bhaskara Labs — building toward domain-specific small models for sensitive data.</span>
+              <span>Named for Bhāskara II · theta after Ramanujan&apos;s mock theta functions</span>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-xs">
+              <a href="/faq" className="hover:text-zinc-300 transition-colors">FAQ</a>
+              <a href="/legal/terms" className="hover:text-zinc-300 transition-colors">Terms</a>
+              <a href="/legal/privacy" className="hover:text-zinc-300 transition-colors">Privacy</a>
+              <a href="/docs" className="hover:text-zinc-300 transition-colors">Docs</a>
+              <a href="/legal/refunds" className="hover:text-zinc-300 transition-colors">Refunds</a>
+            </div>
           </div>
         </footer>
       </body>

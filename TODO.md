@@ -52,7 +52,7 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done · `[POST-BETA]` deferred 
 - [x] Coupons: schema (code, discount %, usage limit, per-user limit, window, plans) + redemption at checkout + code validation API
 - [ ] Free trial flow: 1-day, email verification + abuse friction (recommend $0 card-auth)
 - [x] Signup cohort gate: `signup_enabled` + `cohort_cap` (default 100) — auto-close at cap; waitlist email capture while closed; manual reopen only after cohort review
-- [ ] Legal pages: ToS, privacy, training-data disclosure (DPDP 2023 consent language), refund policy
+- [x] Legal pages: ToS, privacy, training-data disclosure (DPDP 2023 consent language), refund policy
 
 ## Phase 4 — Dashboards
 

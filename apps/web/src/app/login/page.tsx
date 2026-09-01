@@ -86,8 +86,11 @@ export default function LoginPage() {
       )}
 
       <p className="mt-6 text-xs text-zinc-600">
-        By continuing you agree to our terms. We may use API traffic to train
-        our own models — opt out anytime from your dashboard.
+        By continuing you agree to our{" "}
+        <a href="/legal/terms" className="underline hover:text-zinc-400">terms</a>. We may use API traffic to{" "}
+        <a href="/legal/training" className="underline hover:text-zinc-400">train our own models</a> — opt out anytime
+        from your dashboard. See our{" "}
+        <a href="/legal/privacy" className="underline hover:text-zinc-400">privacy policy</a>.
       </p>
     </main>
   );
