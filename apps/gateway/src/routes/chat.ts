@@ -119,13 +119,13 @@ app.post("/v1/chat/completions", async (c) => {
     upstream = await dispatchUpstream(endpointModel, decision, assembled.messages, obj, auth, sessionId);
   } catch (err) {
     console.error(`[dispatch ${decision.provider}] connection failure:`, (err as Error).message);
-    return c.json({ error: { message: `Provider ${decision.provider} unreachable`, type: "api_error" } }, 502);
+    return c.json({ error: { message: "Upstream provider temporarily unreachable", type: "api_error" } }, 502);
   }
 
   if (!upstream.ok) {
     const errText = await upstream.text().catch(() => "");
     console.error(`[upstream ${decision.provider}] ${upstream.status}: ${errText.slice(0, 500)}`);
-    return c.json({ error: { message: `Upstream ${decision.provider} error ${upstream.status}`, type: "api_error" } }, 502);
+    return c.json({ error: { message: `Upstream error ${upstream.status}`, type: "api_error" } }, 502);
   }
   const isStream = obj.stream === true;
   const pending: PendingTurn = {
