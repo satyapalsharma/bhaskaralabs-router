@@ -21,6 +21,13 @@ export interface LedgerEntry {
 }
 
 export async function writeLedger(entry: LedgerEntry): Promise<void> {
+  // Providers occasionally report fractional/odd usage; bigint columns reject fractions
+  // and the void().catch() in callers would then SILENTLY DROP the billing row. Normalize.
+  const r = (n: number | undefined) => Math.round(Number.isFinite(n) ? (n as number) : 0);
+  entry.usage.promptTokens = r(entry.usage.promptTokens);
+  entry.usage.completionTokens = r(entry.usage.completionTokens);
+  entry.usage.cachedTokens = r(entry.usage.cachedTokens);
+  entry.usage.reasoningTokens = r(entry.usage.reasoningTokens);
   const valuation = valueUserFacing(entry.usage);
   const actual = valueActualCost(entry.usage);
   await db.insert(usageLedger).values({
