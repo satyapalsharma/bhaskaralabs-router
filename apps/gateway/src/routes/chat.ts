@@ -117,6 +117,7 @@ app.post("/v1/chat/completions", async (c) => {
     );
   }
 
+  const turnStartedAt = Date.now(); // true request-start clock (was captured post-dispatch → latency_ms ≈ 0)
   const assembled = assemble(obj);
   const quota = await getQuotaState(auth.userId, auth.plan);
   const reject = quotaRejection(quota, endpointModel);
@@ -149,7 +150,7 @@ app.post("/v1/chat/completions", async (c) => {
     sessionId,
     endpointModel,
     decision,
-    startedAt: Date.now(),
+    startedAt: turnStartedAt,
   };
 
   if (!isStream) {
