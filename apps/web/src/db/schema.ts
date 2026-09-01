@@ -16,6 +16,7 @@ export const user = pgTable("user", {
   plan: text("plan").notNull().default("free"),
   cohort: integer("cohort").notNull().default(1),
   trainingOptOut: boolean("training_opt_out").notNull().default(false),
+  role: text("role").notNull().default("user"), // user | admin
 });
 
 export const session = pgTable("session", {
