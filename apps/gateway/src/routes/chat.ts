@@ -180,7 +180,7 @@ function dispatchUpstream(
   auth: AuthContext,
   sessionId: string,
 ): Promise<Response> {
-  const payload = { ...originalBody, messages: withIdentity(messages, endpointModel), model: decision.upstreamModel };
+  const payload = { ...originalBody, messages: withIdentity(messages, endpointModel), model: decision.upstreamModel, stream_options: { include_usage: true } };
   const signal = AbortSignal.timeout(10 * 60 * 1000); // 10-min ceiling for long generations
   if (decision.provider === "hyper") {
     const key = pickKeyForSession(hyperKeys(), sessionId);
