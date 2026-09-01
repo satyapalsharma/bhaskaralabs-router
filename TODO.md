@@ -57,17 +57,17 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done · `[POST-BETA]` deferred 
 ## Phase 4 — Dashboards
 
 - [x] User dashboard: 5 quota cards (total + remaining): frontier in / frontier out / theta 5h-window / theta month / plan days (Q5 confirmed)
-- [ ] User dashboard: equivalent-API-cost card (frontier at full-model list rates; theta at display rates $0.20/$0.04/$0.40)
+- [x] User dashboard: equivalent-API-cost card (frontier at full-model list rates; theta at display rates $0.20/$0.04/$0.40)
 - [x] User dashboard: usage shown = RAW streamed tokens (pre-compression, always)
 - [x] User dashboard: API key create/revoke; training opt-out toggle
-- [ ] Admin: users table (plan, status, signup, coupon)
-- [ ] Admin: per-user tokens, theta requests, actual COGS, revenue, margin
-- [ ] Admin: COGS by provider (Hyper hypercredits / Agnes flat $10 per 200k req / StepFun credit amortization / DevPass allowance burn — each tagged CORE vs BOOTSTRAP) + infra share per user
-- [ ] Admin: router full-share distribution per user (alert >8%; hard cap 10% — margin guard)
-- [ ] Admin: cache-hit distribution, hit-rate cliff alert
-- [ ] Admin: coupon CRUD + redemption counts
+- [x] Admin: users table (plan, status, signup, coupon)
+- [x] Admin: per-user tokens, theta requests, actual COGS, revenue, margin
+- [x] Admin: COGS by provider (Hyper hypercredits / Agnes flat $10 per 200k req / StepFun credit amortization / DevPass allowance burn — each tagged CORE vs BOOTSTRAP) + infra share per user · ⚠ infra share needs real invoices into provider_monthly
+- [~] Admin: router full-share distribution per user — column + >8% amber highlight done; no proactive alerting yet
+- [~] Admin: cache-hit distribution, hit-rate cliff alert — column + % done; cliff alert pending
+- [x] Admin: coupon CRUD + redemption counts
 - [ ] Admin: abuse alerts (trial farms, quota bursts)
-- [ ] Admin: signup gate dial (open/close, cap edit, waitlist count/export)
+- [x] Admin: signup gate dial (open/close, cap edit, waitlist count/export) · ⚠ waitlist count/export UI pending (API exists)
 - [ ] Admin: cohort gate report — per-cohort P&L (revenue vs provider COGS + infra share), error rate, hit rate, full-share → go/no-go for next 100
 - [ ] Admin: Hyper-only shadow margin — weekly COGS recomputed EXCLUDING all [BOOTSTRAP] providers (proof core stays profitable without hacks)
 

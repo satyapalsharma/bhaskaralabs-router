@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireAdmin, isAdminResponse } from "@/lib/admin";
 import { db } from "@/db";
-import { settings } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { settings, waitlist } from "@/db/schema";
+import { sql } from "drizzle-orm";
 
 const KEYS = ["signup_enabled", "cohort_cap"] as const;
 
@@ -13,7 +13,8 @@ export async function GET() {
   const rows = await db.select().from(settings);
   const out: Record<string, string> = {};
   for (const k of KEYS) out[k] = rows.find((r) => r.key === k)?.value ?? "";
-  return NextResponse.json({ settings: out });
+  const [{ n }] = await db.select({ n: sql<number>`count(*)::int` }).from(waitlist);
+  return NextResponse.json({ settings: out, waitlistCount: Number(n) });
 }
 
 // POST { signupEnabled?: boolean, cohortCap?: number }

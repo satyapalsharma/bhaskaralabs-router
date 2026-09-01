@@ -59,7 +59,7 @@ export default function AdminClient() {
   const [usersRows, setUsers] = useState<AdminUser[] | null>(null);
   const [providers, setProviders] = useState<ProvidersData | null>(null);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
-  const [gate, setGate] = useState({ signup_enabled: "true", cohort_cap: "100" });
+  const [gate, setGate] = useState({ signup_enabled: "true", cohort_cap: "100", waitlistCount: 0 });
   const [tab, setTab] = useState<"users" | "economics" | "coupons" | "growth">("users");
   const [newCode, setNewCode] = useState({ code: "", discountPct: 20, usageLimit: 100 });
   const [busy, setBusy] = useState(false);
@@ -71,7 +71,7 @@ export default function AdminClient() {
     fetch("/api/admin/coupons").then((r) => r.json()).then((d) => setCoupons(d.coupons ?? []));
     fetch("/api/admin/settings")
       .then((r) => r.json())
-      .then((d) => setGate({ signup_enabled: d.settings.signup_enabled || "true", cohort_cap: d.settings.cohort_cap || "100" }));
+      .then((d) => setGate({ signup_enabled: d.settings.signup_enabled || "true", cohort_cap: d.settings.cohort_cap || "100", waitlistCount: d.waitlistCount ?? 0 }));
   };
   useEffect(load, []);
 
@@ -143,6 +143,10 @@ export default function AdminClient() {
                 </button>
               </div>
             </label>
+            <div className="mt-4 flex items-center justify-between text-sm">
+              <span className="text-zinc-400">Waitlist: {gate.waitlistCount} {gate.waitlistCount === 1 ? "email" : "emails"}</span>
+              <a href="/api/admin/waitlist" className="text-amber-400 hover:text-amber-300">Export CSV ↓</a>
+            </div>
             {msg && <p className="mt-2 text-xs text-red-400">{msg}</p>}
           </div>
         </section>
