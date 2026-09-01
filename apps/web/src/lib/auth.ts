@@ -3,15 +3,25 @@ import { APIError } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
-import { settings } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { settings, user as users } from "@/db/schema";
+import { count, gte } from "drizzle-orm";
 
-// Cohort gate: signups closed at cohort cap → waitlist mode.
-// Default OPEN with cap 100 (settings override at runtime via admin).
-async function signupOpen(): Promise<boolean> {
+// Cohort gate: signups closed when (a) admin dial is off, or (b) active users
+// in current cohort >= cohort_cap (default 100). Manual reopen after review.
+const COHORT_CAP_DEFAULT = 100;
+
+export async function signupOpen(): Promise<boolean> {
   try {
-    const rows = await db.select().from(settings).where(eq(settings.key, "signup_enabled")).limit(1);
-    return rows[0]?.value !== "false";
+    const rows = await db.select().from(settings).limit(10);
+    const get = (k: string) => rows.find((r) => r.key === k)?.value;
+    if (get("signup_enabled") === "false") return false;
+    const cap = Number(get("cohort_cap") ?? COHORT_CAP_DEFAULT);
+    const [{ n }] = await db
+      .select({ n: count() })
+      .from(users)
+      .where(gte(users.createdAt, new Date(0))); // all-time; cohort = rolling cap
+    if (Number.isFinite(cap) && cap > 0 && n >= cap) return false;
+    return true;
   } catch {
     return true; // fail-open during setup; admin dial governs in prod
   }

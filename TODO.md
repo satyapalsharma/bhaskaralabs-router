@@ -51,15 +51,15 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done · `[POST-BETA]` deferred 
 - [ ] Checkout: Razorpay (INR/UPI, India) — Q3 resolved
 - [ ] Coupons: schema (code, discount %, usage limit, per-user limit, window, plans) + redemption at checkout + code validation API
 - [ ] Free trial flow: 1-day, email verification + abuse friction (recommend $0 card-auth)
-- [ ] Signup cohort gate: `signup_enabled` + `cohort_cap` (default 100) — auto-close at cap; waitlist email capture while closed; manual reopen only after cohort review
+- [x] Signup cohort gate: `signup_enabled` + `cohort_cap` (default 100) — auto-close at cap; waitlist email capture while closed; manual reopen only after cohort review
 - [ ] Legal pages: ToS, privacy, training-data disclosure (DPDP 2023 consent language), refund policy
 
 ## Phase 4 — Dashboards
 
-- [ ] User dashboard: 5 quota cards (total + remaining): frontier in / frontier out / theta 5h-window / theta month / plan days (Q5 confirmed)
+- [x] User dashboard: 5 quota cards (total + remaining): frontier in / frontier out / theta 5h-window / theta month / plan days (Q5 confirmed)
 - [ ] User dashboard: equivalent-API-cost card (frontier at full-model list rates; theta at display rates $0.20/$0.04/$0.40)
-- [ ] User dashboard: usage shown = RAW streamed tokens (pre-compression, always)
-- [ ] User dashboard: API key create/revoke; training opt-out toggle
+- [x] User dashboard: usage shown = RAW streamed tokens (pre-compression, always)
+- [x] User dashboard: API key create/revoke; training opt-out toggle
 - [ ] Admin: users table (plan, status, signup, coupon)
 - [ ] Admin: per-user tokens, theta requests, actual COGS, revenue, margin
 - [ ] Admin: COGS by provider (Hyper hypercredits / Agnes flat $10 per 200k req / StepFun credit amortization / DevPass allowance burn — each tagged CORE vs BOOTSTRAP) + infra share per user

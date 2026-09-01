@@ -1,15 +1,9 @@
 import { NextResponse } from "next/server";
-import { db } from "@/db";
-import { settings } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { signupOpen } from "@/lib/auth";
 
-// Gate status: signup_enabled setting (default open; admin dial flips it)
+// Gate status — single source of truth (same check the signup hook runs):
+// admin dial + cohort cap.
 export async function GET() {
-  try {
-    const rows = await db.select().from(settings).where(eq(settings.key, "signup_enabled")).limit(1);
-    const open = rows[0]?.value !== "false";
-    return NextResponse.json({ open });
-  } catch {
-    return NextResponse.json({ open: true });
-  }
+  const open = await signupOpen();
+  return NextResponse.json({ open });
 }
