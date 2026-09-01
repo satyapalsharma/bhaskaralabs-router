@@ -1,0 +1,10 @@
+{
+  "name": "bhaskara",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "gateway": "bun run --hot apps/gateway/src/index.ts",
+    "web": "cd apps/web && next dev",
+    "typecheck": "tsc --noEmit -p apps/gateway && tsc --noEmit -p packages/shared"
+  }
+}
