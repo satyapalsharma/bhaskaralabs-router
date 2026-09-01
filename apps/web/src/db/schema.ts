@@ -107,6 +107,22 @@ export const usageLedger = pgTable(
   ],
 );
 
+// ── Checkout: pending → paid flow for plan subscriptions (stub or real PSP) ──
+export const checkoutSessions = pgTable("checkout_sessions", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  plan: text("plan").notNull(),
+  currency: text("currency").notNull().default("usd"),
+  priceUsd: numeric("price_usd", { precision: 10, scale: 2 }).notNull(),
+  couponCode: text("coupon_code"),
+  discountUsd: numeric("discount_usd", { precision: 10, scale: 2 }).notNull().default("0"),
+  provider: text("provider").notNull(), // stripe | razorpay | stub
+  providerRef: text("provider_ref"),
+  status: text("status").notNull().default("pending"), // pending | paid | canceled
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const rateWindows = pgTable(
   "rate_windows",
   {

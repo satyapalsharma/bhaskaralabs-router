@@ -1,11 +1,15 @@
 import SavingsCalculator from "./SavingsCalculator";
+import CheckoutButton from "./CheckoutButton";
 import { PLANS, THETA_DISPLAY } from "@bhaskara/shared/pricing";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
 
 const PLAN_ORDER: Array<"free" | "basic" | "advanced"> = ["free", "basic", "advanced"];
 
 const fmtInr = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 
-export default function PlansPage() {
+export default async function PlansPage() {
+  const session = await auth.api.getSession({ headers: await headers() });
   return (
     <main className="mx-auto max-w-6xl px-6">
       <section className="py-16 text-center">
@@ -57,15 +61,18 @@ export default function PlansPage() {
                   </>
                 )}
               </ul>
-              <button
-                className={`mt-6 rounded-md px-4 py-2.5 font-medium transition-colors ${
-                  highlight
-                    ? "bg-amber-500 text-zinc-950 hover:bg-amber-400"
-                    : "border border-zinc-700 hover:border-zinc-500"
-                }`}
-              >
-                {id === "free" ? "Start free trial" : `Get ${p.id}`}
-              </button>
+              {id === "free" ? (
+                <a
+                  href={session?.user ? "/dashboard" : "/login?next=%2Fdashboard"}
+                  className="mt-6 inline-block w-full rounded-md border border-zinc-700 px-4 py-2.5 text-center font-medium hover:border-zinc-500 transition-colors"
+                >
+                  Start free trial
+                </a>
+              ) : (
+                <CheckoutButton plan={id} signedIn={!!session?.user} highlight={highlight}>
+                  {`Get ${p.id}`}
+                </CheckoutButton>
+              )}
             </div>
           );
         })}

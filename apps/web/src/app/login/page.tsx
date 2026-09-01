@@ -70,7 +70,10 @@ export default function LoginPage() {
         </div>
       ) : gateOpen === true ? (
         <button
-          onClick={() => authClient.signIn.social({ provider: "github", callbackURL: "/dashboard" })}
+          onClick={() => {
+            const next = new URLSearchParams(window.location.search).get("next");
+            authClient.signIn.social({ provider: "github", callbackURL: next ?? "/dashboard" });
+          }}
           className="mt-8 w-full rounded-md bg-zinc-100 px-4 py-3 font-medium text-zinc-900 hover:bg-white transition-colors flex items-center justify-center gap-2"
         >
           <svg viewBox="0 0 16 16" width="20" height="20" fill="currentColor" aria-hidden>
