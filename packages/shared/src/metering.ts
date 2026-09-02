@@ -17,7 +17,11 @@ export interface UserFacingValuation {
   displayTokens: { input: number; output: number };
 }
 
-/** User-facing valuation. Frontier: full-model list rates (no cache discount). Theta: display rates. */
+/** User-facing valuation. Frontier: full-model list rates (no cache discount). Theta: display rates.
+ * NOTE: OpenAI-style completion_tokens includes reasoning tokens when the provider reports
+ * them separately (completion_tokens_details.reasoning_tokens) — we bill on the total, never
+ * double-count. When the provider omits the breakdown (observed on Hyper GLM), the reasoning
+ * split in the ledger stays 0 but billing stays correct. */
 export function valueUserFacing(u: Usage): UserFacingValuation {
   if (u.provider !== "hyper") {
     const c = THETA_DISPLAY;

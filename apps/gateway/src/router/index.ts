@@ -26,7 +26,7 @@ export interface RouterDecision {
   hardCapped: boolean;
 }
 
-const FLASH_OF: Record<string, string> = {
+export const FLASH_OF: Record<string, string> = {
   "glm-5.3": "glm-5.3-flash",
   "qwen3.8-max": "qwen3.8-flash",
 };

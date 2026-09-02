@@ -5,27 +5,34 @@
 
 import { db } from "../db";
 import { routerSessions as sessions } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 const IDLE_TTL_MS = 2 * 60 * 60 * 1000; // 2h idle → next request starts a fresh lock
 
 export interface SessionLock {
   lockedModel: string | null; // null = no active lock (fresh session)
   stale: boolean;             // lock existed but exceeded TTL → treat as fresh
+  switchCount: number;        // reeval upgrades used (churn guard)
 }
 
 export async function getLock(sessionId: string, userId: string): Promise<SessionLock> {
   const rows = await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1);
   const row = rows[0];
-  if (!row || !row.lockedModel) return { lockedModel: null, stale: false };
+  if (!row || !row.lockedModel) return { lockedModel: null, stale: false, switchCount: 0 };
 
   const idleMs = Date.now() - new Date(row.lastSeenAt).getTime();
-  if (idleMs > IDLE_TTL_MS) return { lockedModel: row.lockedModel, stale: true };
-  return { lockedModel: row.lockedModel, stale: false };
+  if (idleMs > IDLE_TTL_MS) return { lockedModel: row.lockedModel, stale: true, switchCount: row.switchCount ?? 0 };
+  return { lockedModel: row.lockedModel, stale: false, switchCount: row.switchCount ?? 0 };
 }
 
 /** Create or refresh the lock for a session. Called after every frontier turn. */
-export async function setLock(sessionId: string, userId: string, model: string): Promise<void> {
+/** Create or refresh the lock for a session. Called after every frontier turn. */
+export async function setLock(
+  sessionId: string,
+  userId: string,
+  model: string,
+  opts?: { bumpSwitch?: boolean },
+): Promise<void> {
   await db
     .insert(sessions)
     .values({ id: sessionId, userId, lockedModel: model, lockedAt: new Date(), lastSeenAt: new Date() })
@@ -37,6 +44,7 @@ export async function setLock(sessionId: string, userId: string, model: string):
         lastSeenAt: new Date(),
         // lockedAt only on first lock — keep original timestamp while the lock persists
         ...(await isFreshLock(sessionId) ? { lockedAt: new Date() } : {}),
+        ...(opts?.bumpSwitch ? { switchCount: sql`${sessions.switchCount} + 1` } : {}),
       },
     });
 }

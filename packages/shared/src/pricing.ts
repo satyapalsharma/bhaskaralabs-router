@@ -65,6 +65,19 @@ export const ROUTER = {
   fullShareCapPerUserPerWeek: 0.10, // HARD CAP — spill goes to flash
   fullShareAlertAt: 0.08,
   cacheHitAssumption: 0.80,         // used by calculator + margin projections
+  // Per-turn re-evaluation inside a locked (sticky) session: a flash-locked
+  // session may upgrade to the full model on a hard turn, paying the cache-wipe
+  // re-bill penalty (prefix re-priced at full-model input rate). Gates ALL must hold:
+  //   maxPrefixTokensForSwitch — hard ceiling on prefix size eligible for a wipe
+  //   maxPenaltyUsd            — prefix × (full−flash input rate) must stay under this
+  //   maxSwitchesPerSession    — churn guard (after upgrading, full lock sticks)
+  //   weekly full-share < HARD CAP — margin guard still governs
+  reeval: {
+    enabled: true,
+    maxPrefixTokensForSwitch: 16_000,
+    maxPenaltyUsd: 0.03,
+    maxSwitchesPerSession: 1,
+  },
 };
 
 // ── Provider classification ──

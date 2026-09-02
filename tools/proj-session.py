@@ -37,12 +37,12 @@ TURNS = [
 def call(history):
     payload = json.dumps({"model": "glm-5.3", "messages": history, "max_tokens": 5000, "temperature": 0.2})
     r = subprocess.run(
-        ["curl", "-s", "--max-time", "280", "-X", "POST", G,
+        ["curl", "-s", "--max-time", "660", "-X", "POST", G,
          "-H", f"Authorization: Bearer {KEY}",
          "-H", f"x-bhaskara-session: {SESSION}",
          "-H", "Content-Type: application/json",
          "-d", payload],
-        capture_output=True, text=True, timeout=300,
+        capture_output=True, text=True, timeout=680,
     )
     try:
         return json.loads(r.stdout)

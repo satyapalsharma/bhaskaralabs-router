@@ -188,13 +188,15 @@ export const providerMonthly = pgTable(
   (t) => [uniqueIndex("provider_month_unique").on(t.provider, t.month)],
 );
 
-// Session-sticky model lock (router cache commandment #5)
+// Session-sticky model lock (router cache commandment #5).
+// switchCount: per-turn re-evaluation churn guard — flash→full upgrades bump it.
 export const routerSessions = pgTable(
   "sessions",
   {
     id: text("id").primaryKey(),
     userId: text("user_id").notNull(),
     lockedModel: text("locked_model"),
+    switchCount: integer("switch_count").notNull().default(0),
     lockedAt: timestamp("locked_at", { withTimezone: true }),
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
   },

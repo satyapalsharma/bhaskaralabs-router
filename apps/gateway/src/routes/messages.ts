@@ -10,10 +10,12 @@ import { authenticate, type AuthContext } from "../lib/auth";
 import { estimateTokens, type ChatMessage } from "../lib/prefix";
 import { getQuotaState, quotaRejection } from "../lib/quotas";
 import { writeLedger } from "../lib/ledger";
-import { getLock, setLock, touchSession } from "../lib/session-lock";
+import { getLock, touchSession } from "../lib/session-lock";
+import { decideTurn } from "../lib/decision";
+import { deriveSessionId } from "../lib/prefix";
 import { setQuotaHeaders, setRetryHeaders } from "../lib/quota-headers";
 import { pickKeyForSession, hyperMessages } from "../providers/hyper";
-import { route, classifyHardness, type RouterDecision } from "../router";
+import { type RouterDecision } from "../router";
 
 const app = new Hono();
 
@@ -23,6 +25,7 @@ const IDENTITY_LINE =
 interface AnthropicUsage {
   inputTokens: number;
   outputTokens: number;
+  cachedTokens?: number;
 }
 
 function extractAnthropicUsage(json: unknown): AnthropicUsage | null {
@@ -33,6 +36,7 @@ function extractAnthropicUsage(json: unknown): AnthropicUsage | null {
   return {
     inputTokens: typeof u.input_tokens === "number" ? u.input_tokens : 0,
     outputTokens: typeof u.output_tokens === "number" ? u.output_tokens : 0,
+    cachedTokens: typeof u.cache_read_input_tokens === "number" ? u.cache_read_input_tokens : undefined,
   };
 }
 function sanitizeAnthropicResponse(json: unknown, endpointModel: string): unknown {
@@ -102,6 +106,7 @@ async function weeklyFullShare(userId: string): Promise<number> {
 }
 
 app.post("/v1/messages", async (c) => {
+  const turnStartedAt = Date.now();
   const authz = c.req.header("x-api-key") ?? c.req.header("Authorization")?.replace(/^Bearer\s+/i, "") ?? "";
   const auth = await authenticate(authz.trim() || null);
   if (!auth) return c.json({ type: "error", error: { type: "authentication_error", message: "Invalid API key" } }, 401);
@@ -130,27 +135,9 @@ app.post("/v1/messages", async (c) => {
   }
   setQuotaHeaders(c, quota, endpointModel, auth.plan);
 
-  // Route decision — session-sticky lock first (cache commandment #5)
-  const sessionId = auth.apiKeyId; // v0: per-key session; x-bhaskara-session lands with harness support
-  const lock = await getLock(sessionId, auth.userId);
-  let decision: RouterDecision;
-  if (lock.lockedModel && !lock.stale) {
-    const tier = lock.lockedModel.includes("flash") ? "flash" : "full";
-    await touchSession(sessionId, auth.userId);
-    decision = { provider: "hyper", upstreamModel: lock.lockedModel, tier, effort: "low", reason: "session-sticky", hardCapped: false };
-  } else {
-    const share = await weeklyFullShare(auth.userId);
-    const lastUser = [...messages].reverse().find((m) => m.role === "user");
-    const lastText = typeof lastUser?.content === "string" ? lastUser.content : "";
-    decision = route({
-      endpointModel: endpointModel as "glm-5.3" | "qwen-3.8",
-      prefixTokens: estimateTokens(messages),
-      isNewSession: true,
-      fullShareThisWeek: share,
-      hardness: classifyHardness(lastText),
-    });
-    await setLock(sessionId, auth.userId, decision.upstreamModel);
-  }
+  // Session id honors x-bhaskara-session (same as chat route) + shared sticky/reeval decision
+  const sessionId = deriveSessionId(auth.apiKeyId, c.req.raw.headers);
+  const decision: RouterDecision = await decideTurn(auth, sessionId, endpointModel, messages);
 
   const payload = buildAnthropicPayload(obj, decision, messages);
   const keys = (process.env.HYPER_API_KEYS ?? process.env.HYPER_API_KEY ?? "")
@@ -159,16 +146,21 @@ app.post("/v1/messages", async (c) => {
     .filter(Boolean)
     .map((key, i) => ({ id: `hyper-${i}`, key }));
   if (keys.length === 0) {
-    return c.json({ type: "error", error: { type: "api_error", message: "Upstream not configured" } }, 502);
+    return c.json({ type: "error", error: { type: "api_error", message: `Upstream not configured` } }, 502);
   }
   const key = pickKeyForSession(keys, auth.apiKeyId);
-
   let upstream: Response;
   try {
+    // Pre-stream retry on connection errors: no client bytes sent yet, safe to retry once.
     upstream = await hyperMessages({ model: decision.upstreamModel, body: payload, apiKey: key.key, signal: AbortSignal.timeout(10 * 60 * 1000) });
   } catch (err) {
-    console.error(`[messages dispatch] connection failure:`, (err as Error).message);
-    return c.json({ type: "error", error: { type: "api_error", message: `Provider unreachable` } }, 502);
+    console.warn(`[messages dispatch] attempt 1 failed (${(err as Error).message.slice(0, 60)}), retrying`);
+    try {
+      upstream = await hyperMessages({ model: decision.upstreamModel, body: payload, apiKey: key.key, signal: AbortSignal.timeout(10 * 60 * 1000) });
+    } catch (err2) {
+      console.error(`[messages dispatch] connection failure:`, (err2 as Error).message);
+      return c.json({ type: "error", error: { type: "api_error", message: `Provider unreachable` } }, 502);
+    }
   }
 
   if (!upstream.ok) {
@@ -183,15 +175,21 @@ app.post("/v1/messages", async (c) => {
     const json: unknown = await upstream.json();
     const usage = extractAnthropicUsage(json);
     if (usage) {
+      console.log(JSON.stringify({
+        ev: "turn", user: auth.userId.slice(0, 8), session: sessionId.slice(0, 8), ep: endpointModel,
+        to: decision.upstreamModel, tier: decision.tier, why: decision.reason,
+        tok: `${usage.inputTokens}/${usage.outputTokens}`, cached: usage.cachedTokens ?? 0,
+        ms: Date.now() - turnStartedAt, ttft: null,
+      }));
       void writeLedger({
         userId: auth.userId,
         apiKeyId: auth.apiKeyId,
-        sessionId: auth.apiKeyId,
+        sessionId,
         endpointModel,
-        usage: { promptTokens: usage.inputTokens, completionTokens: usage.outputTokens, model: decision.upstreamModel, provider: decision.provider },
+        usage: { promptTokens: usage.inputTokens, completionTokens: usage.outputTokens, cachedTokens: usage.cachedTokens, model: decision.upstreamModel, provider: decision.provider },
         routedTo: decision.tier,
         routerEffort: decision.effort,
-        latencyMs: 0,
+        latencyMs: Date.now() - turnStartedAt,
       }).catch((err) => console.error("[ledger] write failed", err));
     }
     return c.json(sanitizeAnthropicResponse(json, endpointModel));
@@ -201,6 +199,7 @@ app.post("/v1/messages", async (c) => {
   // We tap each SSE line for usage accounting AND rewrite model fields before forwarding.
   const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
   const writer = writable.getWriter();
+  const streamStarted = { ttft: 0 };
   void (async () => {
     const reader = upstream.body?.getReader();
     if (!reader) {
@@ -245,21 +244,22 @@ app.post("/v1/messages", async (c) => {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
+      if (!streamStarted.ttft) streamStarted.ttft = Date.now() - turnStartedAt;
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split("\n");
-      buffer = lines.pop() ?? "";
       for (const line of lines) await flushLine(line);
     }
     if (usageBox.value !== null) {
       void writeLedger({
         userId: auth.userId,
         apiKeyId: auth.apiKeyId,
-        sessionId: auth.apiKeyId,
+        sessionId,
         endpointModel,
-        usage: { promptTokens: usageBox.value.inputTokens, completionTokens: usageBox.value.outputTokens, model: decision.upstreamModel, provider: decision.provider },
+        usage: { promptTokens: usageBox.value.inputTokens, completionTokens: usageBox.value.outputTokens, cachedTokens: usageBox.value.cachedTokens, model: decision.upstreamModel, provider: decision.provider },
         routedTo: decision.tier,
         routerEffort: decision.effort,
-        latencyMs: 0,
+        latencyMs: Date.now() - turnStartedAt,
+        ttftMs: streamStarted.ttft || undefined,
       }).catch((err) => console.error("[ledger] write failed", err));
     }
     await writer.close();

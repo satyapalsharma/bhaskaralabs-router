@@ -49,11 +49,12 @@ export default function FaqPage() {
             Provider prompt caches are keyed to a stable request prefix <em>and model</em>. If we flipped
             your session between a full model and its flash variant turn to turn, every flip would wipe the
             cache and re-bill your prefix. So the first request of a session gets routed by task difficulty
-            — and the tier chosen for that session then sticks (2-hour idle TTL) regardless of later turns.
-            Fresh sessions get fresh decisions.
+            — and the tier chosen for that session then sticks (2-hour idle TTL). One priced exception:
+            a genuinely hard turn (debugging, planning) in a flash-locked session can trigger a
+            one-time upgrade to the full model — but only when the cache-wipe penalty (re-billing
+            your prefix at full rates) stays under a strict budget and your weekly full-model share
+            has headroom. Fresh sessions get fresh decisions.
           </p>
-        </Q>
-        <Q q="How do I get high cache-hit rates?">
           <p>
             Put the stable stuff first: system prompt, tool definitions, long-lived context. Append only at
             the end. Any mid-context edits invalidate everything after them. Watch{" "}

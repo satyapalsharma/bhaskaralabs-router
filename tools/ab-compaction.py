@@ -42,7 +42,7 @@ TASK = "Write src/app/stats/page.tsx: server component showing per-assignee coun
 
 def call(history, session):
     payload = json.dumps({"model": "glm-5.3", "messages": history, "max_tokens": 3000, "temperature": 0.2})
-    r = subprocess.run(["curl", "-s", "--max-time", "280", "-X", "POST", G,
+    r = subprocess.run(["curl", "-s", "--max-time", "660", "-X", "POST", G,
                         "-H", f"Authorization: Bearer {KEY}",
                         "-H", f"x-bhaskara-session: {session}",
                         "-H", "Content-Type: application/json", "-d", payload],

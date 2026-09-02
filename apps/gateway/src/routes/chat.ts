@@ -17,9 +17,9 @@ import { pickKeyForSession, hyperChat, parseUsageNonStream, SseUsageAccumulator,
 import { agnesChat, agnesEnabled } from "../providers/agnes";
 import { stepfunChat, stepfunEnabled } from "../providers/stepfun";
 import { devpassChat, devpassEnabled } from "../providers/devpass";
-import { route, routeTheta, classifyHardness, type RouterDecision } from "../router";
+import { type RouterDecision, FLASH_OF } from "../router";
+import { decideTurn } from "../lib/decision";
 import messagesApp from "./messages";
-import { randomUUID } from "node:crypto";
 
 const app = new Hono();
 
@@ -130,12 +130,43 @@ app.post("/v1/chat/completions", async (c) => {
 
   const sessionId = deriveSessionId(auth.apiKeyId, c.req.raw.headers);
   const decision = await decide(auth, sessionId, endpointModel, assembled.messages);
+  // Dispatch hardening (ops finding: hyper drops 4–5min generations):
+  // 1 retry pre-stream (no client bytes yet), then full→flash degrade for full-tier turns.
   let upstream: Response;
+  let usedDecision = decision;
+  const attempt = (d: RouterDecision) => dispatchUpstream(endpointModel, d, assembled.messages, obj, auth, sessionId);
   try {
-    upstream = await dispatchUpstream(endpointModel, decision, assembled.messages, obj, auth, sessionId);
+    upstream = await attempt(decision);
   } catch (err) {
-    console.error(`[dispatch ${decision.provider}] connection failure:`, (err as Error).message);
-    return c.json({ error: { message: "Upstream provider temporarily unreachable", type: "api_error" } }, 502);
+    console.warn(`[dispatch ${decision.provider}] attempt 1 failed (${(err as Error).message.slice(0, 60)}), retrying`);
+    try {
+      upstream = await attempt(decision);
+    } catch (err2) {
+      const flashModel = decision.provider === "hyper" && decision.tier === "full"
+        ? FLASH_OF[decision.upstreamModel] ?? null
+        : null;
+      if (flashModel) {
+        const degraded: RouterDecision = {
+          ...decision,
+          upstreamModel: flashModel,
+          tier: "flash",
+          effort: "low",
+          reason: `${decision.reason} → degraded-flash(retry-failed)`,
+          hardCapped: true,
+        };
+        try {
+          upstream = await attempt(degraded);
+          usedDecision = degraded;
+          console.log(JSON.stringify({ ev: "dispatch-degraded", from: decision.upstreamModel, to: flashModel, cause: String((err2 as Error).message).slice(0, 60) }));
+        } catch (err3) {
+          console.error(`[dispatch ${decision.provider}] degraded attempt also failed:`, (err3 as Error).message);
+          return c.json({ error: { message: "Upstream provider temporarily unreachable", type: "api_error" } }, 502);
+        }
+      } else {
+        console.error(`[dispatch ${decision.provider}] connection failure:`, (err2 as Error).message);
+        return c.json({ error: { message: "Upstream provider temporarily unreachable", type: "api_error" } }, 502);
+      }
+    }
   }
 
   if (!upstream.ok) {
@@ -149,7 +180,7 @@ app.post("/v1/chat/completions", async (c) => {
     apiKeyId: auth.apiKeyId,
     sessionId,
     endpointModel,
-    decision,
+    decision: usedDecision,
     startedAt: turnStartedAt,
   };
 
@@ -272,52 +303,7 @@ function extractUsage(json: unknown): HyperUsage | null {
 }
 
 async function decide(auth: AuthContext, sessionId: string, endpointModel: string, messages: ChatMessage[]): Promise<RouterDecision> {
-  if (endpointModel === "theta") {
-    const lastUser = [...messages].reverse().find((m) => m.role === "user");
-    const text = typeof lastUser?.content === "string" ? lastUser.content : "";
-    return routeTheta(text, { agnes: agnesEnabled(), stepfun: stepfunEnabled(), devpass: devpassEnabled() });
-  }
-
-  // Session-sticky lock: an active lock pins the workhorse for the whole session
-  // (cache commandment #5 — model switch mid-session = prefix cache wipe).
-  const lock = await getLock(sessionId, auth.userId);
-  if (lock.lockedModel && !lock.stale) {
-    const tier = lock.lockedModel.includes("flash") ? "flash" : "full";
-    await touchSession(sessionId, auth.userId);
-    return {
-      provider: "hyper",
-      upstreamModel: lock.lockedModel,
-      tier,
-      effort: "low",
-      reason: "session-sticky",
-      hardCapped: false,
-    };
-  }
-
-  // Fresh (or stale) session: decide from signals, then LOCK the result
-  const share = await weeklyFullShare(auth.userId);
-  const lastUser = [...messages].reverse().find((m) => m.role === "user");
-  const lastText = typeof lastUser?.content === "string" ? lastUser.content : "";
-  const decision = route({
-    endpointModel: endpointModel as "glm-5.3" | "qwen-3.8",
-    prefixTokens: estimateTokens(messages),
-    isNewSession: true,
-    fullShareThisWeek: share,
-    hardness: classifyHardness(lastText),
-  });
-  await setLock(sessionId, auth.userId, decision.upstreamModel);
-  return decision;
-}
-
-async function weeklyFullShare(userId: string): Promise<number> {
-  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  const rows = await db
-    .select({ total: sql`count(*)`, full: sql`count(*) filter (where routed_to = 'full')` })
-    .from(usageLedger)
-    .where(and(eq(usageLedger.userId, userId), gte(usageLedger.createdAt, since)));
-  const total = Number(rows[0]?.total ?? 0);
-  if (total === 0) return 0;
-  return Number(rows[0]?.full ?? 0) / total;
+  return decideTurn(auth, sessionId, endpointModel, messages);
 }
 
 // Anthropic-compat endpoint (Claude Code / Crush) — full router pipeline

@@ -113,10 +113,6 @@ export BHASKARA_BASE_URL="https://api.bhaskaralabs.com/v1"`}</Code>
             Anthropic-compatible: <code>system</code>, <code>messages[]</code> with content blocks,{" "}
             <code>anthropic-version</code>, <code>x-api-key</code> auth, SSE event shapes Claude Code expects.
           </p>
-          <Code lang="bash">{`curl -s https://api.bhaskaralabs.com/v1/messages \\
-  -H "x-api-key: $BHASKARA_API_KEY" -H "anthropic-version: 2023-06-01" \\
-  -H "Content-Type: application/json" \\
-  -d '{"model":"theta","max_tokens":256,"messages":[{"role":"user","content":"hi"}]}'`}</Code>
         </div>
 
         <div id="sdk">
@@ -229,10 +225,13 @@ wire_api = "chat"`}</Code>
             don&apos;t prune the middle. Trim from the front at safe boundaries or not at all.
           </p>
           <p>
-            <strong className="text-zinc-200">3 — Keep the family stable per session.</strong> Our router
-            locks a session to the model variant chosen at its first request (2-hour idle TTL). Flipping
-            models mid-session would wipe the provider cache and re-bill your whole prefix — so we don&apos;t.
-            New session (or 2h idle) = fresh routing decision.
+            <strong className="text-zinc-200">3 — Keep the family stable per session — with one priced exception.</strong>{" "}
+            Our router locks a session to the model variant chosen at its first request (2-hour idle TTL).
+            Flipping variants mid-session would wipe the provider cache and re-bill your whole prefix —
+            so we don&apos;t. One exception: a genuinely hard turn (planning, debugging, architecture) in a
+            flash-locked session can trigger a one-time upgrade to the full model — but only when the
+            cache-wipe penalty (your prefix re-billed at full-model rates) stays under a strict budget
+            and your weekly full-model share has headroom. Downgrades mid-session never happen.
           </p>
           <p>
             <strong className="text-zinc-200">4 — Watch the headers.</strong>{" "}
@@ -242,7 +241,6 @@ wire_api = "chat"`}</Code>
         </div>
       </section>
 
-      {/* Headers & errors */}
       <section className="mt-14" id="headers">
         <h2 className="text-xl font-semibold">Quota headers & errors</h2>
         <p className="mt-2 text-sm text-zinc-400">Every response carries your live quota state (no pricing data in headers):</p>
