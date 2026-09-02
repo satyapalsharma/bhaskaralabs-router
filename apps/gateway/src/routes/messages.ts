@@ -132,6 +132,7 @@ app.post("/v1/messages", async (c) => {
   }
   const sessionId = deriveSessionId(auth.apiKeyId, c.req.raw.headers);
   let messages = toChatMessages(obj);
+  const rawInTokens = estimateTokens(messages);
   // ── Context engine (opt-in) — same as chat route ──
   const flags = resolveFlags(c.req.raw.headers, auth.flags);
   if (flags.compact) {
@@ -200,7 +201,7 @@ app.post("/v1/messages", async (c) => {
       console.log(JSON.stringify({
         ev: "turn", user: auth.userId.slice(0, 8), session: sessionId.slice(0, 8), ep: endpointModel,
         to: decision.upstreamModel, tier: decision.tier, why: decision.reason,
-        tok: `${usage.inputTokens}/${usage.outputTokens}`, cached: usage.cachedTokens ?? 0,
+        tok: `${usage.inputTokens}/${usage.outputTokens}`, raw: rawInTokens, cached: usage.cachedTokens ?? 0,
         ms: Date.now() - turnStartedAt, ttft: null,
       }));
       void writeLedger({

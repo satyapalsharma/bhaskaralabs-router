@@ -51,7 +51,6 @@ function hyperKeys(): Array<{ id: string; key: string }> {
   if (keys.length === 0) throw new Error("HYPER_API_KEY(S) not configured");
   return keys;
 }
-
 interface PendingTurn {
   userId: string;
   apiKeyId: string;
@@ -60,6 +59,7 @@ interface PendingTurn {
   decision: RouterDecision;
   startedAt: number;
   ttftMs?: number;
+  rawIn: number; // est tokens of the client-sent history (pre-compaction) = true context pressure
 }
 
 // Writes ledger after stream completes, using tapped usage.
@@ -74,6 +74,7 @@ function trackTurn(pending: PendingTurn, usage: HyperUsage | null, providerMeta?
     tier: pending.decision.tier,
     why: pending.decision.reason,
     tok: `${u.promptTokens}/${u.completionTokens}`,
+    raw: pending.rawIn,
     cached: u.cachedTokens ?? 0,
     ms: Date.now() - pending.startedAt,
     ttft: pending.ttftMs ?? null,
@@ -123,6 +124,7 @@ app.post("/v1/chat/completions", async (c) => {
 
   const turnStartedAt = Date.now(); // true request-start clock (was captured post-dispatch → latency_ms ≈ 0)
   const assembled = assemble(obj);
+  const rawInTokens = estimateTokens(assembled.messages); // client-sent context size pre-compaction
   // ── Context engine (both opt-in): live-zone compression + 200K compaction ──
   const flags = resolveFlags(c.req.raw.headers, auth.flags);
   const doCompress = flags.compress;
@@ -211,6 +213,7 @@ app.post("/v1/chat/completions", async (c) => {
     endpointModel,
     decision: usedDecision,
     startedAt: turnStartedAt,
+    rawIn: rawInTokens,
   };
 
   if (!isStream) {
