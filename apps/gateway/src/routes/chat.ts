@@ -9,6 +9,7 @@ import { usageLedger } from "../db/schema";
 import { and, eq, gte, sql } from "drizzle-orm";
 import { authenticate, type AuthContext } from "../lib/auth";
 import { assemble, estimateTokens, deriveSessionId, type ChatMessage } from "../lib/prefix";
+import { compressEnabled, compactEnabled, compressLiveZone, maybeCompact } from "../lib/compaction";
 import { getQuotaState, quotaRejection } from "../lib/quotas";
 import { getLock, setLock, touchSession } from "../lib/session-lock";
 import { setQuotaHeaders, setRetryHeaders } from "../lib/quota-headers";
@@ -122,6 +123,31 @@ app.post("/v1/chat/completions", async (c) => {
 
   const turnStartedAt = Date.now(); // true request-start clock (was captured post-dispatch → latency_ms ≈ 0)
   const assembled = assemble(obj);
+  // ── Context engine (both opt-in): live-zone compression + 200K compaction ──
+  const doCompress = compressEnabled(c.req.header("x-bhaskara-compress"));
+  const doCompact = compactEnabled(c.req.header("x-bhaskara-compact"));
+  let messages = assembled.messages;
+  let compactionMeta: Record<string, unknown> | undefined;
+  if (doCompact) {
+    const { messages: compacted, stats } = await maybeCompact(messages, {
+      apiKey: hyperKeys()[0]?.key ?? "",
+      baseUrl: "http://127.0.0.1:8787",
+      alreadyCompacted: messages.some((m) => typeof m.content === "string" && m.content.includes("[COMPACTED HISTORY")),
+    });
+    if (stats.triggered) {
+      messages = compacted;
+      compactionMeta = { compact: { span: stats.spanMessages, tokBefore: stats.tokensBefore, tokAfter: stats.tokensAfter } };
+      console.log(JSON.stringify({ ev: "compact", session: deriveSessionId(auth.apiKeyId, c.req.raw.headers).slice(0, 8), ...stats }));
+    }
+  }
+  if (doCompress) {
+    const { messages: compressed, stats: lzStats } = compressLiveZone(messages);
+    if (lzStats.blocksCompressed > 0) {
+      messages = compressed;
+      compactionMeta = { ...(compactionMeta ?? {}), livezone: { bytes: `${lzStats.bytesBefore}→${lzStats.bytesAfter}`, via: lzStats.transformers.join(",") } };
+      console.log(JSON.stringify({ ev: "livezone", session: deriveSessionId(auth.apiKeyId, c.req.raw.headers).slice(0, 8), ...lzStats }));
+    }
+  }
   const quota = await getQuotaState(auth.userId, auth.plan);
   const reject = quotaRejection(quota, endpointModel);
   if (reject) {
@@ -132,13 +158,13 @@ app.post("/v1/chat/completions", async (c) => {
   for (const w of assembled.warnings) console.warn(`[prefix-lint] ${auth.userId}: ${w}`);
 
   const sessionId = deriveSessionId(auth.apiKeyId, c.req.raw.headers);
-  const decision = await decide(auth, sessionId, endpointModel, assembled.messages);
+  const decision = await decide(auth, sessionId, endpointModel, messages);
   // Dispatch hardening (ops finding: hyper drops 4–5min generations):
   // 1 retry pre-stream (no client bytes yet), then full→flash degrade for full-tier turns.
   let upstream: Response;
   let usedDecision = decision;
   const terse = terseEnabled(c.req.header("x-bhaskara-terse"));
-  const attempt = (d: RouterDecision) => dispatchUpstream(endpointModel, d, assembled.messages, obj, auth, sessionId, terse);
+  const attempt = (d: RouterDecision) => dispatchUpstream(endpointModel, d, messages, obj, auth, sessionId, terse);
   try {
     upstream = await attempt(decision);
   } catch (err) {
@@ -191,7 +217,7 @@ app.post("/v1/chat/completions", async (c) => {
   if (!isStream) {
     const json: unknown = await upstream.json();
     const usage = extractUsage(json);
-    trackTurn(pending, usage);
+    trackTurn(pending, usage, compactionMeta);
     return c.json(sanitizeUserResponse(json, endpointModel));
   }
 
@@ -232,7 +258,7 @@ app.post("/v1/chat/completions", async (c) => {
         if (sanitized !== "__DROP__") await stream.write(`data: ${sanitized}\n\n`);
       }
     }
-    trackTurn(pending, acc.usage);
+    trackTurn(pending, acc.usage, compactionMeta);
   });
 });
 

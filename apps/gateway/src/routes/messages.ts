@@ -13,6 +13,7 @@ import { writeLedger } from "../lib/ledger";
 import { getLock, touchSession } from "../lib/session-lock";
 import { decideTurn } from "../lib/decision";
 import { applyTerseToSystem, terseEnabled } from "../lib/terse";
+import { compressEnabled, compactEnabled, compressLiveZone, maybeCompact } from "../lib/compaction";
 import { setQuotaHeaders, setRetryHeaders } from "../lib/quota-headers";
 import { pickKeyForSession, hyperMessages } from "../providers/hyper";
 import { type RouterDecision } from "../router";
@@ -129,8 +130,27 @@ app.post("/v1/messages", async (c) => {
       400,
     );
   }
-
-  const messages = toChatMessages(obj);
+  const sessionId = deriveSessionId(auth.apiKeyId, c.req.raw.headers);
+  let messages = toChatMessages(obj);
+  // ── Context engine (opt-in) — same as chat route ──
+  if (compactEnabled(c.req.header("x-bhaskara-compact"))) {
+    const { messages: compacted, stats } = await maybeCompact(messages, {
+      apiKey: (process.env.HYPER_API_KEYS ?? process.env.HYPER_API_KEY ?? "").split(",")[0]?.trim() ?? "",
+      baseUrl: "http://127.0.0.1:8787",
+      alreadyCompacted: messages.some((m) => typeof m.content === "string" && m.content.includes("[COMPACTED HISTORY")),
+    });
+    if (stats.triggered) {
+      messages = compacted;
+      console.log(JSON.stringify({ ev: "compact", session: sessionId.slice(0, 8), ...stats }));
+    }
+  }
+  if (compressEnabled(c.req.header("x-bhaskara-compress"))) {
+    const { messages: compressed, stats: lz } = compressLiveZone(messages);
+    if (lz.blocksCompressed > 0) {
+      messages = compressed;
+      console.log(JSON.stringify({ ev: "livezone", session: sessionId.slice(0, 8), ...lz }));
+    }
+  }
   const quota = await getQuotaState(auth.userId, auth.plan);
   const reject = quotaRejection(quota, endpointModel);
   if (reject) {
@@ -140,7 +160,6 @@ app.post("/v1/messages", async (c) => {
   setQuotaHeaders(c, quota, endpointModel, auth.plan);
 
   // Session id honors x-bhaskara-session (same as chat route) + shared sticky/reeval decision
-  const sessionId = deriveSessionId(auth.apiKeyId, c.req.raw.headers);
   const decision: RouterDecision = await decideTurn(auth, sessionId, endpointModel, messages);
   const payload = buildAnthropicPayload(obj, decision, messages, terseEnabled(c.req.header("x-bhaskara-terse")));
   const keys = (process.env.HYPER_API_KEYS ?? process.env.HYPER_API_KEY ?? "")
