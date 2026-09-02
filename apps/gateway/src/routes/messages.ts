@@ -13,7 +13,7 @@ import { writeLedger } from "../lib/ledger";
 import { getLock, touchSession } from "../lib/session-lock";
 import { decideTurn } from "../lib/decision";
 import { applyTerseToSystem, terseEnabled } from "../lib/terse";
-import { compressEnabled, compactEnabled, compressLiveZone, maybeCompact } from "../lib/compaction";
+import { resolveFlags, compressLiveZone, maybeCompact } from "../lib/compaction";
 import { setQuotaHeaders, setRetryHeaders } from "../lib/quota-headers";
 import { pickKeyForSession, hyperMessages } from "../providers/hyper";
 import { type RouterDecision } from "../router";
@@ -133,17 +133,18 @@ app.post("/v1/messages", async (c) => {
   const sessionId = deriveSessionId(auth.apiKeyId, c.req.raw.headers);
   let messages = toChatMessages(obj);
   // ── Context engine (opt-in) — same as chat route ──
-  if (compactEnabled(c.req.header("x-bhaskara-compact"))) {
+  const flags = resolveFlags(c.req.raw.headers, auth.flags);
+  if (flags.compact) {
     const { messages: compacted, stats } = await maybeCompact(messages, {
       alreadyCompacted: messages.some((m) => typeof m.content === "string" && m.content.includes("[COMPACTED HISTORY")),
-      logSkip: c.req.header("x-bhaskara-compact")?.toLowerCase() === "debug",
+      logSkip: flags.compactDebug,
     });
     if (stats.triggered) {
       messages = compacted;
       console.log(JSON.stringify({ ev: "compact", session: sessionId.slice(0, 8), ...stats }));
     }
   }
-  if (compressEnabled(c.req.header("x-bhaskara-compress"))) {
+  if (flags.compress) {
     const { messages: compressed, stats: lz } = compressLiveZone(messages);
     if (lz.blocksCompressed > 0) {
       messages = compressed;

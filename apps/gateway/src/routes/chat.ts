@@ -9,7 +9,7 @@ import { usageLedger } from "../db/schema";
 import { and, eq, gte, sql } from "drizzle-orm";
 import { authenticate, type AuthContext } from "../lib/auth";
 import { assemble, estimateTokens, deriveSessionId, type ChatMessage } from "../lib/prefix";
-import { compressEnabled, compactEnabled, compressLiveZone, maybeCompact } from "../lib/compaction";
+import { resolveFlags, compressLiveZone, maybeCompact } from "../lib/compaction";
 import { getQuotaState, quotaRejection } from "../lib/quotas";
 import { getLock, setLock, touchSession } from "../lib/session-lock";
 import { setQuotaHeaders, setRetryHeaders } from "../lib/quota-headers";
@@ -124,14 +124,14 @@ app.post("/v1/chat/completions", async (c) => {
   const turnStartedAt = Date.now(); // true request-start clock (was captured post-dispatch → latency_ms ≈ 0)
   const assembled = assemble(obj);
   // ── Context engine (both opt-in): live-zone compression + 200K compaction ──
-  const doCompress = compressEnabled(c.req.header("x-bhaskara-compress"));
-  const doCompact = compactEnabled(c.req.header("x-bhaskara-compact"));
+  const flags = resolveFlags(c.req.raw.headers, auth.flags);
+  const doCompress = flags.compress;
   let messages = assembled.messages;
   let compactionMeta: Record<string, unknown> | undefined;
-  if (doCompact) {
+  if (flags.compact) {
     const { messages: compacted, stats } = await maybeCompact(messages, {
       alreadyCompacted: messages.some((m) => typeof m.content === "string" && m.content.includes("[COMPACTED HISTORY")),
-      logSkip: c.req.header("x-bhaskara-compact")?.toLowerCase() === "debug",
+      logSkip: flags.compactDebug,
     });
     if (stats.triggered) {
       messages = compacted;

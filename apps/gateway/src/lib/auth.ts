@@ -1,5 +1,6 @@
 // Auth middleware: sk-bhaskara-… bearer key → user + plan + quotas.
 // Keys stored hashed (sha256); prefix stored for display.
+// Per-key context-engine flags (compress/compact) ride along on AuthContext.
 
 import { db } from "../db";
 import { apiKeys, user as users, subscriptions } from "../db/schema";
@@ -11,6 +12,8 @@ export interface AuthContext {
   plan: string;
   apiKeyId: string;
   sessionId: string;
+  /** CSV flags from api_keys.flags, e.g. "compress,compact". */
+  flags: string | null;
 }
 
 export function newApiKey(): { full: string; prefix: string; hash: string } {
@@ -46,5 +49,6 @@ export async function authenticate(bearer: string | null): Promise<AuthContext |
     plan,
     apiKeyId: key.id,
     sessionId: key.id, // session→key affinity; x-bhaskara-session refines later
+    flags: (key as { flags?: string | null }).flags ?? null,
   };
 }

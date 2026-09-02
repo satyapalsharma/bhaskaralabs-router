@@ -62,6 +62,7 @@ export const apiKeys = pgTable("api_keys", {
   keyPrefix: text("key_prefix").notNull(),
   keyHash: text("key_hash").notNull().unique(),
   active: boolean("active").notNull().default(true),
+  flags: text("flags"), // per-key context-engine opt-ins: "compress", "compact" (csv)
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
