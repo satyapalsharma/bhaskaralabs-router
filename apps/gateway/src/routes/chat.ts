@@ -131,6 +131,7 @@ app.post("/v1/chat/completions", async (c) => {
   if (doCompact) {
     const { messages: compacted, stats } = await maybeCompact(messages, {
       alreadyCompacted: messages.some((m) => typeof m.content === "string" && m.content.includes("[COMPACTED HISTORY")),
+      logSkip: c.req.header("x-bhaskara-compact")?.toLowerCase() === "debug",
     });
     if (stats.triggered) {
       messages = compacted;

@@ -82,14 +82,15 @@ async function summarize(text: string): Promise<string> {
  */
 export async function maybeCompact(
   messages: ChatMessage[],
-  opts: { alreadyCompacted?: boolean } = {},
+  opts: { alreadyCompacted?: boolean; logSkip?: boolean } = {},
 ): Promise<{ messages: ChatMessage[]; stats: CompactStats }> {
   const stats: CompactStats = { triggered: false, spanMessages: 0, tokensBefore: 0, tokensAfter: 0, summaryTokens: 0 };
   if (opts.alreadyCompacted) return { messages, stats };
-
   const total = messagesTokens(messages);
-  if (total <= compactThreshold()) return { messages, stats };
-
+  if (total <= compactThreshold()) {
+    if (opts.logSkip) console.log(JSON.stringify({ ev: "compact-skip", estTokens: total, threshold: compactThreshold() }));
+    return { messages, stats };
+  }
   // split: leading system messages stay; the rest is compactable history
   let firstNonSystem = 0;
   while (firstNonSystem < messages.length && messages[firstNonSystem].role === "system") firstNonSystem++;

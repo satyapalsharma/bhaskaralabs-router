@@ -136,6 +136,7 @@ app.post("/v1/messages", async (c) => {
   if (compactEnabled(c.req.header("x-bhaskara-compact"))) {
     const { messages: compacted, stats } = await maybeCompact(messages, {
       alreadyCompacted: messages.some((m) => typeof m.content === "string" && m.content.includes("[COMPACTED HISTORY")),
+      logSkip: c.req.header("x-bhaskara-compact")?.toLowerCase() === "debug",
     });
     if (stats.triggered) {
       messages = compacted;
