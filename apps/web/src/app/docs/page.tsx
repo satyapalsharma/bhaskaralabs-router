@@ -131,6 +131,7 @@ print(r.choices[0].message.content)`}</Code>
           <Code lang="typescript">{`import Anthropic from "@anthropic-ai/sdk";
 
 const anthropic = new Anthropic({
+
   baseURL: "https://api.bhaskaralabs.com",
   apiKey: process.env.BHASKARA_API_KEY,
 });
@@ -140,6 +141,27 @@ const msg = await anthropic.messages.create({
   messages: [{ role: "user", content: "review this diff" }],
 });`}</Code>
         </div>
+      </section>
+
+      <section className="mt-14" id="terse">
+        <h2 className="text-xl font-semibold">Terse mode (output compression, opt-in)</h2>
+        <p className="mt-2 text-sm text-zinc-400">
+          Send <code>x-bhaskara-terse: 1</code> on any request (both endpoints) and replies come back
+          in compressed engineer-speak: no preambles, no restatements, no closing summaries — code,
+          commands, and file paths stay byte-exact. Measured on our routing stack: ~2× fewer output
+          tokens with <em>more</em> usable content per token.
+        </p>
+        <Code lang="bash">{`curl -s $BHASKARA_BASE_URL/chat/completions \\
+  -H "Authorization: Bearer $BHASKARA_API_KEY" \\
+  -H "x-bhaskara-terse: 1" \\
+  -H "Content-Type: application/json" \\
+  -d '{"model":"glm-5.3","messages":[…]}'`}</Code>
+        <p className="mt-2 text-xs text-zinc-600">
+          Cache note: the discipline block lives in your system prompt — it changes the prefix exactly
+          once when you enable it, then stays byte-stable for the whole session. Keep the header on
+          every request of a session (agents set headers once anyway). Safety-sensitive replies
+          (warnings, irreversible-action confirmations) are exempted from compression by instruction.
+        </p>
       </section>
 
       {/* Integrations */}

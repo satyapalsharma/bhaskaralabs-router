@@ -7,12 +7,12 @@ import { db } from "../db";
 import { usageLedger } from "../db/schema";
 import { and, eq, gte, sql } from "drizzle-orm";
 import { authenticate, type AuthContext } from "../lib/auth";
-import { estimateTokens, type ChatMessage } from "../lib/prefix";
+import { estimateTokens, deriveSessionId, type ChatMessage } from "../lib/prefix";
 import { getQuotaState, quotaRejection } from "../lib/quotas";
 import { writeLedger } from "../lib/ledger";
 import { getLock, touchSession } from "../lib/session-lock";
 import { decideTurn } from "../lib/decision";
-import { deriveSessionId } from "../lib/prefix";
+import { applyTerseToSystem, terseEnabled } from "../lib/terse";
 import { setQuotaHeaders, setRetryHeaders } from "../lib/quota-headers";
 import { pickKeyForSession, hyperMessages } from "../providers/hyper";
 import { type RouterDecision } from "../router";
@@ -80,11 +80,15 @@ function toChatMessages(body: Record<string, unknown>): ChatMessage[] {
 }
 
 /** Rebuild Anthropic request body with routed model + identity system block. */
-function buildAnthropicPayload(body: Record<string, unknown>, decision: RouterDecision, messages: ChatMessage[]): Record<string, unknown> {
+function buildAnthropicPayload(body: Record<string, unknown>, decision: RouterDecision, messages: ChatMessage[], terse = false): Record<string, unknown> {
   const hasSystem = typeof body.system === "string" && (body.system as string).length > 0;
   const systemText = hasSystem
-    ? `${body.system as string}\n\n${IDENTITY_LINE}`
-    : IDENTITY_LINE;
+    ? terse
+      ? applyTerseToSystem(`${body.system as string}\n\n${IDENTITY_LINE}`)
+      : `${body.system as string}\n\n${IDENTITY_LINE}`
+    : terse
+      ? applyTerseToSystem(IDENTITY_LINE)
+      : IDENTITY_LINE;
   const payload: Record<string, unknown> = { ...body, model: decision.upstreamModel, system: systemText };
   // Convert internal ChatMessage[] back to Anthropic messages shape
   payload.messages = messages
@@ -138,8 +142,7 @@ app.post("/v1/messages", async (c) => {
   // Session id honors x-bhaskara-session (same as chat route) + shared sticky/reeval decision
   const sessionId = deriveSessionId(auth.apiKeyId, c.req.raw.headers);
   const decision: RouterDecision = await decideTurn(auth, sessionId, endpointModel, messages);
-
-  const payload = buildAnthropicPayload(obj, decision, messages);
+  const payload = buildAnthropicPayload(obj, decision, messages, terseEnabled(c.req.header("x-bhaskara-terse")));
   const keys = (process.env.HYPER_API_KEYS ?? process.env.HYPER_API_KEY ?? "")
     .split(",")
     .map((s) => s.trim())

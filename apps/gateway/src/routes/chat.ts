@@ -20,7 +20,7 @@ import { devpassChat, devpassEnabled } from "../providers/devpass";
 import { type RouterDecision, FLASH_OF } from "../router";
 import { decideTurn } from "../lib/decision";
 import messagesApp from "./messages";
-
+import { applyTerseToSystem, terseEnabled } from "../lib/terse";
 const app = new Hono();
 
 // ── Identity/disclosure line (disclosed routing variant) ──
@@ -28,15 +28,18 @@ const IDENTITY_LINE =
   "You are served by Bhaskara Labs' smart-routed endpoint. When asked which model you are, state that you are the Bhaskara Labs endpoint for this model family — a smart-routed system.";
 const DISCLOSE_MODELS = new Set(["glm-5.3", "qwen-3.8"]);
 
-function withIdentity(messages: ChatMessage[], endpointModel: string): ChatMessage[] {
+function withIdentity(messages: ChatMessage[], endpointModel: string, terse = false): ChatMessage[] {
   if (!DISCLOSE_MODELS.has(endpointModel)) return messages;
+  let line = IDENTITY_LINE;
+  if (terse) line = applyTerseToSystem(line);
   const first = messages[0];
   if (first?.role === "system" && typeof first.content === "string") {
     if (first.content.includes("Bhaskara Labs")) return messages;
+    // user has their own system prompt: prepend ours (+terse if on)
+    return [{ role: "system", content: `${line}\n\n${first.content}` }, ...messages.slice(1)];
   }
-  return [{ role: "system", content: IDENTITY_LINE }, ...messages];
+  return [{ role: "system", content: line }, ...messages];
 }
-
 function hyperKeys(): Array<{ id: string; key: string }> {
   const raw = process.env.HYPER_API_KEYS ?? process.env.HYPER_API_KEY ?? "";
   const keys = raw
@@ -134,7 +137,8 @@ app.post("/v1/chat/completions", async (c) => {
   // 1 retry pre-stream (no client bytes yet), then full→flash degrade for full-tier turns.
   let upstream: Response;
   let usedDecision = decision;
-  const attempt = (d: RouterDecision) => dispatchUpstream(endpointModel, d, assembled.messages, obj, auth, sessionId);
+  const terse = terseEnabled(c.req.header("x-bhaskara-terse"));
+  const attempt = (d: RouterDecision) => dispatchUpstream(endpointModel, d, assembled.messages, obj, auth, sessionId, terse);
   try {
     upstream = await attempt(decision);
   } catch (err) {
@@ -278,8 +282,9 @@ function dispatchUpstream(
   originalBody: Record<string, unknown>,
   auth: AuthContext,
   sessionId: string,
+  terse = false,
 ): Promise<Response> {
-  const payload = { ...originalBody, messages: withIdentity(messages, endpointModel), model: decision.upstreamModel, stream_options: { include_usage: true } };
+  const payload = { ...originalBody, messages: withIdentity(messages, endpointModel, terse), model: decision.upstreamModel, stream_options: { include_usage: true } };
   const signal = AbortSignal.timeout(10 * 60 * 1000); // 10-min ceiling for long generations
   if (decision.provider === "hyper") {
     const key = pickKeyForSession(hyperKeys(), sessionId);
