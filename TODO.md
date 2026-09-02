@@ -117,3 +117,9 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done · `[POST-BETA]` deferred 
 - [ ] User-facing numbers ALWAYS raw tokens at user-facing rates; admin sees actual upstream costs — enforced in one metering module, nowhere else
 - [ ] Vendor claims (Parsec 54%, Lightning SWE 51.56, Caveman 75%) unverified until own eval reproduces
 - [ ] Weekly: per-user margin review + router full-share review (the two margin killers)
+
+## Context engine v1 — test findings (2026-09-03, opencode headless ×4)
+- [x] compress (live-zone crushers): −31% total COGS, quality 6/6, $/1K-tok identical to baseline → no cache penalty. DEFAULT-ON CANDIDATE.
+- [~] compact (200K threshold; tested at lowered 8K): works + memoizes (16.7K est-tok saved, hit% 84.9) BUT agent left 2 strict-type errors at lowered threshold (lost early-file context) and +11% COGS from extra turns. At real 200K threshold premature-fire shouldn't bite; tune span + verify quality at scale before enabling.
+- [ ] per-key flags UI (dashboard toggle) + docs mention — flags infra exists, surface it.
+- [ ] quality regression gate in CI: opencode-task-tracker fixture × flags (see /tmp/hb-runs/quality.py logic) before enabling compact broadly.
