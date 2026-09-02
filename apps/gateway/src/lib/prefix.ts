@@ -11,6 +11,8 @@
 export interface ChatMessage {
   role: "system" | "user" | "assistant" | "tool";
   content: unknown; // string or structured (tool calls etc.) — passed through untouched
+  tool_calls?: unknown[]; // assistant: preserved verbatim (OpenAI format)
+  tool_call_id?: string;  // tool: preserved verbatim
 }
 
 export interface AssembledRequest {
@@ -27,7 +29,6 @@ const VOLATILE_PATTERNS: Array<{ name: string; re: RegExp }> = [
   { name: "unix-ms", re: /\b1[7-9]\d{12}\b/ },
 ];
 
-/** Lint a single message for volatile content (name + snippet). */
 function msgViolations(msg: ChatMessage): Array<{ name: string; snippet: string }> {
   if (typeof msg.content !== "string") return [];
   const out: Array<{ name: string; snippet: string }> = [];
@@ -80,9 +81,13 @@ export function assemble(
   const msgs = Array.isArray(incoming.messages) ? incoming.messages : [];
   const messages: ChatMessage[] = msgs.map((m) => {
     if (m && typeof m === "object" && "role" in m) {
-      const role = (m as { role: unknown }).role;
+      const mm = m as Record<string, unknown>;
+      const role = mm.role;
       if (role === "system" || role === "user" || role === "assistant" || role === "tool") {
-        return { role, content: (m as { content: unknown }).content };
+        const cm: ChatMessage = { role, content: mm.content };
+        if (role === "assistant" && Array.isArray(mm.tool_calls)) cm.tool_calls = mm.tool_calls;
+        if (role === "tool" && typeof mm.tool_call_id === "string") cm.tool_call_id = mm.tool_call_id;
+        return cm;
       }
     }
     return { role: "user", content: m };
