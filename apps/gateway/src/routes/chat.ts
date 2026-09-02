@@ -130,8 +130,6 @@ app.post("/v1/chat/completions", async (c) => {
   let compactionMeta: Record<string, unknown> | undefined;
   if (doCompact) {
     const { messages: compacted, stats } = await maybeCompact(messages, {
-      apiKey: hyperKeys()[0]?.key ?? "",
-      baseUrl: "http://127.0.0.1:8787",
       alreadyCompacted: messages.some((m) => typeof m.content === "string" && m.content.includes("[COMPACTED HISTORY")),
     });
     if (stats.triggered) {

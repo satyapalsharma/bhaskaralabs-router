@@ -135,8 +135,6 @@ app.post("/v1/messages", async (c) => {
   // ── Context engine (opt-in) — same as chat route ──
   if (compactEnabled(c.req.header("x-bhaskara-compact"))) {
     const { messages: compacted, stats } = await maybeCompact(messages, {
-      apiKey: (process.env.HYPER_API_KEYS ?? process.env.HYPER_API_KEY ?? "").split(",")[0]?.trim() ?? "",
-      baseUrl: "http://127.0.0.1:8787",
       alreadyCompacted: messages.some((m) => typeof m.content === "string" && m.content.includes("[COMPACTED HISTORY")),
     });
     if (stats.triggered) {

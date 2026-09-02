@@ -17,8 +17,12 @@
 import { createHash } from "node:crypto";
 import type { ChatMessage } from "../prefix";
 
-export const COMPACT_THRESHOLD_TOK = 200_000;
-export const COMPACT_SPAN_TOK = 100_000;
+export function compactThreshold(): number {
+  return Number(process.env.BHASKARA_COMPACT_THRESHOLD ?? 200_000);
+}
+export function compactSpan(): number {
+  return Number(process.env.BHASKARA_COMPACT_SPAN ?? 100_000);
+}
 
 export interface CompactStats {
   triggered: boolean;
@@ -47,23 +51,20 @@ export function messagesTokens(messages: ChatMessage[]): number {
   return t;
 }
 
-/** Deterministic summarizer call — internal, theta endpoint, memoized. */
-async function summarize(text: string, apiKey: string, baseUrl: string): Promise<string> {
+/** Deterministic summarizer call — direct Hyper flash (no auth loopback, no double-metering). */
+async function summarize(text: string): Promise<string> {
   const h = hash(text);
   const memo = MEMO.get(h);
   if (memo) return memo;
 
-  const prompt = `Summarize the following conversation history for a coding agent continuing the same session. Keep: decisions made, file names, function/type names, error causes and fixes, current task state, open TODOs. Drop: pleasantries, exploration dead-ends, repeated context. Output ONLY the summary as a compact bullet list, max 400 words.\n\n${text.slice(0, COMPACT_SPAN_TOK * 4)}`;
-  const res = await fetch(`${baseUrl}/v1/chat/completions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: "theta",
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: 900,
-      temperature: 0,
-      stream: false,
-    }),
+  const { hyperChat } = await import("../../providers/hyper");
+  const key = (process.env.HYPER_API_KEYS ?? process.env.HYPER_API_KEY ?? "").split(",")[0]?.trim();
+  if (!key) throw new Error("no hyper key for summarizer");
+  const prompt = `Summarize the following conversation history for a coding agent continuing the same session. Keep: decisions made, file names, function/type names, error causes and fixes, current task state, open TODOs. Drop: pleasantries, exploration dead-ends, repeated context. Output ONLY the summary as a compact bullet list, max 400 words.\n\n${text.slice(0, compactSpan() * 4)}`;
+  const res = await hyperChat({
+    model: "glm-5.3-flash",
+    body: { model: "glm-5.3-flash", messages: [{ role: "user", content: prompt }], max_tokens: 900, temperature: 0 },
+    apiKey: key,
     signal: AbortSignal.timeout(120_000),
   });
   if (!res.ok) throw new Error(`summarizer http ${res.status}`);
@@ -81,13 +82,13 @@ async function summarize(text: string, apiKey: string, baseUrl: string): Promise
  */
 export async function maybeCompact(
   messages: ChatMessage[],
-  opts: { apiKey: string; baseUrl: string; alreadyCompacted?: boolean },
+  opts: { alreadyCompacted?: boolean } = {},
 ): Promise<{ messages: ChatMessage[]; stats: CompactStats }> {
   const stats: CompactStats = { triggered: false, spanMessages: 0, tokensBefore: 0, tokensAfter: 0, summaryTokens: 0 };
   if (opts.alreadyCompacted) return { messages, stats };
 
   const total = messagesTokens(messages);
-  if (total <= COMPACT_THRESHOLD_TOK) return { messages, stats };
+  if (total <= compactThreshold()) return { messages, stats };
 
   // split: leading system messages stay; the rest is compactable history
   let firstNonSystem = 0;
@@ -96,10 +97,10 @@ export async function maybeCompact(
   const history = messages.slice(firstNonSystem);
   if (history.length < 4) return { messages, stats };
 
-  // walk history from the start until we've spanned COMPACT_SPAN_TOK
+  // walk history from the start until we've spanned the compact span
   let span = 0;
   let spanTokens = 0;
-  while (span < history.length && spanTokens < COMPACT_SPAN_TOK) {
+  while (span < history.length && spanTokens < compactSpan()) {
     const m = history[span];
     spanTokens += typeof m.content === "string" ? estTokens(m.content) : estTokens(JSON.stringify(m.content ?? ""));
     span++;
@@ -113,11 +114,11 @@ export async function maybeCompact(
 
   let summary: string;
   try {
-    summary = await summarize(spanText, opts.apiKey, opts.baseUrl);
-  } catch {
+    summary = await summarize(spanText);
+  } catch (err) {
+    console.error("[compact] summarizer failed (fail-open):", (err as Error).message);
     return { messages, stats }; // fail-open: send original
   }
-
   const compactedBlock: ChatMessage = {
     role: "user",
     content: `[COMPACTED HISTORY — summary of the first ${span} messages (${spanTokens} est tokens). Originals are not re-sent.]\n\n${summary}`,
