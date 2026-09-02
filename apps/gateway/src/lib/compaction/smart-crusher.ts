@@ -142,17 +142,21 @@ export function smartCrush(text: string, maxKeep = 25): CrushResult {
     if (!bestKey || bestLen < 8) return fallback;
     const innerItems = obj[bestKey] as unknown[];
     if (!innerItems.every((i) => typeof i === "object" && i !== null && !Array.isArray(i))) return fallback;
-    const { kept, note } = crushArray(innerItems as Array<Record<string, unknown>>, maxKeep);
-    const rebuilt = { ...obj, [bestKey]: kept.map((i) => innerItems[i]) };
-    const out = JSON.stringify(rebuilt) + "\n" + note;
-    if (out.length >= original.length) return fallback;
-    return { text: out, originalTokens: estimateTokens(original), kept: kept.length, total: innerItems.length };
+    const inner = crushArray(innerItems as Array<Record<string, unknown>>, maxKeep);
+    // nothing actually dropped → leave untouched: minifying an array the agent may
+    // grep for exact lines is worse than saving a few bytes (no-op crush guard)
+    if (inner.kept.length >= innerItems.length) return fallback;
+    const rebuilt = { ...obj, [bestKey]: inner.kept.map((i) => innerItems[i]) };
+    const outObj = JSON.stringify(rebuilt) + "\n" + inner.note;
+    if (outObj.length >= original.length) return fallback;
+    return { text: outObj, originalTokens: estimateTokens(original), kept: inner.kept.length, total: innerItems.length };
   }
 
   if (!Array.isArray(parsed) || parsed.length < 8) return fallback;
   if (!parsed.every((i) => typeof i === "object" && i !== null && !Array.isArray(i))) return fallback;
 
   const { kept, note } = crushArray(parsed as Array<Record<string, unknown>>, maxKeep);
+  if (kept.length >= parsed.length) return fallback; // no-op crush guard (see above)
   const out = JSON.stringify(kept.map((i) => parsed[i])) + "\n" + note;
   if (out.length >= original.length) return fallback;
   return { text: out, originalTokens: estimateTokens(original), kept: kept.length, total: parsed.length };
