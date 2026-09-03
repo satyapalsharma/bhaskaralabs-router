@@ -17,7 +17,7 @@ import { agnesEnabled } from "../providers/agnes";
 import { stepfunEnabled } from "../providers/stepfun";
 import { devpassEnabled } from "../providers/devpass";
 import { feihoaEnabled, FEIHOA_MODEL, FEIHOA_INPUT_BUDGET, feihoaSlotFree } from "../providers/feihoa";
-import { yoloEnabled, YOLO_MODEL, YOLO_INPUT_BUDGET } from "../providers/yolo";
+import { yoloEnabled, YOLO_MODEL, YOLO_INPUT_BUDGET, yoloSlotFree } from "../providers/yolo";
 export const FULL_OF: Record<string, string> = {
   "glm-5.3": "glm-5.3",
   "qwen-3.8": "qwen3.8-max",
@@ -68,7 +68,7 @@ export async function decideTurn(
         lock.lockedModel === FEIHOA_MODEL ? "feihoa" : lock.lockedModel === YOLO_MODEL ? "yolo" : null;
       const fits =
         lockedLane === "feihoa" ? ctx <= FEIHOA_INPUT_BUDGET : lockedLane === "yolo" ? ctx <= YOLO_INPUT_BUDGET : false;
-      const free = lockedLane === "feihoa" ? feihoaSlotFree() : true;
+      const free = lockedLane === "feihoa" ? feihoaSlotFree() : lockedLane === "yolo" ? yoloSlotFree() : true;
       if (lockedLane && fits && free) {
         await touchSession(sessionId, auth.userId);
         return {
@@ -81,14 +81,19 @@ export async function decideTurn(
         };
       }
       // feihoa-locked but busy → temporary hop to yolo (lock preserved).
-      if (lockedLane === "feihoa" && yoloEnabled() && ctx <= YOLO_INPUT_BUDGET) {
+      if (lockedLane === "feihoa" && yoloEnabled() && yoloSlotFree() && ctx <= YOLO_INPUT_BUDGET) {
         await touchSession(sessionId, auth.userId);
         return { provider: "yolo", upstreamModel: YOLO_MODEL, tier: "flash", effort: "low", reason: "backchannel-sticky-hop(feihoa-busy)", hardCapped: false };
       }
+      // yolo-locked but all 4 slots busy → temporary hop to hyper flash.
+      if (lockedLane === "yolo" && !yoloSlotFree()) {
+        await touchSession(sessionId, auth.userId);
+        return { provider: "hyper", upstreamModel: "qwen3.8-flash", tier: "flash", effort: "low", reason: "backchannel-sticky-hop(yolo-busy)", hardCapped: false };
+      }
     }
-    // No usable lock (or context outgrew lane / feihoa busy) → pick lane.
+    // No usable lock (or context outgrew lane / lane busy) → pick a free lane.
     const chosen: BackchannelLane =
-      lane ?? (feihoaSlotFree() ? "feihoa" : yoloEnabled() ? "yolo" : "feihoa");
+      lane ?? (feihoaSlotFree() ? "feihoa" : yoloEnabled() && yoloSlotFree() ? "yolo" : "feihoa");
     const model = chosen === "yolo" ? YOLO_MODEL : FEIHOA_MODEL;
     await setLock(sessionId, auth.userId, model);
     return {
@@ -108,18 +113,19 @@ export async function decideTurn(
       devpass: devpassEnabled(),
     });
   }
-
-  // qwen-3.8 smart routing (real-traffic mode): 4-lane cost/quality/context
-  // aware selection. Enabled via BHASKARA_QWEN_SMART=1 (used by the public
-  // tunnel instance). Session locks still apply for cache stickiness.
   if (endpointModel === "qwen-3.8" && process.env.BHASKARA_QWEN_SMART === "1") {
     const lock = await getLock(sessionId, auth.userId);
     if (lock.lockedModel && !lock.stale) {
       // feihoa-locked but its single slot is busy → temporary hop to yolo for
       // this turn only (lock preserved; next free turn returns to feihoa).
-      if (lock.lockedModel === FEIHOA_MODEL && !feihoaSlotFree() && yoloEnabled() && estimateTokens(messages) <= YOLO_INPUT_BUDGET) {
+      if (lock.lockedModel === FEIHOA_MODEL && !feihoaSlotFree() && yoloEnabled() && yoloSlotFree() && estimateTokens(messages) <= YOLO_INPUT_BUDGET) {
         await touchSession(sessionId, auth.userId);
         return { provider: "yolo", upstreamModel: YOLO_MODEL, tier: "flash", effort: "low", reason: "session-sticky-hop(feihoa-busy)", hardCapped: false };
+      }
+      // yolo-locked but all 4 slots busy → temporary hop to hyper flash.
+      if (lock.lockedModel === YOLO_MODEL && !yoloSlotFree()) {
+        await touchSession(sessionId, auth.userId);
+        return { provider: "hyper", upstreamModel: "qwen3.8-flash", tier: "flash", effort: "low", reason: "session-sticky-hop(yolo-busy)", hardCapped: false };
       }
       await touchSession(sessionId, auth.userId);
       const tier = lock.lockedModel.includes("flash") || lock.lockedModel.includes("feihoa") || lock.lockedModel.includes("yolo") || lock.lockedModel.includes("27b") || lock.lockedModel.includes("27B") ? "flash" : "full";
@@ -134,6 +140,7 @@ export async function decideTurn(
       feihoaOn: feihoaEnabled(),
       feihoaFree: feihoaSlotFree(),
       yoloOn: yoloEnabled(),
+      yoloFree: yoloSlotFree(),
       feihoaBudget: FEIHOA_INPUT_BUDGET,
       yoloBudget: YOLO_INPUT_BUDGET,
     });

@@ -215,6 +215,7 @@ export function routeQwenSmart(signals: {
   feihoaOn: boolean;
   feihoaFree: boolean; // semaphore: is feihoa's single slot idle right now?
   yoloOn: boolean;
+  yoloFree: boolean; // semaphore: does yolo have a free slot (<4 in flight)?
   feihoaBudget: number;
   yoloBudget: number;
 }): RouterDecision {
@@ -227,7 +228,9 @@ export function routeQwenSmart(signals: {
   if (signals.feihoaOn && signals.feihoaFree && signals.prefixTokens <= signals.feihoaBudget) {
     return { provider: "feihoa", upstreamModel: FEIHOA_MODEL, tier: "flash", effort: "low", reason: "smart-qwen=feihoa", hardCapped: false };
   }
-  if (signals.yoloOn && signals.prefixTokens <= signals.yoloBudget) {
+  // yolo only when it has a free slot (<4 in flight) AND context fits;
+  // when all 4 slots are busy, fall through to hyper flash (next provider).
+  if (signals.yoloOn && signals.yoloFree && signals.prefixTokens <= signals.yoloBudget) {
     return { provider: "yolo", upstreamModel: YOLO_MODEL, tier: "flash", effort: "low", reason: signals.feihoaOn && !signals.feihoaFree ? "smart-qwen=yolo(feihoa-busy)" : "smart-qwen=yolo", hardCapped: false };
   }
   return { provider: "hyper", upstreamModel: "qwen3.8-flash", tier: "flash", effort: "low", reason: "smart-qwen=flash", hardCapped: false };

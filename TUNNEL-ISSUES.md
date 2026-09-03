@@ -267,3 +267,12 @@ Format: `[timestamp] severity — issue — evidence — proposed fix`
 - router/decision: feihoa only chosen when slot free; busy → straight to yolo (session-sticky-hop preserves lock). No 429 round-trip at all.
 - Verified: 2 concurrent requests → A=feihoa, B=yolo(feihoa-busy), both 200 ~25s (model latency, zero stall).
 - NOTE: single Bun process = in-memory semaphore is correct. If we ever run multiple gateway instances, move to Redis (SETNX) as originally suggested.
+
+## check 2026-09-03 21:35 — turns=2 failovers=0 cache_hit=37% max_billed=64
+- no new issues
+
+### UPGRADE (yolo semaphore, live) — 4-slot concurrency mirror
+- yolo.ts: yoloSlotFree()/acquire/release (YOLO_MAX_CONCURRENCY=4), stream-safe release.
+- router/decision: yolo only when yoloFree; all 4 busy → auto-redirect to hyper flash (next provider). Session-sticky-hop(yolo-busy) preserves lock.
+- Verified 6 concurrent: 1 feihoa + 4 yolo + 1 hyper-flash, all 200, zero stall/429.
+- Full chain now: feihoa(1) → yolo(4) → hyper flash, all semaphore-gated, no wasted 429 round-trips.
