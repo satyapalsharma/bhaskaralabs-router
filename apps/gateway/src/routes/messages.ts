@@ -132,13 +132,15 @@ app.post("/v1/messages", async (c) => {
   }
   const sessionId = deriveSessionId(auth.apiKeyId, c.req.raw.headers);
   let messages = toChatMessages(obj);
-  const rawInTokens = estimateTokens(messages);
+  const toolTokens = Array.isArray(obj.tools) ? Math.ceil(JSON.stringify(obj.tools).length / 4) : 0;
+  const rawInTokens = estimateTokens(messages) + toolTokens;
   // ── Context engine (opt-in) — same as chat route ──
   const flags = resolveFlags(c.req.raw.headers, auth.flags);
   if (flags.compact) {
     const { messages: compacted, stats } = await maybeCompact(messages, {
       alreadyCompacted: messages.some((m) => typeof m.content === "string" && m.content.includes("[COMPACTED HISTORY")),
       logSkip: flags.compactDebug,
+      extraTokens: toolTokens,
     });
     if (stats.triggered) {
       messages = compacted;

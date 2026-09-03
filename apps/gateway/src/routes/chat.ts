@@ -124,7 +124,8 @@ app.post("/v1/chat/completions", async (c) => {
 
   const turnStartedAt = Date.now(); // true request-start clock (was captured post-dispatch → latency_ms ≈ 0)
   const assembled = assemble(obj);
-  const rawInTokens = estimateTokens(assembled.messages); // client-sent context size pre-compaction
+  const toolTokens = obj.tools ? Math.ceil(JSON.stringify(obj.tools).length / 4) : 0;
+  const rawInTokens = estimateTokens(assembled.messages) + toolTokens; // client-sent context incl. tool schemas (true provider pressure)
   // ── Context engine (both opt-in): live-zone compression + 200K compaction ──
   const flags = resolveFlags(c.req.raw.headers, auth.flags);
   const doCompress = flags.compress;
@@ -134,6 +135,7 @@ app.post("/v1/chat/completions", async (c) => {
     const { messages: compacted, stats } = await maybeCompact(messages, {
       alreadyCompacted: messages.some((m) => typeof m.content === "string" && m.content.includes("[COMPACTED HISTORY")),
       logSkip: flags.compactDebug,
+      extraTokens: toolTokens, // tool schemas count toward the threshold, never compacted themselves
     });
     if (stats.triggered) {
       messages = compacted;

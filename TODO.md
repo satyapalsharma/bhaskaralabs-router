@@ -118,6 +118,16 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done · `[POST-BETA]` deferred 
 - [ ] Vendor claims (Parsec 54%, Lightning SWE 51.56, Caveman 75%) unverified until own eval reproduces
 - [ ] Weekly: per-user margin review + router full-share review (the two margin killers)
 
+## Context engine v2 — deep-verify test findings (2026-09-03, opencode × 16 runs, 4 complex tasks, 32K compact threshold)
+- 16/16 runs completed; quality 5/5 ALL (files, tsc-0, verification-suite passes, artifacts, honest) → compression+compaction caused ZERO quality regression with real coding agents at 20–72K billed context.
+- crush-guard fixed round-2b aborts (agent-abandonment after no-op crush: root-caused, guard shipped, 0 recurrences in 16 runs).
+- compact fires need raw>threshold: only t1-compact crossed (35.3K raw → fire → 13.7K, −62% span, −32% COGS vs its baseline, hit 92→86% one-wipe-rewarm cycle then normal). Other 3 compact sessions peaked 24–30K raw → no fire (as designed). Rollup −13% COGS is mostly agent variance, not feature.
+- livezone: 6 fires compress-arm, 2 both-arm; real bytes saved (46K total ≈ 11.5K tok). Rollup $/1Ktok identical across all arms (0.00005) — cache-dominated pricing means flags change absolute spend via turn/context size, not unit rate.
+- cache safety CONFIRMED at scale: compress hit% 92.6 vs baseline 92.5 (deterministic re-compression replays identical bytes).
+- Max-context per session now tracked both ways: billedMax (incl. tool schemas, actual provider context 39–72K) vs rawMax (client messages+schemas est) — raw is the compact trigger input.
+- DESIGN LOCK: compress = ship (default-on candidate). Compact = ship at 200K default with tool-schemas in trigger math (done: extraTokens); premature-fire risk low at 200K since fire only happens when history genuinely outgrows context. Quality CI gate: /tmp/hb-runs/quality-r2c.py logic.
+- Ops: 1/16 runs needed attempt-2 retry (GLM empty-content instability, unrelated to flags); opencode leaks orphan :3000 demo servers — killed in grader.
+
 ## Context engine v1 — test findings (2026-09-03, opencode headless ×4)
 - [x] compress (live-zone crushers): −31% total COGS, quality 6/6, $/1K-tok identical to baseline → no cache penalty. DEFAULT-ON CANDIDATE.
 - [~] compact (200K threshold; tested at lowered 8K): works + memoizes (16.7K est-tok saved, hit% 84.9) BUT agent left 2 strict-type errors at lowered threshold (lost early-file context) and +11% COGS from extra turns. At real 200K threshold premature-fire shouldn't bite; tune span + verify quality at scale before enabling.
