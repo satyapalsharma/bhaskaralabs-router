@@ -426,3 +426,10 @@ Format: `[timestamp] severity — issue — evidence — proposed fix`
 - Token flow: 11.3M in (8.3M cached + 3.0M fresh) + 418K out; max billed 35.5K.
 - Context engine: 0 compactions / 0 livezone / 0 window-guard — sessions stayed under 32K naturally (max raw 25.8K). Engine idle = healthy.
 - Session stickiness working: 524 of 698 turns sticky (cache reuse), 166 recovered via failover, 174 busy-hops (semaphore working).
+
+### Latency analysis (parallel agents "slow" report)
+- 2 parallel agents = max 2 concurrent requests; total capacity 5 slots (yolo 4 + feihoa 1) → NO queuing expected, confirmed (only 1/6 sessions had back-to-back slow turns).
+- Per-lane latency: yolo p50=13s p90=57s; feihoa p50=9.7s p90=35s. These are INHERENT model generation times (27B model, non-streaming requests) — not waiting.
+- ROOT CAUSE of "slow" perception: (1) 146 turns took >30s — that's generation time of large outputs on 27B models (out-TPS 10-30), not queue-wait; (2) failover path adds 2s backoff + retry → failover turns p50=20.6s vs direct 9.7s.
+- TTFT: 0 tracked = ALL requests are NON-STREAMING. Client waits for the ENTIRE generation before seeing any token. A 60-token response at 15 TPS = 4s invisible wait; 500-token = 33s wait. This is the biggest UX factor — non-streaming makes everything FEEL slow.
+- RECOMMENDATION for other agent: use stream:true. With streaming + our SSE keepalive, user sees tokens flowing in ~1-2s instead of waiting 10-60s blind.
