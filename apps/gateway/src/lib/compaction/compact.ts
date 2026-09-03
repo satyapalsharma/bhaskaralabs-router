@@ -82,13 +82,15 @@ async function summarize(text: string): Promise<string> {
  */
 export async function maybeCompact(
   messages: ChatMessage[],
-  opts: { alreadyCompacted?: boolean; logSkip?: boolean; extraTokens?: number } = {},
+  opts: { alreadyCompacted?: boolean; logSkip?: boolean; extraTokens?: number; threshold?: number; span?: number } = {},
 ): Promise<{ messages: ChatMessage[]; stats: CompactStats }> {
   const stats: CompactStats = { triggered: false, spanMessages: 0, tokensBefore: 0, tokensAfter: 0, summaryTokens: 0 };
   if (opts.alreadyCompacted) return { messages, stats };
+  const threshold = opts.threshold ?? compactThreshold();
+  const spanBudget = opts.span ?? compactSpan();
   const total = messagesTokens(messages) + (opts.extraTokens ?? 0); // + tool schemas = true provider context
-  if (total <= compactThreshold()) {
-    if (opts.logSkip) console.log(JSON.stringify({ ev: "compact-skip", estTokens: total, threshold: compactThreshold() }));
+  if (total <= threshold) {
+    if (opts.logSkip) console.log(JSON.stringify({ ev: "compact-skip", estTokens: total, threshold }));
     return { messages, stats };
   }
   // split: leading system messages stay; the rest is compactable history
@@ -98,15 +100,18 @@ export async function maybeCompact(
   const history = messages.slice(firstNonSystem);
   if (history.length < 4) return { messages, stats };
 
-  // walk history from the start until we've spanned the compact span
+  // walk history from the start until we've spanned the compact span.
+  // NEVER span into the final message pair: the current user prompt (+ the
+  // assistant reply before it) must reach the model verbatim — at small
+  // thresholds (backchannel modes) history can be shorter than the span,
+  // and spanning everything would summarize the live prompt away.
   let span = 0;
   let spanTokens = 0;
-  while (span < history.length && spanTokens < compactSpan()) {
+  while (span < history.length - 2 && spanTokens < spanBudget) {
     const m = history[span];
     spanTokens += typeof m.content === "string" ? estTokens(m.content) : estTokens(JSON.stringify(m.content ?? ""));
     span++;
   }
-  if (span < 2) return { messages, stats };
 
   const spanText = history
     .slice(0, span)

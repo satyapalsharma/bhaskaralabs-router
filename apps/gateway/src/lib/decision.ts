@@ -11,12 +11,13 @@ import { ROUTER, HYPER } from "@bhaskara/shared/pricing";
 import type { AuthContext } from "./auth";
 import { estimateTokens, type ChatMessage } from "./prefix";
 import { getLock, setLock, touchSession } from "./session-lock";
-import { route, routeTheta, classifyHardness, type RouterDecision } from "../router";
+import { route, routeTheta, routeQwenSmart, classifyHardness, type RouterDecision, type BackchannelLane } from "../router";
 import { scanFailureSignals, emptyOutputStreak } from "./escalation";
 import { agnesEnabled } from "../providers/agnes";
 import { stepfunEnabled } from "../providers/stepfun";
 import { devpassEnabled } from "../providers/devpass";
-
+import { feihoaEnabled, FEIHOA_MODEL, FEIHOA_INPUT_BUDGET } from "../providers/feihoa";
+import { yoloEnabled, YOLO_MODEL, YOLO_INPUT_BUDGET } from "../providers/yolo";
 export const FULL_OF: Record<string, string> = {
   "glm-5.3": "glm-5.3",
   "qwen-3.8": "qwen3.8-max",
@@ -50,7 +51,49 @@ export async function decideTurn(
   sessionId: string,
   endpointModel: string,
   messages: ChatMessage[],
+  lane?: BackchannelLane,
 ): Promise<RouterDecision> {
+  // Backchannel mode: env switch routes ALL frontier turns to a Qwen
+  // backchannel lane (context engine must fit upstream).
+  // CACHE-STICKY: feihoa/yolo reward high cache-hit (faster + more quota),
+  // and Hyper cache-hits are cheap — so a session stays on its locked lane
+  // as long as the context still fits that lane's budget. We only hop when
+  // the context outgrows the lane (unavoidable miss) or on failure. This
+  // maximizes prefix-cache reuse across turns.
+  if (process.env.BHASKARA_BACKCHANNEL === "feihoa" && (feihoaEnabled() || yoloEnabled())) {
+    const lock = await getLock(sessionId, auth.userId);
+    const ctx = estimateTokens(messages);
+    if (lock.lockedModel && !lock.stale) {
+      const lockedLane: BackchannelLane | null =
+        lock.lockedModel === FEIHOA_MODEL ? "feihoa" : lock.lockedModel === YOLO_MODEL ? "yolo" : null;
+      const fits =
+        lockedLane === "feihoa" ? ctx <= FEIHOA_INPUT_BUDGET : lockedLane === "yolo" ? ctx <= YOLO_INPUT_BUDGET : false;
+      if (lockedLane && fits) {
+        await touchSession(sessionId, auth.userId);
+        return {
+          provider: lockedLane,
+          upstreamModel: lock.lockedModel,
+          tier: "flash",
+          effort: "low",
+          reason: "backchannel-sticky",
+          hardCapped: false,
+        };
+      }
+    }
+    // No usable lock (or context outgrew lane) → pick by context size, then lock.
+    const chosen: BackchannelLane = lane ?? "feihoa";
+    const model = chosen === "yolo" ? YOLO_MODEL : FEIHOA_MODEL;
+    await setLock(sessionId, auth.userId, model);
+    return {
+      provider: chosen,
+      upstreamModel: model,
+      tier: "flash",
+      effort: "low",
+      reason: `backchannel=${chosen}`,
+      hardCapped: false,
+    };
+  }
+
   if (endpointModel === "theta") {
     return routeTheta(lastUserText(messages), {
       agnes: agnesEnabled(),
@@ -59,6 +102,30 @@ export async function decideTurn(
     });
   }
 
+  // qwen-3.8 smart routing (real-traffic mode): 4-lane cost/quality/context
+  // aware selection. Enabled via BHASKARA_QWEN_SMART=1 (used by the public
+  // tunnel instance). Session locks still apply for cache stickiness.
+  if (endpointModel === "qwen-3.8" && process.env.BHASKARA_QWEN_SMART === "1") {
+    const lock = await getLock(sessionId, auth.userId);
+    if (lock.lockedModel && !lock.stale) {
+      await touchSession(sessionId, auth.userId);
+      const tier = lock.lockedModel.includes("flash") || lock.lockedModel.includes("feihoa") || lock.lockedModel.includes("yolo") || lock.lockedModel.includes("27b") || lock.lockedModel.includes("27B") ? "flash" : "full";
+      const provider = lock.lockedModel === FEIHOA_MODEL ? "feihoa" : lock.lockedModel === YOLO_MODEL ? "yolo" : "hyper";
+      return { provider, upstreamModel: lock.lockedModel, tier, effort: tier === "full" ? "max" : "low", reason: "session-sticky", hardCapped: false };
+    }
+    const share = await weeklyFullShare(auth.userId);
+    const d = routeQwenSmart({
+      hardness: classifyHardness(lastUserText(messages)),
+      prefixTokens: estimateTokens(messages),
+      fullShareThisWeek: share,
+      feihoaOn: feihoaEnabled(),
+      yoloOn: yoloEnabled(),
+      feihoaBudget: FEIHOA_INPUT_BUDGET,
+      yoloBudget: YOLO_INPUT_BUDGET,
+    });
+    await setLock(sessionId, auth.userId, d.upstreamModel);
+    return d;
+  }
   const lock = await getLock(sessionId, auth.userId);
 
   if (lock.lockedModel && !lock.stale) {

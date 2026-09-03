@@ -26,6 +26,12 @@ export const HYPER: Record<string, RateCard> = {
   "deepseek-v4-flash":  { input: 0.2,     output: 0.4,     cacheHit: 0.04 },
 };
 
+// FEIHOA [BACKCHANNEL/TEST] — unlimited-usage OpenAI-compat endpoint
+// (Qwen3.8-27B-Uncensored, 32K window). Unmetered: COGS 0; kill-switchable.
+export const FEIHOA: Record<string, RateCard> = {
+  "Qwen3.8-27B-Uncensored": { input: 0, output: 0 },
+};
+
 // DevPass / LLM Gateway [BOOTSTRAP] — old DeepSeek prices, 3x allowance economics
 export const DEVPASS: Record<string, RateCard> = {
   "deepseek-v4-flash-0731": { input: 0.08, output: 0.15 },
@@ -96,7 +102,6 @@ export const PROVIDER_CLASS = {
   devpass: "bootstrap",
   agnes: "bootstrap",
   stepfun: "bootstrap",
+  feihoa: "backchannel",
+  yolo: "backchannel",
 } as const;
-
-export const THETA_BACKENDS = ["agnes", "stepfun", "devpass"] as const;
-export type ThetaBackend = (typeof THETA_BACKENDS)[number];

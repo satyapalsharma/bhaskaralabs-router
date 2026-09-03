@@ -4,6 +4,8 @@
 // Session stickiness: once a session locks a workhorse model, it stays.
 
 import { ROUTER, HYPER } from "@bhaskara/shared/pricing";
+import { FEIHOA_MODEL } from "../providers/feihoa";
+import { YOLO_MODEL } from "../providers/yolo";
 
 export type EffortLevel = "low" | "high" | "max";
 
@@ -19,7 +21,7 @@ export interface RouterSignals {
 }
 
 export interface RouterDecision {
-  provider: "hyper" | "devpass" | "agnes" | "stepfun";
+  provider: "hyper" | "devpass" | "agnes" | "stepfun" | "feihoa" | "yolo";
   upstreamModel: string;
   tier: "full" | "flash";
   effort: EffortLevel;
@@ -157,4 +159,77 @@ export function routeTheta(text: string, backends: ThetaBackends): RouterDecisio
     reason: hard ? `theta-hard=${hardness}` : `theta-routine=${hardness}`,
     hardCapped: false,
   };
+}
+
+// ── Backchannel smart routing ──
+// Two OpenAI-compat backchannel lanes behind the frontier endpoints:
+//   feihoa — Qwen3.8-27B-Uncensored, 32K window, unlimited reqs, concurrency 1
+//   yolo   — qwen3.8-27b,           128K window, builder plan (no daily cap), concurrency 4
+// Lane selection is context-size aware: small contexts fit feihoa's 32K window
+// (the unlimited lane); large contexts route to yolo's 128K window so the
+// context engine doesn't have to compact as hard. Either lane fails over to
+// the other on capacity/provider errors. The router owns the policy; the
+// route handler only executes a hop.
+export const BACKCHANNEL_CHAIN = ["feihoa", "yolo"] as const;
+export type BackchannelLane = (typeof BACKCHANNEL_CHAIN)[number];
+
+/** Pick the primary backchannel lane by estimated context size. */
+export function backchannelPrimary(rawInTokens: number, feihoaBudget: number): BackchannelLane {
+  return rawInTokens <= feihoaBudget ? "feihoa" : "yolo";
+}
+
+/** Statuses that justify a backchannel hop (capacity / provider failure). */
+const FAILOVER_STATUSES = new Set([429, 409, 500, 502, 503]);
+
+/**
+ * Next backchannel lane after a failed dispatch, or null (no hop).
+ * feihoa → yolo always (yolo's 128K window fits anything).
+ * yolo → feihoa only when the (already window-fitted) payload fits feihoa's
+ * 32K budget — otherwise the hop would 400 on context length.
+ */
+export function backchannelNext(
+  provider: RouterDecision["provider"],
+  status: number,
+  opts?: { fitsFeihoa?: boolean },
+): RouterDecision["provider"] | null {
+  if (!FAILOVER_STATUSES.has(status)) return null;
+  if (provider === "feihoa") return "yolo";
+  if (provider === "yolo") return opts?.fitsFeihoa ? "feihoa" : null;
+  return null;
+}
+
+
+/**
+ * qwen-3.8 smart routing across four upstream lanes (cost + quality + context aware):
+ *   hard/planning turns      → qwen3.8-max   (Hyper, paid, best quality)
+ *   routine, ctx ≤ feihoa    → feihoa        (free, 32K, concurrency 1)
+ *   routine, ctx ≤ yolo      → yolo          (free, 128K, concurrency 4)
+ *   routine, ctx > yolo / free off → qwen3.8-flash (Hyper, paid, unlimited)
+ * Free lanes are $0 COGS so they win when they fit; Hyper is the reliability
+ * + quality backstop. Failover (backchannelNext) still chains feihoa→yolo→flash.
+ */
+export function routeQwenSmart(signals: {
+  hardness: RouterSignals["hardness"];
+  prefixTokens: number;
+  fullShareThisWeek: number;
+  feihoaOn: boolean;
+  yoloOn: boolean;
+  feihoaBudget: number;
+  yoloBudget: number;
+}): RouterDecision {
+  const hard = signals.hardness === "planning" || signals.hardness === "debugging" || signals.hardness === "architect";
+  if (hard && signals.fullShareThisWeek < ROUTER.fullShareCapPerUserPerWeek) {
+    return { provider: "hyper", upstreamModel: "qwen3.8-max", tier: "full", effort: "max", reason: `smart-qwen=hard:${signals.hardness}`, hardCapped: false };
+  }
+  if (signals.feihoaOn && signals.prefixTokens <= signals.feihoaBudget) {
+    return { provider: "feihoa", upstreamModel: FEIHOA_MODEL, tier: "flash", effort: "low", reason: "smart-qwen=feihoa", hardCapped: false };
+  }
+  if (signals.yoloOn && signals.prefixTokens <= signals.yoloBudget) {
+    return { provider: "yolo", upstreamModel: YOLO_MODEL, tier: "flash", effort: "low", reason: "smart-qwen=yolo", hardCapped: false };
+  }
+  return { provider: "hyper", upstreamModel: "qwen3.8-flash", tier: "flash", effort: "low", reason: "smart-qwen=flash", hardCapped: false };
+}
+/** Failover decision: same turn, same (already window-fitted) messages, new lane. */
+export function failoverDecision(d: RouterDecision, to: RouterDecision["provider"], cause: string): RouterDecision {
+  return { ...d, provider: to, reason: `${d.reason} → failover-${to}(${cause})`, hardCapped: false };
 }

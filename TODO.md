@@ -118,6 +118,15 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done · `[POST-BETA]` deferred 
 - [ ] Vendor claims (Parsec 54%, Lightning SWE 51.56, Caveman 75%) unverified until own eval reproduces
 - [ ] Weekly: per-user margin review + router full-share review (the two margin killers)
 
+## FEIHOA/YOLO backchannel round — findings (2026-09-03, opencode ×10 projects via 32K backchannel)
+- 10 medium-high TS projects through gateway→feihoa (32K window, unlimited, concurrency 1) + yolo failover (128K, concurrency 4): 8/10 built clean (f1,f2,f4,f6,f7,f8,f9 4/4; f3 3/4 scheduler edge miss; f10 2/4 tsc errors; f5 incomplete test.ts).
+- Context engine held 32K window: max billed input 29.2K across 430 turns; compact fired (16.2K→5.4K span) when raw crossed threshold; avg cache-hit 70% on feihoa.
+- feihoa→yolo failover fired 27× on account_concurrency_limit (429) — organic edge-case proof; yolo served those turns.
+- Cloudflare tunnel live for real-traffic testing: SSE keep-alive (25s `:` comments) + Bun idleTimeout 255 added so long reasoning TTFT survives cloudflared ~90-100s idle timeout (verified: 1 keepalive over 35s silence, stream survived).
+- Response sanitization hardened to WHITELIST (lib/sanitize.ts): upstream identity (model ids, system_fingerprint, cost/remaining) never reaches client — verified 0 leaks on stream+non-stream.
+- qwen-3.8 smart routing (BHASKARA_QWEN_SMART=1): hard/planning → qwen3.8-max; small ctx → feihoa; mid ctx → yolo; large/overflow → qwen3.8-flash; session-lock sticky for cache reuse; bidirectional failover.
+- CACHE-AWARE: lanes are session-sticky (feihoa/yolo reward cache-hit, Hyper cache-hits cheap) — hop only when context outgrows lane budget or on failure.
+
 ## Context engine v2 — deep-verify test findings (2026-09-03, opencode × 16 runs, 4 complex tasks, 32K compact threshold)
 - 16/16 runs completed; quality 5/5 ALL (files, tsc-0, verification-suite passes, artifacts, honest) → compression+compaction caused ZERO quality regression with real coding agents at 20–72K billed context.
 - crush-guard fixed round-2b aborts (agent-abandonment after no-op crush: root-caused, guard shipped, 0 recurrences in 16 runs).

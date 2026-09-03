@@ -24,6 +24,12 @@ const app = new Hono();
 const IDENTITY_LINE =
   "You are served by Bhaskara Labs' smart-routed endpoint. When asked which model you are, state that you are the Bhaskara Labs endpoint for this model family — a smart-routed system.";
 
+/** One upstream SSE read result (done + optional byte chunk). */
+interface UpstreamChunk {
+  done: boolean;
+  value?: Uint8Array;
+}
+
 interface AnthropicUsage {
   inputTokens: number;
   outputTokens: number;
@@ -41,18 +47,8 @@ function extractAnthropicUsage(json: unknown): AnthropicUsage | null {
     cachedTokens: typeof u.cache_read_input_tokens === "number" ? u.cache_read_input_tokens : undefined,
   };
 }
-function sanitizeAnthropicResponse(json: unknown, endpointModel: string): unknown {
-  if (typeof json !== "object" || json === null) return json;
-  const clone = { ...(json as Record<string, unknown>) };
-  if (clone.usage && typeof clone.usage === "object") {
-    clone.usage = { ...(clone.usage as Record<string, unknown>) };
-    delete (clone.usage as Record<string, unknown>).cost;
-    delete (clone.usage as Record<string, unknown>).remaining;
-  }
-  // Never leak the upstream model — user sees what they requested.
-  if (typeof clone.model === "string") clone.model = endpointModel;
-  return clone;
-}
+// Whitelist sanitization lives in lib/sanitize.ts (upstream identity never leaks).
+import { sanitizeAnthropicResponse } from "../lib/sanitize";
 /** Convert Anthropic messages shape to internal ChatMessage[]. */
 function toChatMessages(body: Record<string, unknown>): ChatMessage[] {
   const messages: ChatMessage[] = [];
@@ -165,6 +161,13 @@ app.post("/v1/messages", async (c) => {
 
   // Session id honors x-bhaskara-session (same as chat route) + shared sticky/reeval decision
   const decision: RouterDecision = await decideTurn(auth, sessionId, endpointModel, messages);
+  if (decision.provider === "feihoa" || decision.provider === "yolo") {
+    // Backchannel lanes are OpenAI-compat only; Anthropic-format clients stay on Hyper.
+    return c.json(
+      { type: "error", error: { type: "api_error", message: "Backchannel mode supports /v1/chat/completions only" } },
+      503,
+    );
+  }
   setNudgeHeader(c, decision);
   const payload = buildAnthropicPayload(obj, decision, messages, terseEnabled(c.req.header("x-bhaskara-terse")));
   const keys = (process.env.HYPER_API_KEYS ?? process.env.HYPER_API_KEY ?? "")
@@ -274,13 +277,33 @@ app.post("/v1/messages", async (c) => {
       }
       await writer.write(encoder.encode(`data: ${data}\n\n`));
     };
+    // SSE keep-alive (cloudflared ~90-100s idle timeout): `:` comment every
+    // 25s keeps the tunnel alive; SSE clients ignore comment lines.
+    const KEEPALIVE_MS = 25_000;
+    let lastWrite = Date.now();
+    let pendingRead: Promise<UpstreamChunk> | null = null;
     while (true) {
-      const { done, value } = await reader.read();
+      if (!pendingRead) pendingRead = reader.read();
+      const wait = Math.max(500, KEEPALIVE_MS - (Date.now() - lastWrite));
+      const outcome = await Promise.race([
+        pendingRead.then((r) => ({ t: "read" as const, r })),
+        new Promise<{ t: "keep" }>((res) => setTimeout(() => res({ t: "keep" }), wait)),
+      ]);
+      if (outcome.t === "keep") {
+        await writer.write(encoder.encode(": keepalive\n\n"));
+        lastWrite = Date.now();
+        continue;
+      }
+      pendingRead = null;
+      const { done, value } = outcome.r;
       if (done) break;
       if (!streamStarted.ttft) streamStarted.ttft = Date.now() - turnStartedAt;
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split("\n");
-      for (const line of lines) await flushLine(line);
+      for (const line of lines) {
+        await flushLine(line);
+        lastWrite = Date.now();
+      }
     }
     if (usageBox.value !== null) {
       recordContentChars(sessionId, contentChars);
