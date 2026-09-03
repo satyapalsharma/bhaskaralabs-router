@@ -223,15 +223,15 @@ export function routeQwenSmart(signals: {
   if (hard && signals.fullShareThisWeek < ROUTER.fullShareCapPerUserPerWeek) {
     return { provider: "hyper", upstreamModel: "qwen3.8-max", tier: "full", effort: "max", reason: `smart-qwen=hard:${signals.hardness}`, hardCapped: false };
   }
-  // feihoa only when its single slot is free AND context fits; otherwise skip
-  // straight to yolo (no wasted 429 round-trip).
-  if (signals.feihoaOn && signals.feihoaFree && signals.prefixTokens <= signals.feihoaBudget) {
-    return { provider: "feihoa", upstreamModel: FEIHOA_MODEL, tier: "flash", effort: "low", reason: "smart-qwen=feihoa", hardCapped: false };
-  }
-  // yolo only when it has a free slot (<4 in flight) AND context fits;
-  // when all 4 slots are busy, fall through to hyper flash (next provider).
+  // FLIPPED (data-driven 2026-09-03): yolo is ~2.8x faster (29.6 vs 10.4 median
+  // out-TPS) and has 4 slots, so it is the PRIMARY free lane. feihoa (slow,
+  // 1 slot) is the SECONDARY free lane, used only when yolo's 4 slots are all
+  // busy and context fits feihoa's 32K window. hyper flash is the backstop.
   if (signals.yoloOn && signals.yoloFree && signals.prefixTokens <= signals.yoloBudget) {
-    return { provider: "yolo", upstreamModel: YOLO_MODEL, tier: "flash", effort: "low", reason: signals.feihoaOn && !signals.feihoaFree ? "smart-qwen=yolo(feihoa-busy)" : "smart-qwen=yolo", hardCapped: false };
+    return { provider: "yolo", upstreamModel: YOLO_MODEL, tier: "flash", effort: "low", reason: "smart-qwen=yolo", hardCapped: false };
+  }
+  if (signals.feihoaOn && signals.feihoaFree && signals.prefixTokens <= signals.feihoaBudget) {
+    return { provider: "feihoa", upstreamModel: FEIHOA_MODEL, tier: "flash", effort: "low", reason: "smart-qwen=feihoa(yolo-busy)", hardCapped: false };
   }
   return { provider: "hyper", upstreamModel: "qwen3.8-flash", tier: "flash", effort: "low", reason: "smart-qwen=flash", hardCapped: false };
 }

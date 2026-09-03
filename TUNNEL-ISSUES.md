@@ -276,3 +276,27 @@ Format: `[timestamp] severity — issue — evidence — proposed fix`
 - router/decision: yolo only when yoloFree; all 4 busy → auto-redirect to hyper flash (next provider). Session-sticky-hop(yolo-busy) preserves lock.
 - Verified 6 concurrent: 1 feihoa + 4 yolo + 1 hyper-flash, all 200, zero stall/429.
 - Full chain now: feihoa(1) → yolo(4) → hyper flash, all semaphore-gated, no wasted 429 round-trips.
+
+## check 2026-09-03 21:47 — turns=9 failovers=2 cache_hit=94% max_billed=6282
+- [2026-09-03 21:47] failover (gw) — — short backoff 2000ms, then failover if still busy {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"You're sending request
+- [2026-09-03 21:47] failover (gw) — k":"99/44","raw":3,"cached":0,"ms":3257,"ttft":null} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"You're sending request
+
+## check 2026-09-03 21:59 — turns=71 failovers=9 cache_hit=71% max_billed=15517
+- [2026-09-03 21:59] failover (gw) — 160","raw":7124,"cached":7616,"ms":5043,"ttft":null} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"You're sending request
+- [2026-09-03 21:59] failover (gw) — — short backoff 2000ms, then failover if still busy {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"You're sending request
+- [2026-09-03 21:59] failover (gw) — 115","raw":6608,"cached":8128,"ms":9089,"ttft":null} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"You're sending request
+
+## check 2026-09-03 22:11 — turns=27 failovers=4 cache_hit=62% max_billed=27900
+- [2026-09-03 22:11] failover (gw) — — short backoff 2000ms, then failover if still busy {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"You're sending request
+
+## check 2026-09-03 22:23 — turns=25 failovers=3 cache_hit=73% max_billed=20794
+- [2026-09-03 22:23] failover (gw) — — short backoff 2000ms, then failover if still busy {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"You're sending request
+
+## check 2026-09-03 22:35 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+### FLIP (data-driven, live) — yolo primary, feihoa secondary
+- Recalculated TPS (grown sample): yolo median 29.6 tok/s (n=107) vs feihoa 10.4 (n=85) — ~2.8x gap held.
+- Flipped routeQwenSmart order: yolo primary (fast, 4 slots) → feihoa secondary (only when yolo's 4 slots busy + ctx fits 32K) → hyper flash backstop.
+- session-sticky-hop(yolo-busy) now tries feihoa first, hyper last.
+- Verified 5 concurrent: 4 yolo primary + 1 flash, all 200.

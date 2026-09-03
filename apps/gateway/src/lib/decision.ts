@@ -122,10 +122,14 @@ export async function decideTurn(
         await touchSession(sessionId, auth.userId);
         return { provider: "yolo", upstreamModel: YOLO_MODEL, tier: "flash", effort: "low", reason: "session-sticky-hop(feihoa-busy)", hardCapped: false };
       }
-      // yolo-locked but all 4 slots busy → temporary hop to hyper flash.
+      // yolo-locked but all 4 slots busy → hop to feihoa (secondary free lane)
+      // if it fits, else hyper flash (backstop).
       if (lock.lockedModel === YOLO_MODEL && !yoloSlotFree()) {
         await touchSession(sessionId, auth.userId);
-        return { provider: "hyper", upstreamModel: "qwen3.8-flash", tier: "flash", effort: "low", reason: "session-sticky-hop(yolo-busy)", hardCapped: false };
+        if (feihoaEnabled() && feihoaSlotFree() && estimateTokens(messages) <= FEIHOA_INPUT_BUDGET) {
+          return { provider: "feihoa", upstreamModel: FEIHOA_MODEL, tier: "flash", effort: "low", reason: "session-sticky-hop(yolo-busy)", hardCapped: false };
+        }
+        return { provider: "hyper", upstreamModel: "qwen3.8-flash", tier: "flash", effort: "low", reason: "session-sticky-hop(yolo+feihoa-busy)", hardCapped: false };
       }
       await touchSession(sessionId, auth.userId);
       const tier = lock.lockedModel.includes("flash") || lock.lockedModel.includes("feihoa") || lock.lockedModel.includes("yolo") || lock.lockedModel.includes("27b") || lock.lockedModel.includes("27B") ? "flash" : "full";
