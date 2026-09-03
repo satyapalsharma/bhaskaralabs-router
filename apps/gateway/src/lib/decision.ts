@@ -16,7 +16,7 @@ import { scanFailureSignals, emptyOutputStreak } from "./escalation";
 import { agnesEnabled } from "../providers/agnes";
 import { stepfunEnabled } from "../providers/stepfun";
 import { devpassEnabled } from "../providers/devpass";
-import { feihoaEnabled, FEIHOA_MODEL, FEIHOA_INPUT_BUDGET } from "../providers/feihoa";
+import { feihoaEnabled, FEIHOA_MODEL, FEIHOA_INPUT_BUDGET, feihoaSlotFree } from "../providers/feihoa";
 import { yoloEnabled, YOLO_MODEL, YOLO_INPUT_BUDGET } from "../providers/yolo";
 export const FULL_OF: Record<string, string> = {
   "glm-5.3": "glm-5.3",
@@ -68,7 +68,8 @@ export async function decideTurn(
         lock.lockedModel === FEIHOA_MODEL ? "feihoa" : lock.lockedModel === YOLO_MODEL ? "yolo" : null;
       const fits =
         lockedLane === "feihoa" ? ctx <= FEIHOA_INPUT_BUDGET : lockedLane === "yolo" ? ctx <= YOLO_INPUT_BUDGET : false;
-      if (lockedLane && fits) {
+      const free = lockedLane === "feihoa" ? feihoaSlotFree() : true;
+      if (lockedLane && fits && free) {
         await touchSession(sessionId, auth.userId);
         return {
           provider: lockedLane,
@@ -79,9 +80,15 @@ export async function decideTurn(
           hardCapped: false,
         };
       }
+      // feihoa-locked but busy → temporary hop to yolo (lock preserved).
+      if (lockedLane === "feihoa" && yoloEnabled() && ctx <= YOLO_INPUT_BUDGET) {
+        await touchSession(sessionId, auth.userId);
+        return { provider: "yolo", upstreamModel: YOLO_MODEL, tier: "flash", effort: "low", reason: "backchannel-sticky-hop(feihoa-busy)", hardCapped: false };
+      }
     }
-    // No usable lock (or context outgrew lane) → pick by context size, then lock.
-    const chosen: BackchannelLane = lane ?? "feihoa";
+    // No usable lock (or context outgrew lane / feihoa busy) → pick lane.
+    const chosen: BackchannelLane =
+      lane ?? (feihoaSlotFree() ? "feihoa" : yoloEnabled() ? "yolo" : "feihoa");
     const model = chosen === "yolo" ? YOLO_MODEL : FEIHOA_MODEL;
     await setLock(sessionId, auth.userId, model);
     return {
@@ -108,6 +115,12 @@ export async function decideTurn(
   if (endpointModel === "qwen-3.8" && process.env.BHASKARA_QWEN_SMART === "1") {
     const lock = await getLock(sessionId, auth.userId);
     if (lock.lockedModel && !lock.stale) {
+      // feihoa-locked but its single slot is busy → temporary hop to yolo for
+      // this turn only (lock preserved; next free turn returns to feihoa).
+      if (lock.lockedModel === FEIHOA_MODEL && !feihoaSlotFree() && yoloEnabled() && estimateTokens(messages) <= YOLO_INPUT_BUDGET) {
+        await touchSession(sessionId, auth.userId);
+        return { provider: "yolo", upstreamModel: YOLO_MODEL, tier: "flash", effort: "low", reason: "session-sticky-hop(feihoa-busy)", hardCapped: false };
+      }
       await touchSession(sessionId, auth.userId);
       const tier = lock.lockedModel.includes("flash") || lock.lockedModel.includes("feihoa") || lock.lockedModel.includes("yolo") || lock.lockedModel.includes("27b") || lock.lockedModel.includes("27B") ? "flash" : "full";
       const provider = lock.lockedModel === FEIHOA_MODEL ? "feihoa" : lock.lockedModel === YOLO_MODEL ? "yolo" : "hyper";
@@ -119,6 +132,7 @@ export async function decideTurn(
       prefixTokens: estimateTokens(messages),
       fullShareThisWeek: share,
       feihoaOn: feihoaEnabled(),
+      feihoaFree: feihoaSlotFree(),
       yoloOn: yoloEnabled(),
       feihoaBudget: FEIHOA_INPUT_BUDGET,
       yoloBudget: YOLO_INPUT_BUDGET,

@@ -213,6 +213,7 @@ export function routeQwenSmart(signals: {
   prefixTokens: number;
   fullShareThisWeek: number;
   feihoaOn: boolean;
+  feihoaFree: boolean; // semaphore: is feihoa's single slot idle right now?
   yoloOn: boolean;
   feihoaBudget: number;
   yoloBudget: number;
@@ -221,11 +222,13 @@ export function routeQwenSmart(signals: {
   if (hard && signals.fullShareThisWeek < ROUTER.fullShareCapPerUserPerWeek) {
     return { provider: "hyper", upstreamModel: "qwen3.8-max", tier: "full", effort: "max", reason: `smart-qwen=hard:${signals.hardness}`, hardCapped: false };
   }
-  if (signals.feihoaOn && signals.prefixTokens <= signals.feihoaBudget) {
+  // feihoa only when its single slot is free AND context fits; otherwise skip
+  // straight to yolo (no wasted 429 round-trip).
+  if (signals.feihoaOn && signals.feihoaFree && signals.prefixTokens <= signals.feihoaBudget) {
     return { provider: "feihoa", upstreamModel: FEIHOA_MODEL, tier: "flash", effort: "low", reason: "smart-qwen=feihoa", hardCapped: false };
   }
   if (signals.yoloOn && signals.prefixTokens <= signals.yoloBudget) {
-    return { provider: "yolo", upstreamModel: YOLO_MODEL, tier: "flash", effort: "low", reason: "smart-qwen=yolo", hardCapped: false };
+    return { provider: "yolo", upstreamModel: YOLO_MODEL, tier: "flash", effort: "low", reason: signals.feihoaOn && !signals.feihoaFree ? "smart-qwen=yolo(feihoa-busy)" : "smart-qwen=yolo", hardCapped: false };
   }
   return { provider: "hyper", upstreamModel: "qwen3.8-flash", tier: "flash", effort: "low", reason: "smart-qwen=flash", hardCapped: false };
 }
