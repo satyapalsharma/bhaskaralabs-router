@@ -10,11 +10,12 @@ import { authenticate, type AuthContext } from "../lib/auth";
 import { estimateTokens, deriveSessionId, type ChatMessage } from "../lib/prefix";
 import { getQuotaState, quotaRejection } from "../lib/quotas";
 import { writeLedger } from "../lib/ledger";
-import { getLock, touchSession } from "../lib/session-lock";
-import { decideTurn } from "../lib/decision";
-import { applyTerseToSystem, terseEnabled } from "../lib/terse";
-import { resolveFlags, compressLiveZone, maybeCompact } from "../lib/compaction";
 import { setQuotaHeaders, setRetryHeaders } from "../lib/quota-headers";
+import { decideTurn } from "../lib/decision";
+import { recordContentChars, contentCharsOf } from "../lib/escalation";
+import { applyTerseToSystem, terseEnabled } from "../lib/terse";
+import { setNudgeHeader } from "../lib/fair-use";
+import { resolveFlags, compressLiveZone, maybeCompact } from "../lib/compaction";
 import { pickKeyForSession, hyperMessages } from "../providers/hyper";
 import { type RouterDecision } from "../router";
 
@@ -164,6 +165,7 @@ app.post("/v1/messages", async (c) => {
 
   // Session id honors x-bhaskara-session (same as chat route) + shared sticky/reeval decision
   const decision: RouterDecision = await decideTurn(auth, sessionId, endpointModel, messages);
+  setNudgeHeader(c, decision);
   const payload = buildAnthropicPayload(obj, decision, messages, terseEnabled(c.req.header("x-bhaskara-terse")));
   const keys = (process.env.HYPER_API_KEYS ?? process.env.HYPER_API_KEY ?? "")
     .split(",")
@@ -198,6 +200,7 @@ app.post("/v1/messages", async (c) => {
 
   if (!isStream) {
     const json: unknown = await upstream.json();
+    recordContentChars(sessionId, contentCharsOf(json));
     const usage = extractAnthropicUsage(json);
     if (usage) {
       console.log(JSON.stringify({
@@ -235,6 +238,7 @@ app.post("/v1/messages", async (c) => {
     const encoder = new TextEncoder();
     let buffer = "";
     const usageBox: { value: AnthropicUsage | null } = { value: null };
+    let contentChars = 0;
     const flushLine = async (line: string) => {
       if (!line.startsWith("data: ")) {
         await writer.write(encoder.encode(line + "\n"));
@@ -249,9 +253,13 @@ app.post("/v1/messages", async (c) => {
         const parsed: unknown = JSON.parse(data);
         if (typeof parsed === "object" && parsed !== null) {
           const p = parsed as Record<string, unknown>;
-          // Tap usage from message_delta / message_start
           const u = extractAnthropicUsage(parsed);
           if (u) usageBox.value = u;
+          // Anthropic stream content tap: text deltas feed the empty-output streak.
+          if (p.type === "content_block_delta" && p.delta && typeof p.delta === "object") {
+            const t = (p.delta as { text?: unknown }).text;
+            if (typeof t === "string") contentChars += t.length;
+          }
           if (p.message && typeof p.message === "object") {
             const msg = { ...(p.message as Record<string, unknown>) };
             if (typeof msg.model === "string") msg.model = endpointModel;
@@ -275,6 +283,7 @@ app.post("/v1/messages", async (c) => {
       for (const line of lines) await flushLine(line);
     }
     if (usageBox.value !== null) {
+      recordContentChars(sessionId, contentChars);
       void writeLedger({
         userId: auth.userId,
         apiKeyId: auth.apiKeyId,

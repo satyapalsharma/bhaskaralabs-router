@@ -95,9 +95,12 @@ export function parseUsageNonStream(json: unknown): HyperUsage {
   return readRawUsage(u);
 }
 
-/** Accumulate usage from OpenAI-style SSE chunks (with stream_options.include_usage). */
+/** Accumulate usage from OpenAI-style SSE chunks (with stream_options.include_usage).
+ * Also counts streamed content chars — zero-content completions feed the
+ * escalation empty-output streak. */
 export class SseUsageAccumulator {
   usage: HyperUsage | null = null;
+  contentChars = 0;
 
   /** Returns parsed usage when a chunk carries it; else null. Call with every data line. */
   feed(sseData: string): HyperUsage | null {
@@ -109,6 +112,10 @@ export class SseUsageAccumulator {
           this.usage = readRawUsage(chunk.usage as RawUsage);
           return this.usage;
         }
+      }
+      if (parsed && typeof parsed === "object" && Array.isArray((parsed as { choices?: unknown }).choices)) {
+        const delta = (parsed as { choices: Array<{ delta?: { content?: unknown } }> }).choices[0]?.delta?.content;
+        if (typeof delta === "string") this.contentChars += delta.length;
       }
     } catch {
       // non-JSON line, ignore

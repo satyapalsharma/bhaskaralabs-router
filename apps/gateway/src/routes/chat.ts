@@ -10,8 +10,8 @@ import { and, eq, gte, sql } from "drizzle-orm";
 import { authenticate, type AuthContext } from "../lib/auth";
 import { assemble, estimateTokens, deriveSessionId, type ChatMessage } from "../lib/prefix";
 import { resolveFlags, compressLiveZone, maybeCompact } from "../lib/compaction";
+import { recordContentChars, contentCharsOf } from "../lib/escalation";
 import { getQuotaState, quotaRejection } from "../lib/quotas";
-import { getLock, setLock, touchSession } from "../lib/session-lock";
 import { setQuotaHeaders, setRetryHeaders } from "../lib/quota-headers";
 import { writeLedger } from "../lib/ledger";
 import { pickKeyForSession, hyperChat, parseUsageNonStream, SseUsageAccumulator, type HyperUsage } from "../providers/hyper";
@@ -22,6 +22,7 @@ import { type RouterDecision, FLASH_OF } from "../router";
 import { decideTurn } from "../lib/decision";
 import messagesApp from "./messages";
 import { applyTerseToSystem, terseEnabled } from "../lib/terse";
+import { setNudgeHeader } from "../lib/fair-use";
 const app = new Hono();
 
 // ── Identity/disclosure line (disclosed routing variant) ──
@@ -60,6 +61,8 @@ interface PendingTurn {
   startedAt: number;
   ttftMs?: number;
   rawIn: number; // est tokens of the client-sent history (pre-compaction) = true context pressure
+  /** Streamed/completed content chars this turn — feeds the empty-output streak. */
+  contentChars?: number;
 }
 
 // Writes ledger after stream completes, using tapped usage.
@@ -79,6 +82,11 @@ function trackTurn(pending: PendingTurn, usage: HyperUsage | null, providerMeta?
     ms: Date.now() - pending.startedAt,
     ttft: pending.ttftMs ?? null,
   }));
+  // Empty-output streak: one record per completed turn (stream + non-stream).
+  // contentChars is exact when captured (stream tap / non-stream JSON);
+  // fall back to completion-token presence so missing capture can't fake an empty streak.
+  const chars = pending.contentChars ?? (u.completionTokens > 0 ? 1 : 0);
+  recordContentChars(pending.sessionId, chars);
   void writeLedger({
     userId: pending.userId,
     apiKeyId: pending.apiKeyId,
@@ -162,6 +170,7 @@ app.post("/v1/chat/completions", async (c) => {
 
   const sessionId = deriveSessionId(auth.apiKeyId, c.req.raw.headers);
   const decision = await decide(auth, sessionId, endpointModel, messages);
+  setNudgeHeader(c, decision);
   // Dispatch hardening (ops finding: hyper drops 4–5min generations):
   // 1 retry pre-stream (no client bytes yet), then full→flash degrade for full-tier turns.
   let upstream: Response;
@@ -221,6 +230,7 @@ app.post("/v1/chat/completions", async (c) => {
   if (!isStream) {
     const json: unknown = await upstream.json();
     const usage = extractUsage(json);
+    pending.contentChars = contentCharsOf(json);
     trackTurn(pending, usage, compactionMeta);
     return c.json(sanitizeUserResponse(json, endpointModel));
   }
@@ -262,6 +272,7 @@ app.post("/v1/chat/completions", async (c) => {
         if (sanitized !== "__DROP__") await stream.write(`data: ${sanitized}\n\n`);
       }
     }
+    pending.contentChars = acc.contentChars;
     trackTurn(pending, acc.usage, compactionMeta);
   });
 });

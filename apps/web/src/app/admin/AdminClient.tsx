@@ -34,6 +34,12 @@ type ProviderRow = {
   notes: string | null;
 };
 
+type ProvidersData = {
+  month: string;
+  providers: ProviderRow[];
+  summary: { cogsUsd: number; equivUsd: number; providerFeesUsd: number };
+};
+
 type Coupon = {
   code: string;
   discountPct: number;
@@ -46,10 +52,36 @@ type Coupon = {
   validUntil: string | null;
 };
 
-type ProvidersData = {
-  month: string;
-  providers: ProviderRow[];
-  summary: { cogsUsd: number; equivUsd: number; providerFeesUsd: number };
+type Alert = {
+  id: string;
+  severity: "amber" | "red";
+  title: string;
+  detail: string;
+};
+
+type AlertsData = {
+  alerts: Alert[];
+  cohortPnl: {
+    month: string;
+    revenueUsd: number;
+    cogsUsd: number;
+    providerFeesUsd: number;
+    infraShareUsd: number;
+    marginUsd: number;
+    frontierTurns: number;
+    activeUsers: number;
+    equivApiUsd: number;
+    verdict: "go" | "watch" | "no-go" | "no-revenue-yet";
+  };
+  shadowMargin: {
+    window: string;
+    hyperOnlyCogsUsd: number;
+    bootstrapCogsUsd: number;
+    weekRevenueUsd: number;
+    marginUsd: number;
+    note: string;
+  };
+  fullSharePolicy: { alertAt: number; hardCap: number };
 };
 
 const fmt = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : `${n}`);
@@ -59,8 +91,9 @@ export default function AdminClient() {
   const [usersRows, setUsers] = useState<AdminUser[] | null>(null);
   const [providers, setProviders] = useState<ProvidersData | null>(null);
   const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [alertsData, setAlertsData] = useState<AlertsData | null>(null);
   const [gate, setGate] = useState({ signup_enabled: "true", cohort_cap: "100", waitlistCount: 0 });
-  const [tab, setTab] = useState<"users" | "economics" | "coupons" | "growth">("users");
+  const [tab, setTab] = useState<"users" | "economics" | "alerts" | "coupons" | "growth">("users");
   const [newCode, setNewCode] = useState({ code: "", discountPct: 20, usageLimit: 100 });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
@@ -69,11 +102,13 @@ export default function AdminClient() {
     fetch("/api/admin/users").then((r) => r.json()).then((d) => setUsers(d.users ?? []));
     fetch("/api/admin/providers").then((r) => r.json()).then(setProviders);
     fetch("/api/admin/coupons").then((r) => r.json()).then((d) => setCoupons(d.coupons ?? []));
+    fetch("/api/admin/alerts").then((r) => r.json()).then(setAlertsData);
     fetch("/api/admin/settings")
       .then((r) => r.json())
       .then((d) => setGate({ signup_enabled: d.settings.signup_enabled || "true", cohort_cap: d.settings.cohort_cap || "100", waitlistCount: d.waitlistCount ?? 0 }));
   };
   useEffect(load, []);
+
 
   const call = async (url: string, body: unknown, method = "POST") => {
     setBusy(true);
@@ -93,17 +128,110 @@ export default function AdminClient() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Admin</h1>
         <div className="flex gap-1 rounded-lg border border-zinc-800 p-1 text-sm">
-          {(["users", "economics", "coupons", "growth"] as const).map((t) => (
+          {(["users", "economics", "alerts", "coupons", "growth"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`rounded-md px-3 py-1 capitalize transition-colors ${tab === t ? "bg-zinc-800 text-zinc-100" : "text-zinc-500 hover:text-zinc-300"}`}
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1 capitalize transition-colors ${tab === t ? "bg-zinc-800 text-zinc-100" : "text-zinc-500 hover:text-zinc-300"}`}
             >
               {t}
+              {t === "alerts" && (alertsData?.alerts.length ?? 0) > 0 && (
+                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${alertsData!.alerts.some((x) => x.severity === "red") ? "bg-red-500/20 text-red-400" : "bg-amber-500/20 text-amber-400"}`}>
+                  {alertsData!.alerts.length}
+                </span>
+              )}
             </button>
           ))}
         </div>
       </div>
+      {tab === "alerts" && alertsData && (
+        <section className="mt-8 space-y-6">
+          {/* Alerts list */}
+          <div className="space-y-2">
+            <h2 className="font-semibold">
+              Alerts
+              {alertsData.fullSharePolicy && (
+                <span className="ml-2 text-xs font-normal text-zinc-500">
+                  full-share alert {(alertsData.fullSharePolicy.alertAt * 100).toFixed(0)}% · hard cap {(alertsData.fullSharePolicy.hardCap * 100).toFixed(0)}%
+                </span>
+              )}
+            </h2>
+            {alertsData.alerts.length === 0 && (
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5 text-sm text-zinc-500">
+                No alerts — all users inside margin and fair-use lines.
+              </div>
+            )}
+            {alertsData.alerts.map((al) => (
+              <div
+                key={al.id}
+                className={`rounded-xl border p-4 ${al.severity === "red" ? "border-red-500/40 bg-red-500/5" : "border-amber-500/40 bg-amber-500/5"}`}
+              >
+                <p className={`text-sm font-semibold ${al.severity === "red" ? "text-red-400" : "text-amber-400"}`}>{al.title}</p>
+                <p className="mt-1 text-sm text-zinc-400">{al.detail}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Cohort P&L — go/no-go evidence for opening the next 100 signups */}
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
+            <h2 className="font-semibold">Cohort P&amp;L — {alertsData.cohortPnl.month}</h2>
+            <p className="mt-1 text-sm text-zinc-500">The go/no-go report for the cohort gate. Verdict: margin ≥30% go · 15–30% watch · &lt;15% no-go.</p>
+            <div className="mt-4 grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
+              {[
+                ["Revenue", usd(alertsData.cohortPnl.revenueUsd)],
+                ["Token COGS", usd(alertsData.cohortPnl.cogsUsd)],
+                ["Provider fees", usd(alertsData.cohortPnl.providerFeesUsd)],
+                ["Margin", usd(alertsData.cohortPnl.marginUsd)],
+                ["Frontier turns", `${alertsData.cohortPnl.frontierTurns}`],
+                ["Active users", `${alertsData.cohortPnl.activeUsers}`],
+              ].map(([l, v]) => (
+                <div key={l} className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-3">
+                  <p className="text-xs text-zinc-500">{l}</p>
+                  <p className="mt-1 text-lg font-semibold tabular-nums">{v}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 flex items-center gap-3">
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
+                  alertsData.cohortPnl.verdict === "go"
+                    ? "bg-emerald-500/15 text-emerald-400"
+                    : alertsData.cohortPnl.verdict === "watch"
+                      ? "bg-amber-500/15 text-amber-400"
+                      : alertsData.cohortPnl.verdict === "no-go"
+                        ? "bg-red-500/15 text-red-400"
+                        : "bg-zinc-800 text-zinc-400"
+                }`}
+              >
+                {alertsData.cohortPnl.verdict}
+              </span>
+              <span className="text-xs text-zinc-500">
+                users&apos; equivalent-API spend: {usd(alertsData.cohortPnl.equivApiUsd)} · infra share rows land in provider_monthly
+              </span>
+            </div>
+          </div>
+
+          {/* Hyper-only shadow margin — core-vs-bootstrap proof */}
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
+            <h2 className="font-semibold">Hyper-only shadow margin — {alertsData.shadowMargin.window}</h2>
+            <p className="mt-1 text-sm text-zinc-500">{alertsData.shadowMargin.note}</p>
+            <div className="mt-4 grid gap-4 sm:grid-cols-4">
+              {[
+                ["Hyper-only COGS", usd(alertsData.shadowMargin.hyperOnlyCogsUsd)],
+                ["Bootstrap COGS (actual)", usd(alertsData.shadowMargin.bootstrapCogsUsd)],
+                ["Week revenue", usd(alertsData.shadowMargin.weekRevenueUsd)],
+                ["Hyper-only margin", usd(alertsData.shadowMargin.marginUsd)],
+              ].map(([l, v]) => (
+                <div key={l} className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-3">
+                  <p className="text-xs text-zinc-500">{l}</p>
+                  <p className="mt-1 text-lg font-semibold tabular-nums">{v}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
 
       {tab === "growth" && (
         <section className="mt-8 max-w-md space-y-4">

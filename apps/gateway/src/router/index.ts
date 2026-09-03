@@ -15,6 +15,7 @@ export interface RouterSignals {
   fullShareThisWeek: number;     // 0..1 — user's full-model share so far
   hardness: "routine" | "planning" | "debugging" | "architect";
   userRequestedFull?: boolean;   // explicit user opt-in (future UI affordance)
+  failureSignal?: boolean;       // failing tests/compile in this request's live zone (escalation-on-failure)
 }
 
 export interface RouterDecision {
@@ -24,6 +25,10 @@ export interface RouterDecision {
   effort: EffortLevel;
   reason: string;
   hardCapped: boolean;
+  /** Fair-use state for response nudges: near-cap (>=8% weekly full-share) or capped (>=10%). */
+  fairUse?: "alert" | "capped";
+  /** User's weekly full-share when it was computed for this decision (0..1). */
+  fairUseShare?: number;
 }
 
 export const FLASH_OF: Record<string, string> = {
@@ -52,6 +57,13 @@ export function classifyHardness(text: string): RouterSignals["hardness"] {
 }
 
 export function route(signals: RouterSignals): RouterDecision {
+  // Fair-use nudge state: alert at 8% weekly full-share, hard cap at 10%.
+  const fairUse = signals.fullShareThisWeek >= ROUTER.fullShareCapPerUserPerWeek
+    ? "capped"
+    : signals.fullShareThisWeek >= ROUTER.fullShareAlertAt
+      ? "alert"
+      : undefined;
+
   // Session stickiness — a locked session stays on its workhorse model.
   if (!signals.isNewSession && signals.sessionLockedModel) {
     const locked = signals.sessionLockedModel;
@@ -63,6 +75,8 @@ export function route(signals: RouterSignals): RouterDecision {
       effort: "low",
       reason: "session-sticky",
       hardCapped: false,
+      fairUse,
+      fairUseShare: signals.fullShareThisWeek,
     };
   }
 
@@ -78,7 +92,8 @@ export function route(signals: RouterSignals): RouterDecision {
     (signals.userRequestedFull === true ||
       hardness === "planning" ||
       hardness === "debugging" ||
-      hardness === "architect");
+      hardness === "architect" ||
+      signals.failureSignal === true); // escalation-on-failure: failing tests/compile → full
 
   if (wantsFull) {
     return {
@@ -86,8 +101,12 @@ export function route(signals: RouterSignals): RouterDecision {
       upstreamModel: fullModel,
       tier: "full",
       effort: "max",
-      reason: `hardness=${hardness}`,
+      reason: signals.failureSignal === true && hardness === "routine"
+        ? "failure-escalation"
+        : `hardness=${hardness}${signals.failureSignal === true ? "+failure-signal" : ""}`,
       hardCapped: false,
+      fairUse,
+      fairUseShare: signals.fullShareThisWeek,
     };
   }
 
@@ -98,6 +117,8 @@ export function route(signals: RouterSignals): RouterDecision {
     effort: "low",
     reason: `hardness=${hardness}, full-share ${(signals.fullShareThisWeek * 100).toFixed(1)}%`,
     hardCapped: capExceeded,
+    fairUse,
+    fairUseShare: signals.fullShareThisWeek,
   };
 }
 

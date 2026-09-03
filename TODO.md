@@ -26,10 +26,10 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done · `[POST-BETA]` deferred 
 - [ ] Endpoint `qwen-3.8`: routes Qwen3.8-Max ⇄ Qwen3.8-Flash
 - [ ] Endpoint `theta`: routes Agnes 2.5 Flash ⇄ StepFun 3.7 Flash ⇄ DeepSeek V4 Flash 0731 (DevPass, old prices $0.08/$0.15) `[BOOTSTRAP — must degrade gracefully to Hyper-only]`
 - [ ] Provider client: DevPass/LLM Gateway (deepseek-v4-flash-0731 @ $0.08/$0.15, old prices) — verify caching pass-through + usage fields; track allowance burn
-- [ ] Router v0 heuristics: (prefix size, cache-eligibility, task hardness) → tier; config-driven rule table; HARD CAP 10% full-model share per user/week (spill → flash + fair-use nudge)
+- [ ] Router v0 heuristics: (prefix size, cache-eligibility, task hardness) → tier; config-driven rule table; HARD CAP 10% full-model share per user/week (spill → flash + fair-use nudge) — nudge SHIPPED: x-bhaskara-fair-use: alert|capped + x-bhaskara-full-share headers on every frontier response (E2E verified at 9.4%→alert, 11.4%→capped)
 - [ ] Effort dial: `low` default bulk, `high/max` planning (GLM effort params)
 - [ ] Session stickiness store: model lock per session; unlock at task boundary only
-- [ ] Escalation: N failures/test-fail signal → full model retry with same cache-aligned prefix
+- [x] Escalation: N failures/test-fail signal → full model retry with same cache-aligned prefix — SHIPPED 2026-09-03: escalation.ts (stateless live-zone failure-signal scan: test-fail/compile-error/exit-code patterns + empty-output streak map) + decision.ts escalation branch (same reeval gates: prefix≤16K, penalty≤$0.03, share<cap) + routes record contentChars both endpoints; E2E verified: routine flash-locked session + failing-test live zone → reeval-upgrade → glm-5.3 full (reason=failure-escalation)
 - [ ] Canonical prefix assembler: system → tools → session → tail; deterministic serializer
 - [ ] Prefix-lint middleware: reject timestamps/random-ids/dates/volatile ordering in prefix
 - [ ] Session→sub-key consistent hashing (Hyper pool)
@@ -66,10 +66,10 @@ Status: `[ ]` todo · `[~]` in progress · `[x]` done · `[POST-BETA]` deferred 
 - [~] Admin: router full-share distribution per user — column + >8% amber highlight done; no proactive alerting yet
 - [~] Admin: cache-hit distribution, hit-rate cliff alert — column + % done; cliff alert pending
 - [x] Admin: coupon CRUD + redemption counts
-- [ ] Admin: abuse alerts (trial farms, quota bursts)
+- [x] Admin: abuse alerts (trial farms, quota bursts) — SHIPPED 2026-09-03: /api/admin/alerts — stateless full-share (amber ≥8%/red ≥10%, ≥10 turns), negative-margin (COGS ≥$1 & rev<cogs), cache-hit cliff (yesterday ≥15pts under 30d avg), quota-burst (≥10M tok/day) + cohort P&L (revenue/COGS/fees/margin/verdict go|watch|no-go) + weekly Hyper-only shadow margin (bootstrap traffic re-priced at hyper-flash fallback); UI: alerts tab with severity badge count, verdict chip, P&L + shadow cards (browser-verified)
 - [x] Admin: signup gate dial (open/close, cap edit, waitlist count/export) · ⚠ waitlist count/export UI pending (API exists)
-- [ ] Admin: cohort gate report — per-cohort P&L (revenue vs provider COGS + infra share), error rate, hit rate, full-share → go/no-go for next 100
-- [ ] Admin: Hyper-only shadow margin — weekly COGS recomputed EXCLUDING all [BOOTSTRAP] providers (proof core stays profitable without hacks)
+- [x] Admin: cohort gate report — per-cohort P&L in alerts API (revenue vs provider COGS + provider-monthly fees, frontier turns, verdict) — SHIPPED with abuse alerts above
+- [x] Admin: Hyper-only shadow margin — weekly COGS excluding [BOOTSTRAP], bootstrap traffic re-priced at qwen3.8-flash fallback rates — SHIPPED in /api/admin/alerts
 
 ## Phase 5 — Academics v1
 

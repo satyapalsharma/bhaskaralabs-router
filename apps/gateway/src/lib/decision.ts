@@ -12,6 +12,7 @@ import type { AuthContext } from "./auth";
 import { estimateTokens, type ChatMessage } from "./prefix";
 import { getLock, setLock, touchSession } from "./session-lock";
 import { route, routeTheta, classifyHardness, type RouterDecision } from "../router";
+import { scanFailureSignals, emptyOutputStreak } from "./escalation";
 import { agnesEnabled } from "../providers/agnes";
 import { stepfunEnabled } from "../providers/stepfun";
 import { devpassEnabled } from "../providers/devpass";
@@ -63,54 +64,88 @@ export async function decideTurn(
   if (lock.lockedModel && !lock.stale) {
     const tier = lock.lockedModel.includes("flash") ? "flash" : "full";
 
-    // ── Per-turn re-evaluation: flash lock + genuinely hard turn → maybe upgrade ──
-    if (tier === "flash" && ROUTER.reeval.enabled && lock.switchCount < ROUTER.reeval.maxSwitchesPerSession) {
-      const hardness = classifyHardness(lastUserText(messages));
-      if (hardness !== "routine") {
-        const prefixTokens = estimateTokens(messages);
-        const fullModel = FULL_OF[endpointModel] ?? "glm-5.3";
-        const penalty = cacheSwitchPenaltyUsd(lock.lockedModel, fullModel, prefixTokens);
-        const share = await weeklyFullShare(auth.userId);
-        const withinPrefix = prefixTokens <= ROUTER.reeval.maxPrefixTokensForSwitch;
-        const withinPenalty = penalty <= ROUTER.reeval.maxPenaltyUsd;
-        const withinCap = share < ROUTER.fullShareCapPerUserPerWeek;
+    if (tier === "flash") {
+      // One share computation per flash turn serves both the reeval gates
+      // and the fair-use nudge fields on every sticky return.
+      const share = await weeklyFullShare(auth.userId);
+      const fairUse = fairUseState(share);
 
-        if (withinPrefix && withinPenalty && withinCap) {
-          await setLock(sessionId, auth.userId, fullModel, { bumpSwitch: true });
-          console.log(
-            JSON.stringify({
-              ev: "reeval-upgrade",
-              session: sessionId.slice(0, 8),
-              from: lock.lockedModel,
-              to: fullModel,
-              hardness,
-              prefix: prefixTokens,
-              penaltyUsd: Number(penalty.toFixed(5)),
-            }),
-          );
+      // ── Per-turn re-evaluation: flash lock + hard/failing turn → maybe upgrade ──
+      if (ROUTER.reeval.enabled && lock.switchCount < ROUTER.reeval.maxSwitchesPerSession) {
+        const hardness = classifyHardness(lastUserText(messages));
+        // Escalation-on-failure: concrete failure signals in the live zone
+        // (failing tests / compile errors / non-zero exits) or an empty-output
+        // streak escalate even a routine turn. Same gates apply afterwards.
+        const failSignals = scanFailureSignals(messages);
+        const escalateForFailure =
+          failSignals.testFailBlocks > 0 ||
+          emptyOutputStreak(sessionId) >= ROUTER.escalation.maxEmptyOutputStreak;
+        if (hardness !== "routine" || escalateForFailure) {
+          const prefixTokens = estimateTokens(messages);
+          const fullModel = FULL_OF[endpointModel] ?? "glm-5.3";
+          const penalty = cacheSwitchPenaltyUsd(lock.lockedModel, fullModel, prefixTokens);
+          const withinPrefix = prefixTokens <= ROUTER.reeval.maxPrefixTokensForSwitch;
+          const withinPenalty = penalty <= ROUTER.reeval.maxPenaltyUsd;
+          const withinCap = share < ROUTER.fullShareCapPerUserPerWeek;
+
+          if (withinPrefix && withinPenalty && withinCap) {
+            await setLock(sessionId, auth.userId, fullModel, { bumpSwitch: true });
+            console.log(
+              JSON.stringify({
+                ev: "reeval-upgrade",
+                session: sessionId.slice(0, 8),
+                from: lock.lockedModel,
+                to: fullModel,
+                hardness,
+                failBlocks: failSignals.testFailBlocks,
+                emptyStreak: emptyOutputStreak(sessionId),
+                prefix: prefixTokens,
+                penaltyUsd: Number(penalty.toFixed(5)),
+              }),
+            );
+            return {
+              provider: "hyper",
+              upstreamModel: fullModel,
+              tier: "full",
+              effort: "max",
+              reason: hardness !== "routine"
+                ? `cache-reeval=${hardness} penalty$${penalty.toFixed(4)}`
+                : `failure-escalation(failBlocks=${failSignals.testFailBlocks},empty=${emptyOutputStreak(sessionId)}) penalty$${penalty.toFixed(4)}`,
+              hardCapped: false,
+              fairUse,
+              fairUseShare: share,
+            };
+          }
+          // Blocked: report why in the decision reason (visible in access log).
+          const why = !withinPrefix ? "prefix-too-large" : !withinPenalty ? "penalty-too-high" : "full-share-cap";
+          await touchSession(sessionId, auth.userId);
           return {
             provider: "hyper",
-            upstreamModel: fullModel,
-            tier: "full",
-            effort: "max",
-            reason: `cache-reeval=${hardness} penalty$${penalty.toFixed(4)}`,
+            upstreamModel: lock.lockedModel,
+            tier,
+            effort: "low",
+            reason: `session-sticky (reeval-blocked: ${why})`,
             hardCapped: false,
+            fairUse,
+            fairUseShare: share,
           };
         }
-        // Blocked: report why in the decision reason (visible in access log).
-        const why = !withinPrefix ? "prefix-too-large" : !withinPenalty ? "penalty-too-high" : "full-share-cap";
-        await touchSession(sessionId, auth.userId);
-        return {
-          provider: "hyper",
-          upstreamModel: lock.lockedModel,
-          tier,
-          effort: "low",
-          reason: `session-sticky (reeval-blocked: ${why})`,
-          hardCapped: false,
-        };
       }
+
+      await touchSession(sessionId, auth.userId);
+      return {
+        provider: "hyper",
+        upstreamModel: lock.lockedModel,
+        tier,
+        effort: "low",
+        reason: "session-sticky",
+        hardCapped: false,
+        fairUse,
+        fairUseShare: share,
+      };
     }
 
+    // Full-tier lock: sticky (downgrades never happen mid-session).
     await touchSession(sessionId, auth.userId);
     return { provider: "hyper", upstreamModel: lock.lockedModel, tier, effort: "low", reason: "session-sticky", hardCapped: false };
   }
@@ -123,7 +158,15 @@ export async function decideTurn(
     isNewSession: true,
     fullShareThisWeek: share,
     hardness: classifyHardness(lastUserText(messages)),
+    failureSignal: scanFailureSignals(messages).testFailBlocks > 0,
   });
   await setLock(sessionId, auth.userId, decision.upstreamModel);
   return decision;
+}
+
+/** Fair-use nudge state from a user's weekly full-model share (0..1). */
+function fairUseState(share: number): RouterDecision["fairUse"] {
+  if (share >= ROUTER.fullShareCapPerUserPerWeek) return "capped";
+  if (share >= ROUTER.fullShareAlertAt) return "alert";
+  return undefined;
 }

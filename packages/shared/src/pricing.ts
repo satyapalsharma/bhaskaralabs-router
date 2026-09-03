@@ -78,6 +78,16 @@ export const ROUTER = {
     maxPenaltyUsd: 0.03,
     maxSwitchesPerSession: 1,
   },
+  // Escalation-on-failure: quality signals that justify a flash→full upgrade
+  // on the NEXT turn of a session (same gates as reeval apply afterwards).
+  //   testFailSignal  — scan the request's live zone (fresh tool results) for
+  //                     failing tests / compile errors / non-zero exits; stateless.
+  //   emptyOutputStreak — provider returned zero content chars; N consecutive
+  //                     (observed in the wild: GLM empty-content instability)
+  escalation: {
+    enabled: true,
+    maxEmptyOutputStreak: 2,
+  },
 };
 
 // ── Provider classification ──
