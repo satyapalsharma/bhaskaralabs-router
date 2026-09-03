@@ -300,3 +300,63 @@ Format: `[timestamp] severity — issue — evidence — proposed fix`
 - Flipped routeQwenSmart order: yolo primary (fast, 4 slots) → feihoa secondary (only when yolo's 4 slots busy + ctx fits 32K) → hyper flash backstop.
 - session-sticky-hop(yolo-busy) now tries feihoa first, hyper last.
 - Verified 5 concurrent: 4 yolo primary + 1 flash, all 200.
+
+## check 2026-09-03 22:47 — turns=48 failovers=13 cache_hit=72% max_billed=19046
+- [2026-09-03 22:47] failover (gw) — — short backoff 2000ms, then failover if still busy {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"You're sending request
+- [2026-09-03 22:47] tunnel-524-timeout (gw) — "tier":"flash","why":"session-sticky","tok":"5375/15","raw":5243,"cached":0,"ms":7249,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"qwen-3.8","to":"Qwen3.8
+- [2026-09-03 22:47] tunnel-524-timeout (gw) — y":"session-sticky","tok":"16021/48","raw":12328,"cached":15524,"ms":6617,"ttft":null} [feihoa] 429 — short backoff 2000ms, then failover if still busy {"ev":"backchannel-failover"
+
+## check 2026-09-03 22:59 — turns=45 failovers=4 cache_hit=67% max_billed=18023
+- [2026-09-03 22:59] failover (gw) — — short backoff 2000ms, then failover if still busy {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"You're sending request
+
+## check 2026-09-03 23:11 — turns=57 failovers=0 cache_hit=68% max_billed=11039
+- no new issues
+
+## check 2026-09-03 23:23 — turns=99 failovers=57 cache_hit=85% max_billed=20444
+- [2026-09-03 23:23] failover (gw) — — short backoff 2000ms, then failover if still busy {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"Your current generatio
+- [2026-09-03 23:23] failover (gw) — 9/65","raw":3666,"cached":896,"ms":3941,"ttft":null} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"Your current generatio
+- [2026-09-03 23:23] failover (gw) — 6/27","raw":3658,"cached":896,"ms":8878,"ttft":null} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"Your current generatio
+- [2026-09-03 23:23] failover (gw) — ent generation is still running. Please wait for i"} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"Your current generatio
+- [2026-09-03 23:23] failover (gw) — 93","raw":4832,"cached":3968,"ms":10015,"ttft":null} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"Your current generatio
+- [2026-09-03 23:23] failover (gw) — 06","raw":7131,"cached":4736,"ms":18582,"ttft":null} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"Your current generatio
+- [2026-09-03 23:23] failover (gw) — 0","raw":7016,"cached":8704,"ms":111336,"ttft":null} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":500,"cause":"<!DOCTYPE html>\n<!--[if lt IE 7]> <html class=\
+- [2026-09-03 23:23] failover (gw) — ","raw":10315,"cached":11712,"ms":76385,"ttft":null} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":500,"cause":"<!DOCTYPE html>\n<!--[if lt IE 7]> <html class=\
+- [2026-09-03 23:23] failover (gw) — 7","raw":6572,"cached":7680,"ms":134169,"ttft":null} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":500,"cause":"<!DOCTYPE html>\n<!--[if lt IE 7]> <html class=\
+- [2026-09-03 23:23] failover (gw) — <html class=\"no-js ie6 oldie\" lang=\"en-US\"> <!"} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":500,"cause":"<!DOCTYPE html>\n<!--[if lt IE 7]> <html class=\
+- [2026-09-03 23:23] failover (gw) — 5","raw":8276,"cached":10112,"ms":31105,"ttft":null} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":500,"cause":"<!DOCTYPE html>\n<!--[if lt IE 7]> <html class=\
+- [2026-09-03 23:23] failover (gw) — ","raw":10712,"cached":13440,"ms":15813,"ttft":null} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":500,"cause":"<!DOCTYPE html>\n<!--[if lt IE 7]> <html class=\
+- [2026-09-03 23:23] failover (gw) — ","raw":10245,"cached":11328,"ms":19627,"ttft":null} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":500,"cause":"<!DOCTYPE html>\n<!--[if lt IE 7]> <html class=\
+- [2026-09-03 23:23] failover (gw) — 44","raw":7237,"cached":8768,"ms":29505,"ttft":null} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":500,"cause":"<!DOCTYPE html>\n<!--[if lt IE 7]> <html class=\
+- [2026-09-03 23:23] failover (gw) — 3","raw":9763,"cached":10368,"ms":28737,"ttft":null} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":500,"cause":"{\"error\":{\"message\":\"We could not safely qu
+- [2026-09-03 23:23] failover (gw) — 59","raw":5991,"cached":7552,"ms":45894,"ttft":null} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":500,"cause":"{\"error\":{\"message\":\"We could not safely qu
+- [2026-09-03 23:23] failover (gw) — 55","raw":6633,"cached":7808,"ms":68550,"ttft":null} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":500,"cause":"{\"error\":{\"message\":\"We could not safely qu
+- [2026-09-03 23:23] failover (gw) — not safely queue this request. No inference was st"} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":500,"cause":"{\"error\":{\"message\":\"We could not safely qu
+- [2026-09-03 23:23] failover (gw) — — short backoff 2000ms, then failover if still busy {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"You're sending request
+- [2026-09-03 23:23] failover (gw) — nding requests faster than this plan allows. Reduc"} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"You're sending request
+- [2026-09-03 23:23] failover (gw) — ","raw":10284,"cached":12096,"ms":96693,"ttft":null} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"Your current generatio
+- [2026-09-03 23:23] failover (gw) — 199","raw":6711,"cached":9792,"ms":9988,"ttft":null} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"Your current generatio
+- [2026-09-03 23:23] failover (gw) — ","raw":9414,"cached":10368,"ms":125765,"ttft":null} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"Your current generatio
+- [2026-09-03 23:23] failover (gw) — 1","raw":7844,"cached":10880,"ms":12032,"ttft":null} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"Your current generatio
+- [2026-09-03 23:23] failover (gw) — 4","raw":6619,"cached":11200,"ms":14804,"ttft":null} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"Your current generatio
+- [2026-09-03 23:23] failover (gw) — 98","raw":7164,"cached":11392,"ms":4394,"ttft":null} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"Your current generatio
+
+## check 2026-09-03 23:35 — turns=46 failovers=13 cache_hit=66% max_billed=12467
+- [2026-09-03 23:35] failover (gw) — — short backoff 2000ms, then failover if still busy {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"You're sending request
+- [2026-09-03 23:35] tunnel-524-timeout (gw) — ssion-sticky","tok":"11528/53","raw":10628,"cached":0,"ms":15247,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"qwen-3.8","to":"Qwen3.8-27B-Uncensored","tie
+
+## check 2026-09-03 23:47 — turns=75 failovers=11 cache_hit=78% max_billed=23540
+- [2026-09-03 23:47] upstream-error (gw) — \"Internal server error\",\n    \"type\": \"server_error"} [upstream feihoa] 429: {"error":{"message":"You're sending requests faster than this plan allows. Reduce the request rat
+- [2026-09-03 23:47] failover (gw) — — short backoff 2000ms, then failover if still busy {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"You're sending request
+- [2026-09-03 23:47] failover (gw) — nding requests faster than this plan allows. Reduc"} {"ev":"backchannel-failover","from":"yolo","to":"feihoa","status":500,"cause":"{\n  \"error\": {\n    \"message\": \"Internal s
+- [2026-09-03 23:47] failover (gw) — — short backoff 2000ms, then failover if still busy {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"Your current generatio
+- [2026-09-03 23:47] failover (gw) — 3/27","raw":3648,"cached":896,"ms":8119,"ttft":null} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"Your current generatio
+- [2026-09-03 23:47] failover (gw) — 330/42","raw":3965,"cached":0,"ms":3697,"ttft":null} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"Your current generatio
+- [2026-09-03 23:47] tunnel-524-timeout (gw) — ier":"flash","why":"session-sticky-hop(feihoa-busy)","tok":"5240/221","raw":4595,"cached":1600,"ms":7278,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"qwen
+- [2026-09-03 23:47] tunnel-524-timeout (gw) — eihoa-busy)","tok":"9920/115","raw":6313,"cached":8256,"ms":5240,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"qwen-3.8","to":"qwen3.8-27b","tier":"flash",
+
+### Full log scan (post-flip health check)
+- CLEAN: socket errors 0, upstream 5xx 0 (hyper/yolo), ledger fails 0, stream errors 0.
+- feihoa 429s x176 (86 concurrency + new request-RATE limit msg "retry in 4s") — all handled by 2s backoff + failover.
+- feihoa HTML-error-page 500s x18 — flaky upstream, failover to yolo covered all.
+- Empty outputs x11 — ALL on feihoa (0 on yolo): 27B-Uncensored empty-content instability. Flip (yolo primary) reduces exposure.
+- Post-flip: traffic now primarily yolo (fast/clean); feihoa only overflow.
