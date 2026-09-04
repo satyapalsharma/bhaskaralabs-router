@@ -2359,3 +2359,21 @@ chain-FIRST pe. (6h dead-cooldown ab dormant — naya session fresh state.)
 
 ## check 2026-09-05 00:59 — turns=12 failovers=1 cache_hit=52% max_billed=286
 - [2026-09-05 00:59] failover (gw) — :"286/41","raw":2,"cached":256,"ms":539,"ttft":null} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"Your current generatio
+
+## 2026-09-05 (yolo pressure math corrected — commit 6d33ebd)
+
+User flag: "yolo pressure ki calculation galat hai". Investigation found
+the hidden gem: yolo returns EXACT pressure on every response via
+x-yolo-pressure-{limit,remaining,reset}-{1h,24h} headers. We never read them.
+
+Derived real model (header deltas on live probes):
+- flat per-request: ~4,039 units (14in/2out and 30013in/5out both = 4096)
+- output: ~28.73 units/token (29in/1807out = 55,955)
+- INPUT IS FREE — old math charged in×1 and under-charged out 14x.
+- Ledger seed drifted 2.4x (25.75M shown vs 10.70M real used) because
+  aborted-turn output is never in the ledger + window alignment.
+
+Fix: server headers are now the source of truth (sync every response,
+bootstrap probe at startup, ring only bridges gaps). Edges back to
+85%/95% (no estimate error to compensate for). Yolo was healthy at 76%
+all along — our false 184% signal had it locked out for hours.
