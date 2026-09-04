@@ -2349,3 +2349,10 @@ Cooldown 30min → 6h extended (subscription death minutes me heal nahi
 hoti; har 30min wasted retry round-trip tha).
 ACTION (user): Agnes subscription renew karo → key wahi rahegi →
 gateway restart pe lane wapas on (ya 6h cooldown khud expire).
+
+## 2026-09-05 (agnes key rotation — RESOLVED)
+
+Purani key cpk-6nJ... subscription-expired thi. User ne nayi renewed
+key di (cpk-WvNL...). Rotated in gateway .env + gitforge pipeline-v5.
+Live: theta-routine=agnes → agnes-2.5-flash 788ms serve. Lane wapas
+chain-FIRST pe. (6h dead-cooldown ab dormant — naya session fresh state.)
