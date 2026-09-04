@@ -12,14 +12,18 @@ import type { AuthContext } from "./auth";
 import { estimateTokens, type ChatMessage } from "./prefix";
 import { getLock, setLock, touchSession } from "./session-lock";
 import { route, routeTheta, routeQwenSmart, classifyHardness, type RouterDecision, type BackchannelLane } from "../router";
-import { scanFailureSignals, emptyOutputStreak } from "./escalation";
-import { agnesEnabled } from "../providers/agnes";
-import { stepfunEnabled } from "../providers/stepfun";
+import { agnesEnabled, agnesSlotFree } from "../providers/agnes";
+import { stepfunEnabled, stepfunSlotFree } from "../providers/stepfun";
 import { devpassEnabled } from "../providers/devpass";
+import { llmGatewayEnabled } from "../providers/llmgateway";
 import { feihoaEnabled, FEIHOA_MODEL, FEIHOA_INPUT_BUDGET, feihoaSlotFree } from "../providers/feihoa";
 import { yoloEnabled, YOLO_MODEL, YOLO_INPUT_BUDGET, yoloSlotFree } from "../providers/yolo";
+import { scanFailureSignals, emptyOutputStreak } from "./escalation";
+import { yoloWouldOverflow, recordYoloTurn, yoloPressureState } from "./yolo-pressure";
+import { hyperBudgetAvailable } from "./hyper-budget";
 import { detectStage } from "./stage-router";
 import { judgeClassify, judgeCandidate } from "./llm-judge";
+
 export const FULL_OF: Record<string, string> = {
   "glm-5.3": "glm-5.3",
   "qwen-3.8": "qwen3.8-max",
@@ -109,10 +113,17 @@ export async function decideTurn(
   }
 
   if (endpointModel === "theta") {
+    const prefixTokens = estimateTokens(messages);
     return routeTheta(lastUserText(messages), {
       agnes: agnesEnabled(),
+      agnesFree: agnesSlotFree(),
       stepfun: stepfunEnabled(),
-      devpass: devpassEnabled(),
+      stepfunFree: stepfunSlotFree(),
+      yolo: yoloEnabled(),
+      yoloFree: yoloSlotFree(),
+      yoloPressureOk: yoloEnabled() && !yoloWouldOverflow(prefixTokens),
+      hyperBudgetOk: await hyperBudgetAvailable(),
+      llmGatewayOn: llmGatewayEnabled(),
     });
   }
   if (endpointModel === "qwen-3.8" && process.env.BHASKARA_QWEN_SMART === "1") {
@@ -167,16 +178,16 @@ export async function decideTurn(
       if (verdict === true) hardness = "debugging";
       console.log(JSON.stringify({ ev: "judge", session: sessionId.slice(0, 8), verdict }));
     }
+    const prefixTokens = estimateTokens(messages);
     const d = routeQwenSmart({
       hardness,
-      prefixTokens: estimateTokens(messages),
+      prefixTokens,
       fullShareThisWeek: share,
-      feihoaOn: feihoaEnabled(),
-      feihoaFree: feihoaSlotFree(),
       yoloOn: yoloEnabled(),
       yoloFree: yoloSlotFree(),
-      feihoaBudget: FEIHOA_INPUT_BUDGET,
-      yoloBudget: YOLO_INPUT_BUDGET,
+      yoloPressureOk: yoloEnabled() && !yoloWouldOverflow(prefixTokens),
+      hyperBudgetOk: await hyperBudgetAvailable(),
+      llmGatewayOn: llmGatewayEnabled(),
     });
     await setLock(sessionId, auth.userId, d.upstreamModel);
     return d;
@@ -282,6 +293,10 @@ export async function decideTurn(
     hardness: classifyHardness(lastUserText(messages)),
     failureSignal: scanFailureSignals(messages).testFailBlocks > 0,
   });
+  // $12.5/day hyper budget gate: budget out → same-model hop to llmgateway.
+  if (decision.provider === "hyper" && !(await hyperBudgetAvailable()) && llmGatewayEnabled()) {
+    return { ...decision, provider: "llmgateway", reason: `${decision.reason} → hyper-budget-out` };
+  }
   await setLock(sessionId, auth.userId, decision.upstreamModel);
   return decision;
 }

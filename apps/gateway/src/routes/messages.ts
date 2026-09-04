@@ -17,6 +17,7 @@ import { applyTerseToSystem, terseEnabled } from "../lib/terse";
 import { setNudgeHeader } from "../lib/fair-use";
 import { resolveFlags, compressLiveZone, maybeCompact } from "../lib/compaction";
 import { pickKeyForSession, hyperMessages } from "../providers/hyper";
+import { llmGatewayMessages, llmGatewayEnabled } from "../providers/llmgateway";
 import { type RouterDecision } from "../router";
 
 const app = new Hono();
@@ -180,6 +181,13 @@ app.post("/v1/messages", async (c) => {
   }
   const key = pickKeyForSession(keys, auth.apiKeyId);
   let upstream: Response;
+  const gwDispatch = () =>
+    llmGatewayMessages({
+      model: decision.upstreamModel,
+      body: payload,
+      apiKey: process.env.LLMGATEWAY_API_KEY ?? "",
+      signal: AbortSignal.timeout(10 * 60 * 1000),
+    });
   try {
     // Pre-stream retry on connection errors: no client bytes sent yet, safe to retry once.
     upstream = await hyperMessages({ model: decision.upstreamModel, body: payload, apiKey: key.key, signal: AbortSignal.timeout(10 * 60 * 1000) });
@@ -188,15 +196,42 @@ app.post("/v1/messages", async (c) => {
     try {
       upstream = await hyperMessages({ model: decision.upstreamModel, body: payload, apiKey: key.key, signal: AbortSignal.timeout(10 * 60 * 1000) });
     } catch (err2) {
-      console.error(`[messages dispatch] connection failure:`, (err2 as Error).message);
-      return c.json({ type: "error", error: { type: "api_error", message: `Provider unreachable` } }, 502);
+      // Hyper unreachable twice → llmgateway same-model hop (Anthropic-compat).
+      if (llmGatewayEnabled()) {
+        console.log(JSON.stringify({ ev: "llmgateway-failover", from: "hyper", to: decision.upstreamModel, route: "messages" }));
+        try {
+          upstream = await gwDispatch();
+        } catch {
+          return c.json({ type: "error", error: { type: "api_error", message: `Provider unreachable` } }, 502);
+        }
+      } else {
+        console.error(`[messages dispatch] connection failure:`, (err2 as Error).message);
+        return c.json({ type: "error", error: { type: "api_error", message: `Provider unreachable` } }, 502);
+      }
     }
   }
 
   if (!upstream.ok) {
     const errText = await upstream.text().catch(() => "");
-    console.error(`[messages upstream] ${upstream.status}: ${errText.slice(0, 300)}`);
-    return c.json({ type: "error", error: { type: "api_error", message: `Upstream error ${upstream.status}` } }, 502);
+    // Hyper error status (402 credits / 429 / 5xx) → llmgateway same-model hop.
+    if (llmGatewayEnabled()) {
+      console.log(JSON.stringify({ ev: "llmgateway-failover", from: "hyper", to: decision.upstreamModel, status: upstream.status, route: "messages" }));
+      try {
+        const gw = await gwDispatch();
+        if (gw.ok) {
+          upstream = gw;
+        } else {
+          console.error(`[messages upstream] ${upstream.status}: ${errText.slice(0, 300)}`);
+          return c.json({ type: "error", error: { type: "api_error", message: `Upstream error ${upstream.status}` } }, 502);
+        }
+      } catch {
+        console.error(`[messages upstream] ${upstream.status}: ${errText.slice(0, 300)}`);
+        return c.json({ type: "error", error: { type: "api_error", message: `Upstream error ${upstream.status}` } }, 502);
+      }
+    } else {
+      console.error(`[messages upstream] ${upstream.status}: ${errText.slice(0, 300)}`);
+      return c.json({ type: "error", error: { type: "api_error", message: `Upstream error ${upstream.status}` } }, 502);
+    }
   }
 
   const isStream = obj.stream === true;
@@ -282,28 +317,35 @@ app.post("/v1/messages", async (c) => {
     const KEEPALIVE_MS = 25_000;
     let lastWrite = Date.now();
     let pendingRead: Promise<UpstreamChunk> | null = null;
-    while (true) {
-      if (!pendingRead) pendingRead = reader.read();
-      const wait = Math.max(500, KEEPALIVE_MS - (Date.now() - lastWrite));
-      const outcome = await Promise.race([
-        pendingRead.then((r) => ({ t: "read" as const, r })),
-        new Promise<{ t: "keep" }>((res) => setTimeout(() => res({ t: "keep" }), wait)),
-      ]);
-      if (outcome.t === "keep") {
-        await writer.write(encoder.encode(": keepalive\n\n"));
-        lastWrite = Date.now();
-        continue;
+    try {
+      while (true) {
+        if (!pendingRead) pendingRead = reader.read();
+        const wait = Math.max(500, KEEPALIVE_MS - (Date.now() - lastWrite));
+        const outcome = await Promise.race([
+          pendingRead.then((r) => ({ t: "read" as const, r })),
+          new Promise<{ t: "keep" }>((res) => setTimeout(() => res({ t: "keep" }), wait)),
+        ]);
+        if (outcome.t === "keep") {
+          await writer.write(encoder.encode(": keepalive\n\n"));
+          lastWrite = Date.now();
+          continue;
+        }
+        pendingRead = null;
+        const { done, value } = outcome.r;
+        if (done) break;
+        if (!streamStarted.ttft) streamStarted.ttft = Date.now() - turnStartedAt;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        for (const line of lines) {
+          await flushLine(line);
+          lastWrite = Date.now();
+        }
       }
+    } finally {
+      // release the upstream reader on ANY exit path — fires wrapRelease
+      // cancel() which releases the lane semaphore slot (leak fix).
       pendingRead = null;
-      const { done, value } = outcome.r;
-      if (done) break;
-      if (!streamStarted.ttft) streamStarted.ttft = Date.now() - turnStartedAt;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      for (const line of lines) {
-        await flushLine(line);
-        lastWrite = Date.now();
-      }
+      await reader.cancel().catch(() => {});
     }
     if (usageBox.value !== null) {
       recordContentChars(sessionId, contentChars);

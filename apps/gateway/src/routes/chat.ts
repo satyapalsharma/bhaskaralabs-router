@@ -16,18 +16,26 @@ import { getQuotaState, quotaRejection } from "../lib/quotas";
 import { setQuotaHeaders, setRetryHeaders } from "../lib/quota-headers";
 import { writeLedger } from "../lib/ledger";
 import { pickKeyForSession, hyperChat, parseUsageNonStream, SseUsageAccumulator, type HyperUsage } from "../providers/hyper";
-import { agnesChat, agnesEnabled } from "../providers/agnes";
+import { agnesChat, agnesEnabled, markAgnesDead } from "../providers/agnes";
 import { stepfunChat, stepfunEnabled } from "../providers/stepfun";
 import { devpassChat, devpassEnabled } from "../providers/devpass";
+import { llmGatewayChat, llmGatewayEnabled } from "../providers/llmgateway";
 import { feihoaChat, feihoaEnabled, FEIHOA_MODEL, FEIHOA_MAX_OUTPUT, FEIHOA_INPUT_BUDGET } from "../providers/feihoa";
 import { yoloChat, yoloEnabled, YOLO_MODEL, YOLO_MAX_OUTPUT, YOLO_INPUT_BUDGET } from "../providers/yolo";
 import { fitUpstreamWindow } from "../lib/window-guard";
+import { recordYoloTurn } from "../lib/yolo-pressure";
 import { type RouterDecision, type BackchannelLane, FLASH_OF, backchannelNext, backchannelPrimary, failoverDecision } from "../router";
 import { decideTurn } from "../lib/decision";
 import messagesApp from "./messages";
 import { applyTerseToSystem, terseEnabled } from "../lib/terse";
 import { setNudgeHeader } from "../lib/fair-use";
 import { sanitizeOpenAiResponse, sanitizeOpenAiChunk } from "../lib/sanitize";
+
+/** TTFT ceiling for backchannel/lane first attempts (yolo/feihoa/llmgateway/
+ *  agnes/stepfun). Yolo wedges silently at pressure exhaustion (no 429, no
+ *  headers — just a hung connection); this caps the wait so failover fires
+ *  in seconds. Cleared once response headers arrive (stream body exempt). */
+const BACKCHANNEL_TTFT_CEILING_MS = 25_000;
 const app = new Hono();
 
 // ── Identity/disclosure line (disclosed routing variant) ──
@@ -92,6 +100,12 @@ function trackTurn(pending: PendingTurn, usage: HyperUsage | null, providerMeta?
     ms: Date.now() - pending.startedAt,
     ttft: pending.ttftMs ?? null,
   }));
+  // Yolo pressure: record this turn's units into the rolling 1h/24h windows
+  // (Terms §7 Builder: 3M/h, 14M/24h) — gates future turns away from the lane
+  // BEFORE the silent-queue wedge observed 2026-09-04.
+  if (pending.decision.provider === "yolo") {
+    recordYoloTurn(u.promptTokens - (u.cachedTokens ?? 0), u.cachedTokens ?? 0, u.completionTokens);
+  }
   // Empty-output streak: one record per completed turn (stream + non-stream).
   // contentChars is exact when captured (stream tap / non-stream JSON);
   // fall back to completion-token presence so missing capture can't fake an empty streak.
@@ -236,6 +250,23 @@ app.post("/v1/chat/completions", async (c) => {
     }
     return null;
   };
+  // Hyper-budget failover: hyper lane errored or its $12.5/day budget is out →
+  // hop to llmgateway with the SAME model id (verified same catalog upstreams).
+  const tryLlmGatewayFailover = async (cause: string): Promise<Response | null> => {
+    if (!llmGatewayEnabled() || usedDecision.provider === "llmgateway") return null;
+    const alt = failoverDecision(usedDecision, "llmgateway", cause);
+    console.log(JSON.stringify({ ev: "llmgateway-failover", from: usedDecision.provider, to: usedDecision.upstreamModel, cause: cause.slice(0, 80) }));
+    try {
+      const res = await attempt(alt);
+      if (res.ok) {
+        usedDecision = alt;
+        return res;
+      }
+    } catch {
+      // llmgateway also unreachable — give up on this chain
+    }
+    return null;
+  };
   try {
     upstream = await attempt(decision);
   } catch (err) {
@@ -260,17 +291,38 @@ app.post("/v1/chat/completions", async (c) => {
           usedDecision = degraded;
           console.log(JSON.stringify({ ev: "dispatch-degraded", from: decision.upstreamModel, to: flashModel, cause: String((err2 as Error).message).slice(0, 60) }));
         } catch (err3) {
-          console.error(`[dispatch ${decision.provider}] degraded attempt also failed:`, (err3 as Error).message);
+          // degraded flash also unreachable → llmgateway same-model hop.
+          const gw = await tryLlmGatewayFailover(`connection:${(err3 as Error).message.slice(0, 60)}`);
+          if (gw) {
+            upstream = gw;
+          } else {
+            console.error(`[dispatch ${decision.provider}] degraded attempt also failed:`, (err3 as Error).message);
+            return c.json({ error: { message: "Upstream provider temporarily unreachable", type: "api_error" } }, 502);
+          }
+        }
+      } else if (decision.provider === "hyper") {
+        // Hyper unreachable → llmgateway same-model hop (no backchannel fit needed).
+        const gw = await tryLlmGatewayFailover(`connection:${(err2 as Error).message.slice(0, 60)}`);
+        if (gw) {
+          upstream = gw;
+        } else {
+          console.error(`[dispatch ${decision.provider}] connection failure:`, (err2 as Error).message);
           return c.json({ error: { message: "Upstream provider temporarily unreachable", type: "api_error" } }, 502);
         }
       } else {
-        // Backchannel lane unreachable → hop to the next lane in the chain.
+        // Backchannel lane unreachable → hop to the next lane in the chain,
+        // then llmgateway if the chain end also fails.
         const hop = await tryBackchannelFailover(`connection:${(err2 as Error).message.slice(0, 60)}`, 502);
         if (hop) {
           upstream = hop;
         } else {
-          console.error(`[dispatch ${decision.provider}] connection failure:`, (err2 as Error).message);
-          return c.json({ error: { message: "Upstream provider temporarily unreachable", type: "api_error" } }, 502);
+          const gw = await tryLlmGatewayFailover(`connection:${(err2 as Error).message.slice(0, 60)}`);
+          if (gw) {
+            upstream = gw;
+          } else {
+            console.error(`[dispatch ${decision.provider}] connection failure:`, (err2 as Error).message);
+            return c.json({ error: { message: "Upstream provider temporarily unreachable", type: "api_error" } }, 502);
+          }
         }
       }
     }
@@ -281,9 +333,43 @@ app.post("/v1/chat/completions", async (c) => {
     const hop = await tryBackchannelFailover(errText, upstream.status);
     if (hop) {
       upstream = hop;
+    } else if (usedDecision.provider === "hyper") {
+      // Hyper returned an error status (e.g. 402 credits, 429, 5xx) → same-model
+      // llmgateway hop. Agnes 402 (dead subscription) also lands here via theta chain.
+      const gw = await tryLlmGatewayFailover(`status ${upstream.status}: ${errText.slice(0, 60)}`);
+      if (gw) {
+        upstream = gw;
+      } else {
+        console.error(`[upstream ${usedDecision.provider}] ${upstream.status}: ${errText.slice(0, 500)}`);
+        return c.json({ error: { message: `Upstream error ${upstream.status}`, type: "api_error" } }, 502);
+      }
     } else {
-      console.error(`[upstream ${usedDecision.provider}] ${upstream.status}: ${errText.slice(0, 500)}`);
-      return c.json({ error: { message: `Upstream error ${upstream.status}`, type: "api_error" } }, 502);
+      // Theta/bootstrap lane returned an error status (agnes 401/402 dead
+      // subscription observed live 2026-09-04) → mark the lane dead so the
+      // re-decide naturally skips it, then hop down the theta chain.
+      if (usedDecision.provider === "agnes" && (upstream.status === 401 || upstream.status === 402)) markAgnesDead();
+      // re-decide with the failed provider's lane marked unavailable, which
+      // naturally lands on stepfun → yolo → hyper-flash → llmgateway.
+      console.log(JSON.stringify({ ev: "theta-failover", from: usedDecision.provider, status: upstream.status, cause: errText.slice(0, 60) }));
+      const retry = await decideTurn(auth, sessionId, endpointModel, messages, lane);
+      if (retry.provider !== usedDecision.provider) {
+        try {
+          const res = await attempt(retry);
+          if (res.ok) {
+            usedDecision = retry;
+            upstream = res;
+          } else {
+            console.error(`[upstream ${usedDecision.provider}] ${upstream.status}: ${errText.slice(0, 500)}`);
+            return c.json({ error: { message: `Upstream error ${upstream.status}`, type: "api_error" } }, 502);
+          }
+        } catch {
+          console.error(`[upstream ${usedDecision.provider}] ${upstream.status}: ${errText.slice(0, 500)}`);
+          return c.json({ error: { message: `Upstream error ${upstream.status}`, type: "api_error" } }, 502);
+        }
+      } else {
+        console.error(`[upstream ${usedDecision.provider}] ${upstream.status}: ${errText.slice(0, 500)}`);
+        return c.json({ error: { message: `Upstream error ${upstream.status}`, type: "api_error" } }, 502);
+      }
     }
   }
   const isStream = obj.stream === true;
@@ -301,7 +387,8 @@ app.post("/v1/chat/completions", async (c) => {
     const json: unknown = await upstream.json();
     const usage = extractUsage(json);
     pending.contentChars = contentCharsOf(json);
-    trackTurn(pending, usage, compactionMeta);
+    const hyperMeta = extractHyperMeta(json);
+    trackTurn(pending, usage, { ...(compactionMeta ?? {}), ...(hyperMeta ?? {}) });
     return c.json(sanitizeOpenAiResponse(json, endpointModel));
   }
 
@@ -322,49 +409,61 @@ app.post("/v1/chat/completions", async (c) => {
     const KEEPALIVE_MS = 25_000;
     let lastWrite = Date.now();
     let pendingRead: Promise<UpstreamChunk> | null = null;
-    while (true) {
-      if (!pendingRead) pendingRead = reader.read();
-      const wait = Math.max(500, KEEPALIVE_MS - (Date.now() - lastWrite));
-      const outcome = await Promise.race([
-        pendingRead.then((r) => ({ t: "read" as const, r })),
-        new Promise<{ t: "keep" }>((res) => setTimeout(() => res({ t: "keep" }), wait)),
-      ]);
-      if (outcome.t === "keep") {
-        await stream.write(": keepalive\n\n");
-        lastWrite = Date.now();
-        continue;
+    // FINALLY: guaranteed cleanup — reader cancel (releases upstream backchannel
+    // semaphore slots via wrapRelease.cancel()) even when the loop throws
+    // (connection reset, client abort, keepalive write failure). Without this,
+    // error paths LEAK yolo/feihoa slots and the whole lane goes "busy" forever.
+    try {
+      while (true) {
+        if (!pendingRead) pendingRead = reader.read();
+        const wait = Math.max(500, KEEPALIVE_MS - (Date.now() - lastWrite));
+        const outcome = await Promise.race([
+          pendingRead.then((r) => ({ t: "read" as const, r })),
+          new Promise<{ t: "keep" }>((res) => setTimeout(() => res({ t: "keep" }), wait)),
+        ]);
+        if (outcome.t === "keep") {
+          await stream.write(": keepalive\n\n");
+          lastWrite = Date.now();
+          continue;
+        }
+        pendingRead = null;
+        const { done, value } = outcome.r;
+        if (done) break;
+        const text = decoder.decode(value, { stream: true });
+        if (!ttftSet) {
+          pending.ttftMs = Date.now() - pending.startedAt;
+          ttftSet = true;
+        }
+        buffer += text;
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) {
+            await stream.write(line + "\n");
+            lastWrite = Date.now();
+            continue;
+          }
+          const data = line.slice(6).trim();
+          if (!data || data === "[DONE]") {
+            await stream.write(line + "\n");
+            lastWrite = Date.now();
+            continue;
+          }
+          acc.feed(data);
+          const sanitized = sanitizeOpenAiChunk(data, endpointModel);
+          if (sanitized !== "__DROP__") await stream.write(`data: ${sanitized}\n\n`);
+          lastWrite = Date.now();
+        }
       }
+      pending.contentChars = acc.contentChars;
+      const hyperMeta = acc.usage ? extractHyperMeta({ usage: acc.usage }) : undefined;
+      trackTurn(pending, acc.usage, { ...(compactionMeta ?? {}), ...(hyperMeta ?? {}) });
+    } finally {
+      // release the upstream reader on ANY exit path (normal, error, abort)
+      // — this fires wrapRelease.cancel() which releases the lane slot.
       pendingRead = null;
-      const { done, value } = outcome.r;
-      if (done) break;
-      const text = decoder.decode(value, { stream: true });
-      if (!ttftSet) {
-        pending.ttftMs = Date.now() - pending.startedAt;
-        ttftSet = true;
-      }
-      buffer += text;
-      const lines = buffer.split("\n");
-      buffer = lines.pop() ?? "";
-      for (const line of lines) {
-        if (!line.startsWith("data: ")) {
-          await stream.write(line + "\n");
-          lastWrite = Date.now();
-          continue;
-        }
-        const data = line.slice(6).trim();
-        if (!data || data === "[DONE]") {
-          await stream.write(line + "\n");
-          lastWrite = Date.now();
-          continue;
-        }
-        acc.feed(data);
-        const sanitized = sanitizeOpenAiChunk(data, endpointModel);
-        if (sanitized !== "__DROP__") await stream.write(`data: ${sanitized}\n\n`);
-        lastWrite = Date.now();
-      }
+      await reader.cancel().catch(() => {});
     }
-    pending.contentChars = acc.contentChars;
-    trackTurn(pending, acc.usage, compactionMeta);
   });
 });
 
@@ -382,10 +481,19 @@ function dispatchUpstream(
   terse = false,
 ): Promise<Response> {
   const payload = { ...originalBody, messages: withIdentity(messages, endpointModel, terse), model: decision.upstreamModel, stream_options: { include_usage: true } };
-  const signal = AbortSignal.timeout(10 * 60 * 1000); // 10-min ceiling for long generations
+  // Backchannel lanes hang when their backend wedges (observed 2026-09-04:
+  // yolo /models served fine but /chat/completions hung 60s+). A tight
+  // TTFT-style ceiling caps the CONNECT+HEADERS phase so failover to the
+  // next lane fires in seconds, not minutes. Once headers arrive, the timer
+  // is cleared — the streaming body keeps its own generous ceiling below.
+  const ttftMs = decision.provider === "hyper" ? 10 * 60 * 1000 : BACKCHANNEL_TTFT_CEILING_MS;
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(new Error("backchannel ttft ceiling")), ttftMs);
+  const signal = ac.signal;
+  const clearTtft = () => clearTimeout(timer);
   if (decision.provider === "hyper") {
     const key = pickKeyForSession(hyperKeys(), sessionId);
-    return hyperChat({ model: decision.upstreamModel, body: payload, apiKey: key.key, signal });
+    return hyperChat({ model: decision.upstreamModel, body: payload, apiKey: key.key, signal }).finally(clearTtft);
   }
   if (decision.provider === "feihoa") {
     // Backchannel: unique Idempotency-Key per dispatch — feihoa replays are
@@ -398,7 +506,7 @@ function dispatchUpstream(
       apiKey: process.env.FEIHOA_API_KEY ?? "",
       idempotencyKey: randomUUID(),
       signal,
-    });
+    }).finally(clearTtft);
   }
   if (decision.provider === "yolo") {
     // Backchannel failover lane: 128K window, no idempotency-key protocol.
@@ -407,23 +515,45 @@ function dispatchUpstream(
       body: { ...p, model: YOLO_MODEL },
       apiKey: process.env.YOLO_AUTO_API_KEY ?? "",
       signal,
-    });
+    }).finally(clearTtft);
+  }
+  if (decision.provider === "llmgateway") {
+    // Paid fallback lane behind hyper — same model ids, no upstream caching.
+    const apiKey = process.env.LLMGATEWAY_API_KEY ?? "";
+    return llmGatewayChat({ model: decision.upstreamModel, body: payload, apiKey, signal }).finally(clearTtft);
   }
   if (decision.provider === "agnes") {
     const apiKey = process.env.AGNES_API_KEY ?? "";
-    return agnesChat({ model: decision.upstreamModel, body: payload, apiKey, signal });
+    return agnesChat({ model: decision.upstreamModel, body: payload, apiKey, signal }).finally(clearTtft);
   }
   if (decision.provider === "stepfun") {
     const apiKey = process.env.STEPFUN_API_KEY ?? "";
-    return stepfunChat({ model: decision.upstreamModel, body: payload, apiKey, signal });
+    return stepfunChat({ model: decision.upstreamModel, body: payload, apiKey, signal }).finally(clearTtft);
   }
   const apiKey = process.env.DEVPASS_API_KEY ?? "";
-  return devpassChat({ model: decision.upstreamModel, body: payload, apiKey, signal });
+  return devpassChat({ model: decision.upstreamModel, body: payload, apiKey, signal }).finally(clearTtft);
 }
 
 function extractUsage(json: unknown): HyperUsage | null {
   if (typeof json !== "object" || json === null || !("usage" in json)) return null;
   return parseUsageNonStream(json);
+}
+
+/** Extract Hyper cost/credits metadata for the ledger's provider_meta column.
+ *  Hyper returns cost.usd, cost.hypercredits, remaining.hypercredits per call.
+ *  Storing these gives us the TRUE billed amount, not just our computed estimate. */
+function extractHyperMeta(json: unknown): Record<string, unknown> | undefined {
+  if (typeof json !== "object" || json === null) return undefined;
+  const obj = json as Record<string, unknown>;
+  const usage = obj.usage as Record<string, unknown> | undefined;
+  if (!usage || typeof usage !== "object") return undefined;
+  const cost = usage.cost as Record<string, unknown> | undefined;
+  const remaining = usage.remaining as Record<string, unknown> | undefined;
+  const meta: Record<string, unknown> = {};
+  if (cost && typeof cost.usd === "number") meta.hyperCostUsd = cost.usd;
+  if (cost && typeof cost.hypercredits === "number") meta.hypercredits = cost.hypercredits;
+  if (remaining && typeof remaining.hypercredits === "number") meta.hyperRemaining = remaining.hypercredits;
+  return Object.keys(meta).length > 0 ? meta : undefined;
 }
 
 async function decide(auth: AuthContext, sessionId: string, endpointModel: string, messages: ChatMessage[], lane?: BackchannelLane): Promise<RouterDecision> {
@@ -433,6 +563,6 @@ async function decide(auth: AuthContext, sessionId: string, endpointModel: strin
 // Anthropic-compat endpoint (Claude Code / Crush) — full router pipeline
 app.route("/", messagesApp);
 
-app.get("/health", (c) => c.json({ ok: true, providers: { agnes: agnesEnabled(), stepfun: stepfunEnabled(), devpass: devpassEnabled(), feihoa: feihoaEnabled(), yolo: yoloEnabled() }, backchannel: process.env.BHASKARA_BACKCHANNEL === "feihoa" && feihoaEnabled() ? "feihoa" : null }));
+app.get("/health", (c) => c.json({ ok: true, providers: { agnes: agnesEnabled(), stepfun: stepfunEnabled(), devpass: devpassEnabled(), feihoa: feihoaEnabled(), yolo: yoloEnabled(), llmgateway: llmGatewayEnabled() }, backchannel: process.env.BHASKARA_BACKCHANNEL === "feihoa" && feihoaEnabled() ? "feihoa" : null }));
 
 export default app;

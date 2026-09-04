@@ -21,7 +21,7 @@ export const THETA_DISPLAY: RateCard = { input: 0.20, cacheHit: 0.04, output: 0.
 export const HYPER: Record<string, RateCard> = {
   "glm-5.3":            { input: 1.52432, output: 4.79072, cacheHit: 0.283088 },
   "glm-5.3-flash":      { input: 0.16332, output: 0.5444,  cacheHit: 0.0315752 },
-  "qwen3.8-max":        { input: 2.0,     output: 6.0,     cacheHit: 0.25 },
+  "qwen3.8-max":        { input: 2.833,   output: 7.333,   cacheHit: 0.25 },  // verified live 2026-09-04: reverse-engineered from Hyper cost.usd
   "qwen3.8-flash":      { input: 0.15,    output: 0.47,    cacheHit: 0.016 },
   "deepseek-v4-flash":  { input: 0.2,     output: 0.4,     cacheHit: 0.04 },
 };
@@ -63,7 +63,7 @@ export type Plan = {
 export const PLANS: Record<Plan["id"], Plan> = {
   free:     { id: "free",     priceUsd: 0,  priceInr: 0,    frontierInputM: 1,  frontierOutputM: 0.25, thetaPer5h: 0,   thetaMonthly: 100 },
   basic:    { id: "basic",    priceUsd: 15, priceInr: 1500, frontierInputM: 20,  frontierOutputM: 5,   thetaPer5h: 400, thetaMonthly: 57_600 },
-  advanced: { id: "advanced", priceUsd: 30, priceInr: 3000, frontierInputM: 40,  frontierOutputM: 10,  thetaPer5h: 800, thetaMonthly: 115_200 },
+  advanced: { id: "advanced", priceUsd: 30, priceInr: 3000, frontierInputM: 500,  frontierOutputM: 100,  thetaPer5h: 8000, thetaMonthly: 1_000_000 },
 };
 
 // ── Router policy ──

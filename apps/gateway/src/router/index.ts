@@ -21,7 +21,7 @@ export interface RouterSignals {
 }
 
 export interface RouterDecision {
-  provider: "hyper" | "devpass" | "agnes" | "stepfun" | "feihoa" | "yolo";
+  provider: "hyper" | "devpass" | "agnes" | "stepfun" | "feihoa" | "yolo" | "llmgateway";
   upstreamModel: string;
   tier: "full" | "flash";
   effort: EffortLevel;
@@ -130,39 +130,53 @@ export function route(signals: RouterSignals): RouterDecision {
   };
 }
 
-// theta routing: cheap turns → first enabled bootstrap backend (agnes → stepfun → devpass);
-// hard turns → devpass deepseek (best reasoning of the three; falls back through chain too).
+// theta routing (v2 redesign 2026-09-04): a full cheap-first chain.
+//   agnes (4 concurrent) → stepfun (8 concurrent) → yolo (free, pressure-gated)
+//   → glm-5.3-flash on Hyper (till $12.5/day) → glm-5.3-flash on llmgateway.
+// Concurrency semaphores + pressure/budget gates are caller-supplied booleans.
 export interface ThetaBackends {
   agnes: boolean;
+  agnesFree: boolean;       // 4-slot semaphore
   stepfun: boolean;
-  devpass: boolean;
+  stepfunFree: boolean;     // 8-slot semaphore
+  yolo: boolean;
+  yoloFree: boolean;
+  yoloPressureOk: boolean;
+  hyperBudgetOk: boolean;
+  llmGatewayOn: boolean;
 }
 
 export function routeTheta(text: string, backends: ThetaBackends): RouterDecision {
   const hardness = classifyHardness(text);
   const hard = hardness === "debugging" || hardness === "planning";
-  // Preference: hard → devpass first (deepseek reasons best); routine → agnes first (flat cost).
-  const chain: Array<{ id: "devpass" | "agnes" | "stepfun"; model: string }> = hard
+  // Chain order (user-specified): agnes → stepfun → yolo → hyper flash → llmgateway.
+  // step-3.7-flash reasons better than agnes-2.5-flash, so on HARD theta turns
+  // prefer stepfun first when both are free (both flat-cost; quality wins).
+  type Lane = { id: RouterDecision["provider"]; model: string; ok: boolean; why: string };
+  const chain: Lane[] = hard
     ? [
-        { id: "devpass", model: "deepseek-v4-flash-0731" },
-        { id: "stepfun", model: "step-3.7-flash" },
-        { id: "agnes", model: "agnes-2.5-flash" },
+        { id: "stepfun", model: "step-3.7-flash", ok: backends.stepfun && backends.stepfunFree, why: "theta-hard=stepfun" },
+        { id: "agnes", model: "agnes-2.5-flash", ok: backends.agnes && backends.agnesFree, why: "theta-hard=agnes" },
       ]
     : [
-        { id: "agnes", model: "agnes-2.5-flash" },
-        { id: "stepfun", model: "step-3.7-flash" },
-        { id: "devpass", model: "deepseek-v4-flash-0731" },
+        { id: "agnes", model: "agnes-2.5-flash", ok: backends.agnes && backends.agnesFree, why: "theta-routine=agnes" },
+        { id: "stepfun", model: "step-3.7-flash", ok: backends.stepfun && backends.stepfunFree, why: "theta-routine=stepfun" },
       ];
-  const pick = chain.find((b) => backends[b.id]);
+  chain.push(
+    { id: "yolo", model: YOLO_MODEL, ok: backends.yolo && backends.yoloFree && backends.yoloPressureOk, why: `theta-${hard ? "hard" : "routine"}=yolo` },
+    { id: "hyper", model: "glm-5.3-flash", ok: backends.hyperBudgetOk, why: `theta-${hard ? "hard" : "routine"}=hyper-flash` },
+    { id: "llmgateway", model: "glm-5.3-flash", ok: backends.llmGatewayOn, why: `theta-${hard ? "hard" : "routine"}=llmgateway-flash` },
+  );
+  const pick = chain.find((lane) => lane.ok);
   if (!pick) {
-    return { provider: "devpass", upstreamModel: "deepseek-v4-flash-0731", tier: "flash", effort: "low", reason: "theta-no-backend", hardCapped: false };
+    return { provider: "hyper", upstreamModel: "glm-5.3-flash", tier: "flash", effort: "low", reason: "theta-no-backend(last-resort-hyper)", hardCapped: false };
   }
   return {
     provider: pick.id,
     upstreamModel: pick.model,
     tier: "flash",
     effort: "low",
-    reason: hard ? `theta-hard=${hardness}` : `theta-routine=${hardness}`,
+    reason: pick.why,
     hardCapped: false,
   };
 }
@@ -206,40 +220,47 @@ export function backchannelNext(
 
 
 /**
- * qwen-3.8 smart routing across four upstream lanes (cost + quality + context aware):
- *   hard/planning turns      → qwen3.8-max   (Hyper, paid, best quality)
- *   routine, ctx ≤ feihoa    → feihoa        (free, 32K, concurrency 1)
- *   routine, ctx ≤ yolo      → yolo          (free, 128K, concurrency 4)
- *   routine, ctx > yolo / free off → qwen3.8-flash (Hyper, paid, unlimited)
- * Free lanes are $0 COGS so they win when they fit; Hyper is the reliability
- * + quality backstop. Failover (backchannelNext) still chains feihoa→yolo→flash.
+ * qwen-3.8 smart routing (v2 chain redesign 2026-09-04):
+ *   routine: yolo (free, pressure-gated) → qwen3.8-flash on Hyper (till $12.5/day)
+ *            → qwen3.8-flash on llmgateway (paid fallback)
+ *   hard:    qwen3.8-max on Hyper (till $12.5/day) → qwen3.8-max on llmgateway
+ * Pressure/budget gates are evaluated by the caller (decision.ts) and passed
+ * in as booleans — this function stays pure/synchronous.
  */
 export function routeQwenSmart(signals: {
   hardness: RouterSignals["hardness"];
   prefixTokens: number;
   fullShareThisWeek: number;
-  feihoaOn: boolean;
-  feihoaFree: boolean; // semaphore: is feihoa's single slot idle right now?
   yoloOn: boolean;
-  yoloFree: boolean; // semaphore: does yolo have a free slot (<4 in flight)?
-  feihoaBudget: number;
-  yoloBudget: number;
+  yoloFree: boolean;            // semaphore: does yolo have a free slot (<4 in flight)?
+  yoloPressureOk: boolean;     // pressure tracker: below soft edge, and this turn won't overflow
+  hyperBudgetOk: boolean;       // $12.5/day global budget has headroom
+  llmGatewayOn: boolean;
 }): RouterDecision {
   const hard = signals.hardness === "planning" || signals.hardness === "debugging" || signals.hardness === "architect";
   if (hard && signals.fullShareThisWeek < ROUTER.fullShareCapPerUserPerWeek) {
-    return { provider: "hyper", upstreamModel: "qwen3.8-max", tier: "full", effort: "max", reason: `smart-qwen=hard:${signals.hardness}`, hardCapped: false };
+    if (signals.hyperBudgetOk) {
+      return { provider: "hyper", upstreamModel: "qwen3.8-max", tier: "full", effort: "max", reason: `smart-qwen=hard:${signals.hardness}`, hardCapped: false };
+    }
+    if (signals.llmGatewayOn) {
+      return { provider: "llmgateway", upstreamModel: "qwen3.8-max", tier: "full", effort: "max", reason: `smart-qwen=hard:${signals.hardness}(hyper-budget-out)`, hardCapped: false };
+    }
   }
-  // FLIPPED (data-driven 2026-09-03): yolo is ~2.8x faster (29.6 vs 10.4 median
-  // out-TPS) and has 4 slots, so it is the PRIMARY free lane. feihoa (slow,
-  // 1 slot) is the SECONDARY free lane, used only when yolo's 4 slots are all
-  // busy and context fits feihoa's 32K window. hyper flash is the backstop.
-  if (signals.yoloOn && signals.yoloFree && signals.prefixTokens <= signals.yoloBudget) {
+  // Routine: yolo primary (free, fastest) — pressure-gated so we never wedge the lane.
+  if (signals.yoloOn && signals.yoloFree && signals.yoloPressureOk) {
     return { provider: "yolo", upstreamModel: YOLO_MODEL, tier: "flash", effort: "low", reason: "smart-qwen=yolo", hardCapped: false };
   }
-  if (signals.feihoaOn && signals.feihoaFree && signals.prefixTokens <= signals.feihoaBudget) {
-    return { provider: "feihoa", upstreamModel: FEIHOA_MODEL, tier: "flash", effort: "low", reason: "smart-qwen=feihoa(yolo-busy)", hardCapped: false };
+  // Hyper flash backstop (cheap paid) while the daily budget holds.
+  if (signals.hyperBudgetOk) {
+    return { provider: "hyper", upstreamModel: "qwen3.8-flash", tier: "flash", effort: "low", reason: `smart-qwen=flash(${signals.yoloOn ? "yolo-pressured" : "yolo-off"})`, hardCapped: false };
   }
-  return { provider: "hyper", upstreamModel: "qwen3.8-flash", tier: "flash", effort: "low", reason: "smart-qwen=flash", hardCapped: false };
+  // llmgateway flash — final fallback (paid, no cache, but always available).
+  if (signals.llmGatewayOn) {
+    return { provider: "llmgateway", upstreamModel: "qwen3.8-flash", tier: "flash", effort: "low", reason: "smart-qwen=llmgateway-flash(hyper-budget-out)", hardCapped: false };
+  }
+  // Nothing else enabled — last resort on hyper even past budget (better an
+  // overage than a hard failure; admin alert covers the budget breach).
+  return { provider: "hyper", upstreamModel: "qwen3.8-flash", tier: "flash", effort: "low", reason: "smart-qwen=flash(no-alternative)", hardCapped: false };
 }
 /** Failover decision: same turn, same (already window-fitted) messages, new lane. */
 export function failoverDecision(d: RouterDecision, to: RouterDecision["provider"], cause: string): RouterDecision {
