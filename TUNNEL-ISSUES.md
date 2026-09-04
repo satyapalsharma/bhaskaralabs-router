@@ -2295,3 +2295,18 @@ wedge — correct for yolo, wrong scope for stepfun.
 - [2026-09-04 23:59] stream/dispatch-error (gw) — 13/5204","raw":16451,"cached":16640,"ms":66344,"ttft":null} [dispatch yolo] attempt 1 failed (backchannel ttft ceiling), retrying [dispatch yolo] attempt 1 failed (backchannel ttft
 - [2026-09-04 23:59] stream/dispatch-error (gw) — yolo] attempt 1 failed (backchannel ttft ceiling), retrying [dispatch llmgateway] connection failure: backchannel ttft ceiling [dispatch yolo] attempt 1 failed (backchannel ttft ce
 - [2026-09-04 23:59] stream/dispatch-error (gw) — ch llmgateway] connection failure: backchannel ttft ceiling [dispatch yolo] attempt 1 failed (backchannel ttft ceiling), retrying {"ev":"turn","user":"ccf19648","session":"cc734e71
+
+## 2026-09-04 (full log sweep, commit 6a1cac6)
+
+Issues found in a complete pass over both gateway logs + ledger:
+1. **Client-disconnect waste**: cancelled clients left 12-min 25K-token
+   generations running on Hyper (~$0.83 wasted in one hour across 27 turns).
+   Fixed: c.req.raw.signal propagates to upstream AbortController (both
+   routes), retry-skip on abort.
+2. **llmgateway TTFT mis-scoping**: 25s ceiling failed 25 turns (its p90 is
+   41s) with 502s. Ceiling was for yolo's silent wedge; llmgateway has no
+   server concurrency slots — exempted (10-min like hyper).
+3. **stepfun 'current: 10' max observed** — pre-fix zombie waves; mirror
+   now 6/8 with cooldown, ceiling exempt.
+Known-benign: feihoa 429 single-retry (by design); feihoa 27B empty-output
+(escalation streak handles); ngrok GET /health 404 (route cosmetic).
