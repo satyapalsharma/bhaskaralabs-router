@@ -1748,3 +1748,39 @@ Format: `[timestamp] severity — issue — evidence — proposed fix`
 
 ## check 2026-09-04 22:11 — turns=1 failovers=0 cache_hit=0% max_billed=102
 - no new issues
+
+## 2026-09-04 (routing redesign verified live, commit 281e158)
+
+### Root causes found today
+1. **Yolo slot leak** — stream loops (chat.ts/messages.ts) had no finally; error/abort
+   paths never cancelled the reader → 841 turns dumped onto paid qwen3.8-flash.
+2. **Yolo silent wedge = pressure exhaustion** (Terms §7): at 78-82% of the 14M/24h
+   Builder window yolo hangs /chat/completions with NO 429/headers. Wedge windows:
+   02:00 (6.3M rolling-24h) and 18:00 (11.4M rolling-24h = 82%).
+3. **Hyper COGS understated ~33%** — qwen3.8-max real rates in $2.833/out $7.333
+   per M (reverse-engineered from cost.usd on 4 live calls). Ledger $15.42 vs
+   real ~$19.19 all-time. Fixed in pricing.ts.
+4. **Agnes paid key dead** — 402 subscription_not_found on apihub.agnes-ai.com/v1.
+   Dead-lane cooldown auto-skips it for 30min after first 401/402.
+
+### New systems live (all verified end-to-end through the tunnel)
+- **Yolo pressure tracker**: ring buffer, ledger-seeded at boot (10.95M/24h on
+  restart = softDeny correctly true). Gate: soft 60%, hard 75% of 3M/1h & 14M/24h.
+- **Hyper $12.5/day budget gate**: ledger spend + in-flight reservations;
+  budget-out → same-model llmgateway hop. Confirmed: "hardness=routine,
+  full-share 10.0% → hyper-budget-out" then glm-5.3-flash served by llmgateway.
+- **LLGateway fallback lane** (api.llmgateway.io): qwen3.8-max/27b/flash,
+  glm-5.3/flash, OpenAI + Anthropic endpoints, NO upstream caching → fallback only.
+- **Theta chain**: agnes→stepfun→yolo→hyper-flash→llmgateway (agnes 401 →
+  markDead → stepfun served in 8s; second theta direct-stepfun 4.3s).
+- **25s TTFT ceiling** on backchannel first attempts — yolo wedge failover now
+  fires in ~25s instead of 60s+.
+
+### Watch next run
+- Yolo 24h window drains over time; when below 60% (8.4M) tracker re-admits yolo.
+- Hyper budget resets at local midnight — llmgateway carries the tail today.
+- llmgateway latency: 27b ~13s (measured) vs yolo 29.6 TPS — yolo stays primary
+  when pressure allows.
+
+## check 2026-09-04 22:23 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
