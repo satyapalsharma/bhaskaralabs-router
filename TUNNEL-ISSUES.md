@@ -2442,3 +2442,20 @@ guards now, honestly labeled: 'yolo-pressured' (account budget) vs
 
 ## check 2026-09-05 01:59 — turns=3 failovers=0 cache_hit=77% max_billed=7488
 - no new issues
+
+## 2026-09-05 (feihoa primary flip + bounce-loop fix, commit 6d23f89)
+
+**Feihoa upgrade verified**: TPS 3.4 → 28-30 (~8x, live probes). Concurrency
+STILL 1 (429 account_concurrency_limit on parallel). Flip: feihoa primary,
+yolo overflow (4 slots). Chain: feihoa → yolo → hyper-flash → llmgateway.
+
+**Bounce-loop root cause** (the 90s T2 hang + 502): during feihoa-busy
+bursts, failover ping-ponged feihoa↔yolo — tryBackchannelFailover only
+checked enabled(), not slot/wedge health, so it dispatched into a wedged
+yolo at 25s per hop; same-lane retry doubled it to 50s. Fixes: health
+gates, no-retry-on-ttft-ceiling, connectionFailover() unified chain with
+paid-flash terminal fallback, 15s bootstrap probe that pre-marks wedge.
+
+**Yolo recovered** during testing (global capacity returned; direct probes
+2.7-5.6s). Bootstrap now server-syncs 10.94M/14M used, softDeny=false.
+3-parallel live test: feihoa 4.1s + 2× yolo 3.7/5.4s, 0 failures.
