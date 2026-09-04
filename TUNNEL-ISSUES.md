@@ -1817,3 +1817,14 @@ Format: `[timestamp] severity — issue — evidence — proposed fix`
 - [2026-09-04 23:11] stream/dispatch-error (gw) — 1262/631","raw":9689,"cached":10496,"ms":18931,"ttft":null} [dispatch stepfun] attempt 1 failed (backchannel ttft ceiling), retrying [dispatch stepfun] attempt 1 failed (backchanne
 - [2026-09-04 23:11] stream/dispatch-error (gw) — pfun] attempt 1 failed (backchannel ttft ceiling), retrying [dispatch stepfun] attempt 1 failed (backchannel ttft ceiling), retrying [upstream stepfun] 429: {"error":{"message":"co
 - [2026-09-04 23:11] stream/dispatch-error (gw) — ency reached, current: 9, limit: 8","type":"rate_limited"}} [dispatch yolo] attempt 1 failed (backchannel ttft ceiling), retrying {"ev":"turn","user":"ccf19648","session":"cc734e71
+
+## 2026-09-04 (theta 429 fix, commit 6d899a5)
+
+**38 upstream-429s on theta = StepFun concurrency exhaustion.**
+- Server limit is 8 concurrent (error body: "concurrency reached, current: 9,
+  limit: 8"). Theta bursts run 20-54 turns/min at ~10-19s/req → 8 slots
+  saturated → our failover retry burst pushed server to 9 → 429 loop.
+- 317 stepfun 429s vs 259 served = 122% request waste pre-fix.
+- Fixes: mirror 6/8 slots, non-2xx instant slot release, 20s 429 lane cooldown.
+- 12-way burst verified post-fix: 0 failed turns; overflow absorbed by
+  llmgateway glm-5.3-flash (9 turns @ 1.2-3.5s) + 3 stepfun turns.
