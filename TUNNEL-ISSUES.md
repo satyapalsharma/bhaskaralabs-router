@@ -2231,3 +2231,18 @@ Format: `[timestamp] severity — issue — evidence — proposed fix`
 - [2026-09-04 23:47] stream/dispatch-error (gw) — pfun] attempt 1 failed (backchannel ttft ceiling), retrying [dispatch yolo] attempt 1 failed (backchannel ttft ceiling), retrying [upstream stepfun] 429: {"error":{"message":"concu
 - [2026-09-04 23:47] stream/dispatch-error (gw) — ":"16151/31","raw":15050,"cached":0,"ms":16707,"ttft":null} [dispatch yolo] attempt 1 failed (backchannel ttft ceiling), retrying {"ev":"turn","user":"ccf19648","session":"cc734e71
 - [2026-09-04 23:47] stream/dispatch-error (gw) — :"18858/113","raw":16973,"cached":0,"ms":60991,"ttft":null} [dispatch yolo] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"t
+
+## 2026-09-04 (zombie correction — why 8/8 still 429'd)
+
+Q: user-specified limits (stepfun 8, agnes 4) were correctly implemented —
+why did the server report current:9, limit:8?
+A: client/server accounting drift. Two contributors:
+1. **TTFT-ceiling zombies**: 25s aborts on stepfun (p90=24s → ~10% of turns
+   crossed it) release OUR slot but StepFun keeps the request running
+   server-side, holding its slot. Zombie waves + fresh dispatches = 8+ on
+   the server while our mirror read <8. Fixed: stepfun exempt from the
+   25s ceiling (10-min, same as hyper).
+2. **429 double-count**: non-2xx responses held the slot until body-consume
+   while theta-failover already re-dispatched (fixed in prior commit).
+Caveat owned: the 25s ceiling itself was my earlier change for the yolo
+wedge — correct for yolo, wrong scope for stepfun.
