@@ -2380,3 +2380,19 @@ all along — our false 184% signal had it locked out for hours.
 
 ## check 2026-09-05 01:11 — turns=122 failovers=0 cache_hit=64% max_billed=29787
 - [2026-09-05 01:11] stream/dispatch-error (gw) — ":"7620/4713","raw":4451,"cached":0,"ms":53227,"ttft":null} [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+
+## 2026-09-05 (official pressure formula, commit e1dcf0f)
+
+User supplied Yolo-Auto's EXACT pressure formula:
+  cost = max(4096, uncached + max(0, uncached-4096) + ceil(cached/32) + 5*output)
+My derived model (output 28.73/token) was wrong in shape; D-probe match
+was coincidental (30013 + 25917 + 25 ≈ 55955). Official formula now
+implemented verbatim; A/D/E probe cases verified exactly.
+
+Overflow policy (user): >100% pressure = slower but flows; soft 130%,
+hard 150%. Implemented.
+
+Key diagnosis: current wedge (models 200/1.1s, chat timeout, pressure
+77%) is GLOBAL capacity/infra — NOT account pressure. Two separate
+guards now, honestly labeled: 'yolo-pressured' (account budget) vs
+'yolo-cooling' (wedge cooldown from TTFT aborts).
