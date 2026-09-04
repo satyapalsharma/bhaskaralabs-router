@@ -487,7 +487,13 @@ function dispatchUpstream(
   // TTFT-style ceiling caps the CONNECT+HEADERS phase so failover to the
   // next lane fires in seconds, not minutes. Once headers arrive, the timer
   // is cleared — the streaming body keeps its own generous ceiling below.
-  const ttftMs = decision.provider === "hyper" ? 10 * 60 * 1000 : BACKCHANNEL_TTFT_CEILING_MS;
+  // Stepfun EXEMPT from the 25s ceiling: aborting a slow stepfun request
+  // creates a ZOMBIE server-side (StepFun keeps generating + holding one of
+  // its 8 concurrency slots; the response is never read). Zombies were the
+  // root cause of the 429 shower ("current: 9, limit: 8") — our mirror said
+  // 0 in flight while the server ran 8+. stepfun p90=24s sits right at the
+  // ceiling, so ~10% of turns aborted into zombies under load.
+  const ttftMs = decision.provider === "hyper" || decision.provider === "stepfun" ? 10 * 60 * 1000 : BACKCHANNEL_TTFT_CEILING_MS;
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(new Error("backchannel ttft ceiling")), ttftMs);
   const signal = ac.signal;
