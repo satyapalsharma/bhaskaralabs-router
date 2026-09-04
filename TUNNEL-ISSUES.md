@@ -1784,3 +1784,36 @@ Format: `[timestamp] severity — issue — evidence — proposed fix`
 
 ## check 2026-09-04 22:23 — turns=0 failovers=0 cache_hit=0% max_billed=0
 - no new issues
+
+## check 2026-09-04 22:35 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-04 22:47 — turns=18 failovers=0 cache_hit=0% max_billed=328
+- no new issues
+
+## check 2026-09-04 22:59 — turns=78 failovers=1 cache_hit=37% max_billed=11725
+- [2026-09-04 22:59] upstream-error (gw) — \":{\"message\":\"concurrency reached, current: 9, limit:"} [upstream stepfun] 429: {"error":{"message":"concurrency reached, current: 9, limit: 8","type":"rate_limited"}} {"ev":"t
+- [2026-09-04 22:59] upstream-error (gw) — \":{\"message\":\"concurrency reached, current: 9, limit:"} [upstream stepfun] 429: {"error":{"message":"concurrency reached, current: 9, limit: 8","type":"rate_limited"}} [dispatc
+- [2026-09-04 22:59] failover (gw) — tepfun] connection failure: backchannel ttft ceiling {"ev":"backchannel-failover","from":"yolo","to":"feihoa","status":502,"cause":"connection:backchannel ttft ceiling"} {"ev":"llm
+- [2026-09-04 22:59] tunnel-524-timeout (gw) — why":"session-sticky","tok":"58/35","raw":1,"cached":0,"ms":5241,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"qwen-3.8","to":"qwen3.8-27b","tier":"flash",
+- [2026-09-04 22:59] stream/dispatch-error (gw) — :"4818/129","raw":4533,"cached":4224,"ms":4539,"ttft":null} [dispatch stepfun] attempt 1 failed (backchannel ttft ceiling), retrying {"ev":"turn","user":"ccf19648","session":"cc734
+- [2026-09-04 22:59] stream/dispatch-error (gw) — p-3.7-flash","cause":"connection:backchannel ttft ceiling"} [dispatch stepfun] connection failure: backchannel ttft ceiling [dispatch stepfun] attempt 1 failed (backchannel ttft ce
+- [2026-09-04 22:59] stream/dispatch-error (gw) — patch stepfun] connection failure: backchannel ttft ceiling [dispatch stepfun] attempt 1 failed (backchannel ttft ceiling), retrying [dispatch stepfun] attempt 1 failed (backchanne
+- [2026-09-04 22:59] stream/dispatch-error (gw) — pfun] attempt 1 failed (backchannel ttft ceiling), retrying [dispatch stepfun] attempt 1 failed (backchannel ttft ceiling), retrying {"ev":"turn","user":"ccf19648","session":"cc734
+- [2026-09-04 22:59] stream/dispatch-error (gw) — p-3.7-flash","cause":"connection:backchannel ttft ceiling"} [dispatch stepfun] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep"
+- [2026-09-04 22:59] stream/dispatch-error (gw) — patch stepfun] connection failure: backchannel ttft ceiling [dispatch stepfun] attempt 1 failed (backchannel ttft ceiling), retrying [dispatch yolo] attempt 1 failed (backchannel t
+- [2026-09-04 22:59] stream/dispatch-error (gw) — pfun] attempt 1 failed (backchannel ttft ceiling), retrying [dispatch yolo] attempt 1 failed (backchannel ttft ceiling), retrying [dispatch stepfun] attempt 1 failed (backchannel t
+- [2026-09-04 22:59] stream/dispatch-error (gw) — yolo] attempt 1 failed (backchannel ttft ceiling), retrying [dispatch stepfun] attempt 1 failed (backchannel ttft ceiling), retrying {"ev":"llmgateway-failover","from":"stepfun","t
+- [2026-09-04 22:59] stream/dispatch-error (gw) — p-3.7-flash","cause":"connection:backchannel ttft ceiling"} [dispatch stepfun] connection failure: backchannel ttft ceiling {"ev":"backchannel-failover","from":"yolo","to":"feihoa"
+- [2026-09-04 22:59] stream/dispatch-error (gw) — p-3.7-flash","cause":"connection:backchannel ttft ceiling"} [dispatch stepfun] connection failure: backchannel ttft ceiling {"ev":"theta-failover","from":"stepfun","status":429,"ca
+- [2026-09-04 22:59] stream/dispatch-error (gw) — ok":"3647/185","raw":3478,"cached":0,"ms":4655,"ttft":null} [dispatch stepfun] attempt 1 failed (backchannel ttft ceiling), retrying {"ev":"theta-failover","from":"stepfun","status
+- [2026-09-04 22:59] stream/dispatch-error (gw) — ":"3545/91","raw":3426,"cached":3200,"ms":3822,"ttft":null} [dispatch stepfun] attempt 1 failed (backchannel ttft ceiling), retrying {"ev":"theta-failover","from":"stepfun","status
+- [2026-09-04 22:59] stream/dispatch-error (gw) — ency reached, current: 9, limit: 8","type":"rate_limited"}} [dispatch llmgateway] attempt 1 failed (backchannel ttft ceiling), retrying {"ev":"theta-failover","from":"stepfun","sta
+
+## check 2026-09-04 23:11 — turns=17 failovers=0 cache_hit=80% max_billed=17043
+- [2026-09-04 23:11] upstream-error (gw) — pfun] attempt 1 failed (backchannel ttft ceiling), retrying [upstream stepfun] 429: {"error":{"message":"concurrency reached, current: 9, limit: 8","type":"rate_limited"}} [upstrea
+- [2026-09-04 23:11] upstream-error (gw) — ency reached, current: 9, limit: 8","type":"rate_limited"}} [upstream stepfun] 429: {"error":{"message":"concurrency reached, current: 9, limit: 8","type":"rate_limited"}} [upstrea
+- [2026-09-04 23:11] upstream-error (gw) — ency reached, current: 9, limit: 8","type":"rate_limited"}} [upstream stepfun] 429: {"error":{"message":"concurrency reached, current: 9, limit: 8","type":"rate_limited"}} [dispatc
+- [2026-09-04 23:11] stream/dispatch-error (gw) — 1262/631","raw":9689,"cached":10496,"ms":18931,"ttft":null} [dispatch stepfun] attempt 1 failed (backchannel ttft ceiling), retrying [dispatch stepfun] attempt 1 failed (backchanne
+- [2026-09-04 23:11] stream/dispatch-error (gw) — pfun] attempt 1 failed (backchannel ttft ceiling), retrying [dispatch stepfun] attempt 1 failed (backchannel ttft ceiling), retrying [upstream stepfun] 429: {"error":{"message":"co
+- [2026-09-04 23:11] stream/dispatch-error (gw) — ency reached, current: 9, limit: 8","type":"rate_limited"}} [dispatch yolo] attempt 1 failed (backchannel ttft ceiling), retrying {"ev":"turn","user":"ccf19648","session":"cc734e71

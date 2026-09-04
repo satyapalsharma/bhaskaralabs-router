@@ -1,18 +1,30 @@
-// [BOOTSTRAP] StepFun Step Plan — credit allowance (no tiered RPM/TPM limits per
-// docs, verified 2026-09-04); OpenAI-compat. COGS: plan credits amortized.
-// Mirror as an 8-slot semaphore — Step Plan has no published concurrency number,
-// 8 keeps us well under any plausible admission throttle while allowing parallel
-// theta traffic to overlap with stepfun's ~19s latency.
+// [BOOTSTRAP] StepFun Step Plan — credit allowance per docs; OpenAI-compat.
+// COGS: plan credits amortized.
+//
+// Concurrency: SERVER-ENFORCED limit 8 ("concurrency reached, current: 9,
+// limit: 8" observed live 2026-09-04 at 429). Mirror at 6, not 8 — running at
+// exactly the server limit leaves zero headroom for the retry burst after a
+// failover, which is how we hit current:9. Non-2xx releases the slot
+// immediately (the request is dead upstream; holding the slot only starves
+// the retry).
 
 export const STEPFUN_BASE = process.env.STEPFUN_BASE_URL ?? "https://api.stepfun.ai/step_plan/v1";
 
-/** StepFun concurrency cap (user-specified 2026-09-04). */
-export const STEPFUN_MAX_CONCURRENCY = 8;
+/** StepFun concurrency cap — server limit is 8; mirror at 6 for headroom. */
+export const STEPFUN_MAX_CONCURRENCY = 6;
 
 let stepfunInFlight = 0;
-/** True when stepfun has a free generation slot (<8 requests in flight). */
+
+/** 429 throttle: server said concurrency-full. Cool the lane briefly so the
+ *  failover retry lands on yolo/hyper instead of hammering stepfun again
+ *  (observed 317 429s vs 259 served = 122% waste, 2026-09-04). */
+let throttleUntil = 0;
+/** True when stepfun has a free generation slot AND isn't in 429 cooldown. */
 export function stepfunSlotFree(): boolean {
-  return stepfunInFlight < STEPFUN_MAX_CONCURRENCY;
+  return stepfunInFlight < STEPFUN_MAX_CONCURRENCY && Date.now() >= throttleUntil;
+}
+export function markStepfunThrottled(seconds = 20): void {
+  throttleUntil = Date.now() + seconds * 1000;
 }
 function stepfunAcquire(): void {
   stepfunInFlight++;
@@ -72,7 +84,10 @@ export async function stepfunChat(opts: {
       body: JSON.stringify(opts.body),
       signal: opts.signal,
     });
-    if (res.status === 401 || res.status === 402) {
+    if (!res.ok) {
+      // 429/5xx/4xx — request is dead upstream; release NOW. Holding the slot
+      // until body-consume starves the failover retry (observed: retry burst
+      // at full mirror → server "current: 9, limit: 8" → more 429s).
       stepfunRelease();
       return res;
     }

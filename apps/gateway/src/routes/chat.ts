@@ -17,7 +17,7 @@ import { setQuotaHeaders, setRetryHeaders } from "../lib/quota-headers";
 import { writeLedger } from "../lib/ledger";
 import { pickKeyForSession, hyperChat, parseUsageNonStream, SseUsageAccumulator, type HyperUsage } from "../providers/hyper";
 import { agnesChat, agnesEnabled, markAgnesDead } from "../providers/agnes";
-import { stepfunChat, stepfunEnabled } from "../providers/stepfun";
+import { stepfunChat, stepfunEnabled, markStepfunThrottled } from "../providers/stepfun";
 import { devpassChat, devpassEnabled } from "../providers/devpass";
 import { llmGatewayChat, llmGatewayEnabled } from "../providers/llmgateway";
 import { feihoaChat, feihoaEnabled, FEIHOA_MODEL, FEIHOA_MAX_OUTPUT, FEIHOA_INPUT_BUDGET } from "../providers/feihoa";
@@ -348,8 +348,9 @@ app.post("/v1/chat/completions", async (c) => {
       // subscription observed live 2026-09-04) → mark the lane dead so the
       // re-decide naturally skips it, then hop down the theta chain.
       if (usedDecision.provider === "agnes" && (upstream.status === 401 || upstream.status === 402)) markAgnesDead();
+      if (usedDecision.provider === "stepfun" && upstream.status === 429) markStepfunThrottled(20);
       // re-decide with the failed provider's lane marked unavailable, which
-      // naturally lands on stepfun → yolo → hyper-flash → llmgateway.
+      // naturally lands on yolo → hyper-flash → llmgateway.
       console.log(JSON.stringify({ ev: "theta-failover", from: usedDecision.provider, status: upstream.status, cause: errText.slice(0, 60) }));
       const retry = await decideTurn(auth, sessionId, endpointModel, messages, lane);
       if (retry.provider !== usedDecision.provider) {
