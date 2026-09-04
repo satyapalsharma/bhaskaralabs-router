@@ -22,14 +22,17 @@ function agnesRelease(): void {
   agnesInFlight = Math.max(0, agnesInFlight - 1);
 }
 
-/** Dead-lane cooldown: a 401/402 means the key/subscription is dead —
- *  retrying every turn wastes a round-trip. Disable for 30 minutes. */
+/** Dead-lane cooldown: 401/402 means the key/subscription is dead —
+ *  retrying every turn wastes a round-trip. Subscription-level deaths
+ *  (402 subscription_not_found / 401 invalid token on every model) don't
+ *  heal in minutes, so cool for 6h; a transient 401 would still retry
+ *  within the same workday. */
 let deadUntil = 0;
 export function agnesEnabled(): boolean {
   return !!process.env.AGNES_API_KEY && Date.now() >= deadUntil;
 }
 export function markAgnesDead(): void {
-  deadUntil = Date.now() + 30 * 60 * 1000;
+  deadUntil = Date.now() + 6 * 60 * 60 * 1000;
 }
 /** Wrap a Response so the agnes slot is released when the body ends/aborts. */
 function wrapRelease(res: Response): Response {
