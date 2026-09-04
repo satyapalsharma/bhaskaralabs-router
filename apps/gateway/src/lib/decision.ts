@@ -18,6 +18,8 @@ import { stepfunEnabled } from "../providers/stepfun";
 import { devpassEnabled } from "../providers/devpass";
 import { feihoaEnabled, FEIHOA_MODEL, FEIHOA_INPUT_BUDGET, feihoaSlotFree } from "../providers/feihoa";
 import { yoloEnabled, YOLO_MODEL, YOLO_INPUT_BUDGET, yoloSlotFree } from "../providers/yolo";
+import { detectStage } from "./stage-router";
+import { judgeClassify, judgeCandidate } from "./llm-judge";
 export const FULL_OF: Record<string, string> = {
   "glm-5.3": "glm-5.3",
   "qwen-3.8": "qwen3.8-max",
@@ -149,8 +151,24 @@ export async function decideTurn(
       return { provider, upstreamModel: lock.lockedModel, tier, effort: tier === "full" ? "max" : "low", reason: "session-sticky", hardCapped: false };
     }
     const share = await weeklyFullShare(auth.userId);
+    // Stage Router (Switchyard): tool activity modulates hardness —
+    // explore (errors/failures in fresh tool results) escalates to the
+    // capable model even when the prompt text looks routine; mechanical
+    // (tests green, builds clean) keeps the cheap lane.
+    const stageSig = detectStage(messages);
+    const textHardness = classifyHardness(lastUserText(messages));
+    let hardness =
+      stageSig.stage === "explore" && textHardness === "routine" ? "debugging" : textHardness;
+    // LLM Judge (Switchyard): inconclusive routine turns matching subtle-
+    // intent patterns ("make it robust", "edge cases") get one cheap feihoa
+    // classification before settling on the free lane.
+    if (hardness === "routine" && stageSig.stage !== "mechanical" && judgeCandidate(lastUserText(messages))) {
+      const verdict = await judgeClassify(lastUserText(messages));
+      if (verdict === true) hardness = "debugging";
+      console.log(JSON.stringify({ ev: "judge", session: sessionId.slice(0, 8), verdict }));
+    }
     const d = routeQwenSmart({
-      hardness: classifyHardness(lastUserText(messages)),
+      hardness,
       prefixTokens: estimateTokens(messages),
       fullShareThisWeek: share,
       feihoaOn: feihoaEnabled(),

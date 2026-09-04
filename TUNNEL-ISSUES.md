@@ -705,3 +705,32 @@ Format: `[timestamp] severity — issue — evidence — proposed fix`
 - Fix 2: sticky-escalate — hard/fix turn on a 27B-locked session hops THIS turn to qwen3.8-max (lock preserved for cache; routine turns return to free lane).
 - Verified live: same session — T1 "say hi" -> yolo(27b); T2 "fix the TS2339 error" -> qwen3.8-max via sticky-escalate(debugging). Both 200.
 - Related: quota wall hit during testing (both test users at 20M cap) — upgraded subscriptions to advanced (40M) for continued testing.
+
+## check 2026-09-04 11:47 — turns=2 failovers=0 cache_hit=0% max_billed=113
+- no new issues
+
+## check 2026-09-04 11:59 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-04 12:11 — turns=1 failovers=0 cache_hit=98% max_billed=65
+- no new issues
+
+## check 2026-09-04 12:23 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-04 12:35 — turns=1 failovers=0 cache_hit=98% max_billed=65
+- no new issues
+
+## check 2026-09-04 12:47 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-04 12:59 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-04 13:11 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+### Switchyard routers implemented (Stage + LLM Judge), live-verified
+- Stage Router (lib/stage-router.ts): detects agent phase from live-zone tool activity — EXPLORE (failing tests, TS errors, exit!=0 → escalate to frontier) vs MECHANICAL (tests green, builds clean → cheap lane). 6/6 unit tests. Verified: failing-tests turn -> qwen3.8-max; green-tests turn -> yolo.
+- LLM Judge (lib/llm-judge.ts): inconclusive routine prompts ("make it robust", "edge cases", "whats wrong") get one cheap yolo classify (reasoning off, ~6s) before settling on free lane. Fail-open (null -> heuristic). Verified: "make the input parsing robust" -> judge verdict=TRUE -> qwen3.8-max.
+- Learnings: feihoa too slow for judge (16-19s for 1-word); qwen reasoning eats max_tokens (content null) unless reasoning_effort:none; feihoa idempotency keys must be unique per call (409 on replay).
