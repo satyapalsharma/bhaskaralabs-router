@@ -2459,3 +2459,8 @@ paid-flash terminal fallback, 15s bootstrap probe that pre-marks wedge.
 **Yolo recovered** during testing (global capacity returned; direct probes
 2.7-5.6s). Bootstrap now server-syncs 10.94M/14M used, softDeny=false.
 3-parallel live test: feihoa 4.1s + 2× yolo 3.7/5.4s, 0 failures.
+
+## check 2026-09-05 02:11 — turns=43 failovers=1 cache_hit=81% max_billed=35290
+- [2026-09-05 02:11] failover (gw) — ing — lane wedged, failing over (no same-lane retry) {"ev":"backchannel-failover","from":"yolo","to":"feihoa","status":502,"cause":"connection:backchannel ttft ceiling"} {"ev":"tur
+- [2026-09-05 02:11] tunnel-524-timeout (gw) — =stepfun","tok":"25447/158","raw":20332,"cached":24960,"ms":5243,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"qwen-3.8","to":"qwen3.8-27b","tier":"flash",
+- [2026-09-05 02:11] stream/dispatch-error (gw) — 5723/540","raw":20460,"cached":25216,"ms":8417,"ttft":null} [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"backchannel-failover","from":"yolo"

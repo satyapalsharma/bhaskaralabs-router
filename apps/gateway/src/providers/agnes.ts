@@ -21,17 +21,31 @@ function agnesRelease(): void {
   agnesInFlight = Math.max(0, agnesInFlight - 1);
 }
 
-/** Dead-lane cooldown: 401/402 means the key/subscription is dead —
- *  retrying every turn wastes a round-trip. Subscription-level deaths
- *  (402 subscription_not_found / 401 invalid token on every model) don't
- *  heal in minutes, so cool for 6h; a transient 401 would still retry
- *  within the same workday. */
+/** Dead-lane cooldown with EXPONENTIAL backoff + self-healing.
+ *  A single 401/402 is often transient (plan quota blip, provider restart);
+ *  a hard 6h cooldown on the first failure silenced a healthy lane for
+ *  50+ minutes today (381 successful turns, one error, lane off until a
+ *  gateway restart cleared it). Backoff: 5min → 15min → 45min → 2h cap,
+ *  reset instantly when any agnes response comes back 2xx. */
 let deadUntil = 0;
+let deadStreak = 0;
 export function agnesEnabled(): boolean {
   return !!process.env.AGNES_API_KEY && Date.now() >= deadUntil;
 }
 export function markAgnesDead(): void {
-  deadUntil = Date.now() + 6 * 60 * 60 * 1000;
+  deadStreak++;
+  const base = 5 * 60 * 1000;
+  const cooldown = Math.min(base * Math.pow(3, deadStreak - 1), 2 * 60 * 60 * 1000);
+  deadUntil = Date.now() + cooldown;
+  console.log(`[agnes] marked dead (streak ${deadStreak}) — cooling ${Math.round(cooldown / 60000)}min`);
+}
+/** Any successful response proves the lane is alive — clear the streak. */
+function agnesAlive(): void {
+  if (deadStreak > 0 || deadUntil > Date.now()) {
+    deadStreak = 0;
+    deadUntil = 0;
+    console.log("[agnes] recovered — cooldown cleared after 2xx response");
+  }
 }
 /** Wrap a Response so the agnes slot is released when the body ends/aborts. */
 function wrapRelease(res: Response): Response {
@@ -85,6 +99,7 @@ export async function agnesChat(opts: {
       agnesRelease();
       return res;
     }
+    if (res.ok) agnesAlive(); // 2xx proves the lane is healthy — clear cooldown streak
     return wrapRelease(res);
   } catch (err) {
     agnesRelease();
