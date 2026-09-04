@@ -1,19 +1,36 @@
 import app from "./routes/chat";
-import { seedYoloPressureFromLedger, yoloPressureState } from "./lib/yolo-pressure";
+import { syncYoloPressureFromHeaders, yoloPressureState } from "./lib/yolo-pressure";
 import { yoloEnabled } from "./providers/yolo";
 
 const port = Number(process.env.PORT ?? 8787);
 console.log(`[gateway] listening on :${port}`);
 
-// Seed the yolo pressure tracker from the ledger so a restart never forgets
-// pressure already burned (silent-wedge guard — see lib/yolo-pressure.ts).
+// Bootstrap-sync the yolo pressure tracker from the SERVER's own headers.
+// Yolo returns exact remaining pressure on every response
+// (x-yolo-pressure-remaining-1h/24h) — a single 5-token probe at startup
+// gives us the authoritative number (ledger-seed estimates drifted 2.4x
+// from the server's count: missing aborted-turn output + window-alignment
+// differences). The probe costs ~4096 pressure units (flat per-request
+// floor) once per boot.
 if (yoloEnabled()) {
-  void seedYoloPressureFromLedger()
-    .then((rows) => {
-      const s = yoloPressureState();
-      console.log(`[yolo-pressure] seeded ${rows} turns: 1h=${(s.last1h / 1e6).toFixed(2)}M/3M, 24h=${(s.last24h / 1e6).toFixed(2)}M/14M, softDeny=${s.softDeny}`);
+  const key = process.env.YOLO_AUTO_API_KEY ?? "";
+  fetch(`${process.env.YOLO_BASE_URL ?? "https://yolo-auto.com/v1"}/chat/completions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+    body: JSON.stringify({ model: "qwen3.8-27b", messages: [{ role: "user", content: "hi" }], max_tokens: 1, reasoning_effort: "none" }),
+  })
+    .then((res) => {
+      const r1 = Number(res.headers.get("x-yolo-pressure-remaining-1h"));
+      const r24 = Number(res.headers.get("x-yolo-pressure-remaining-24h"));
+      if (Number.isFinite(r1) && Number.isFinite(r24)) {
+        syncYoloPressureFromHeaders({ remaining1h: r1, remaining24h: r24 });
+        const s = yoloPressureState();
+        console.log(`[yolo-pressure] server-synced: 1h used=${(s.last1h / 1e6).toFixed(2)}M/3M, 24h used=${(s.last24h / 1e6).toFixed(2)}M/14M, softDeny=${s.softDeny}, source=${s.source}`);
+      } else {
+        console.warn("[yolo-pressure] bootstrap probe returned no pressure headers");
+      }
     })
-    .catch((err) => console.error("[yolo-pressure] seed failed:", (err as Error).message));
+    .catch((err) => console.warn("[yolo-pressure] bootstrap probe failed:", (err as Error).message));
 }
 export default {
   port,

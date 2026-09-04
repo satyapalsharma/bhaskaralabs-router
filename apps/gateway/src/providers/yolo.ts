@@ -1,5 +1,6 @@
-// YOLO-AUTO provider client — OpenAI-compat backchannel (yolo-auto.com/v1).
-// Single model: qwen3.8-27b. Limits (docs + /v1/usage):
+import { syncYoloPressureFromHeaders } from "../lib/yolo-pressure";
+
+// Backchannel failover lane: qwen3.8-27b @ yolo-auto.com (Builder plan).
 //   context_window 131072, model output limit 32768 (per opencode config),
 //   BUILDER plan: unlimited requests/day, maxConcurrency 4.
 // Docs protocol: honor Retry-After on 429 with jitter; cancel abandoned
@@ -74,6 +75,12 @@ export async function yoloChat(req: YoloRequest): Promise<Response> {
       await new Promise((r) => setTimeout(r, waitMs));
       res = await call();
     }
+    // Server pressure sync: yolo reports EXACT remaining on every response
+    // (x-yolo-pressure-remaining-1h/24h) — authoritative for the tracker.
+    syncYoloPressureFromHeaders({
+      remaining1h: parsePressureHeader(res.headers, "x-yolo-pressure-remaining-1h"),
+      remaining24h: parsePressureHeader(res.headers, "x-yolo-pressure-remaining-24h"),
+    });
     return wrapRelease(res);
   } catch (err) {
     yoloRelease();
@@ -113,4 +120,10 @@ function wrapRelease(res: Response): Response {
     },
   });
   return new Response(stream, { status: res.status, statusText: res.statusText, headers: res.headers });
+}
+
+/** Parse a yolo pressure header (numeric string) → number | null. */
+function parsePressureHeader(h: Headers, name: string): number | null {
+  const v = Number(h.get(name));
+  return Number.isFinite(v) && v >= 0 ? v : null;
 }
