@@ -2322,3 +2322,18 @@ Known-benign: feihoa 429 single-retry (by design); feihoa 27B empty-output
 
 ## check 2026-09-05 00:47 — turns=7 failovers=0 cache_hit=46% max_billed=10277
 - no new issues
+
+## 2026-09-05 (full-share cap blown — 2 root causes, commit e164870)
+
+User alarm: full-tier (max) routing way past the 10% cap. Verified:
+- Displayed share 8.9% but REAL qwen-3.8 full-share was 23.4% (189/807).
+- Cause 1: weeklyFullShare denominator included theta turns (1300+/2h,
+  flash-tier, never upgrade) → diluted the metric. Fixed: frontier-only.
+- Cause 2: single fix-looping session (cc734e71) drove 22 max turns/min,
+  189 in 2h via sticky-escalate — no per-session bound. Fixed: 30
+  escalations/hour/session, beyond which hard turns serve on the
+  locked free/flash lane.
+- Also fixed this session: 27b→llmgateway paid leak (commit 8d440bf).
+- $20 hyper burn audit: Sep-4 spend ($18.78) predates budget tracker;
+  Sep-5 burn $0.22 (tracker + all leak fixes live). Hyper remaining
+  $55.66 (1113 credits, live probe).
