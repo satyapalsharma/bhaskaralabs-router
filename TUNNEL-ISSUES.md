@@ -2377,3 +2377,6 @@ Fix: server headers are now the source of truth (sync every response,
 bootstrap probe at startup, ring only bridges gaps). Edges back to
 85%/95% (no estimate error to compensate for). Yolo was healthy at 76%
 all along — our false 184% signal had it locked out for hours.
+
+## check 2026-09-05 01:11 — turns=122 failovers=0 cache_hit=64% max_billed=29787
+- [2026-09-05 01:11] stream/dispatch-error (gw) — ":"7620/4713","raw":4451,"cached":0,"ms":53227,"ttft":null} [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71

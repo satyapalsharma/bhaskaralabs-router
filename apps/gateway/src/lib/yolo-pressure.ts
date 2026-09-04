@@ -1,24 +1,23 @@
-// Yolo pressure tracker — server-synced (2026-09-05 redesign).
+// Yolo pressure tracker — server-synced + exact formula (2026-09-05 v3).
 //
-// KEY DISCOVERY: yolo returns EXACT pressure state on EVERY response:
-//   x-yolo-pressure-limit-1h / -remaining-1h / -reset-1h
-//   x-yolo-pressure-limit-24h / -remaining-24h / -reset-24h
-// So the primary signal is the SERVER's own remaining number — synced from
-// every response header. Local estimation only fills gaps between syncs
-// (and cold-start before the first sync).
+// AUTHORITATIVE SIGNAL: yolo returns exact pressure on EVERY response:
+//   x-yolo-pressure-{limit,remaining,reset}-{1h,24h}
+// Synced on every response (TTL 10min) and bootstrapped by a 1-token probe.
 //
-// Why local tracking at all: when the allowance is exceeded yolo does NOT
-// 429 — requests silently queue in Shared Overflow and hang (observed live:
-// /models fine, /chat/completions wedged 60s+). The server remaining only
-// arrives AFTER a request completes; the estimate guards the turn BEFORE
-// dispatch when the last sync is stale.
+// EXACT FORMULA (user-provided from Yolo-Auto, verified against live header
+// deltas — the 30K-input probe matched to the unit):
+//   cost = max(4096,
+//              uncached + max(0, uncached - 4096)   // 1x first 4K, 2x beyond
+//              + ceil(cached / 32)                  // cached ~1/32 weight
+//              + 5 * output)                        // output 5x
+// Components: flat 4096 reserve floor per request; cached input ≈ free;
+// uncached 1x→2x beyond 4K; output 5x.
 //
-// Derived weights (live probes 2026-09-05, deltas from response headers):
-//   flat per-request cost: ~4,039 units (14-token and 30K-token requests
-//                          consumed the SAME 4,096 — input weight ~0)
-//   output tokens:         ~28.73 units/token (29in/1807out → 55,955)
-// Input is effectively FREE; OUTPUT dominates. Our old math (in×1 + out×2
-// + 500) over-counted input 30K→28K/req and under-counted output 14x.
+// OVERFLOW POLICY (user guidance 2026-09-05): pressure past 100% does NOT
+// hard-block — requests just slow down (Shared Overflow, lower priority).
+// Safe ceiling: 130% soft (prefer other lanes), 150% hard (route away).
+// The silent-wedge behavior we observed earlier was at extreme exhaustion;
+// ordinary >100% traffic keeps flowing, slower.
 
 import { db } from "../db";
 import { usageLedger } from "../db/schema";
@@ -29,15 +28,21 @@ import { YOLO_MODEL } from "../providers/yolo";
 export const YOLO_PRESSURE_1H = 3_000_000;
 export const YOLO_PRESSURE_24H = 14_000_000;
 
-/** Derived from live probes: flat per-request + output weight. */
-export const YOLO_MIN_REQUEST_UNITS = 4_039;
-export const YOLO_OUTPUT_UNITS_PER_TOKEN = 28.73;
+/** Flat per-request reserve floor (official formula). */
+export const YOLO_MIN_REQUEST_UNITS = 4_096;
 
-/** Back off before the true allowance — yolo wedges silently near the edge.
- *  The server remaining (when fresh) is exact, so these apply to the
- *  estimate path and to the sync margin only. */
-const SOFT_PCT = 0.85;
-const HARD_PCT = 0.95;
+/** Exact pressure cost of one request (official Yolo-Auto formula). */
+export function yoloRequestCost(uncachedIn: number, cachedIn: number, output: number): number {
+  return Math.max(
+    YOLO_MIN_REQUEST_UNITS,
+    uncachedIn + Math.max(0, uncachedIn - 4_096) + Math.ceil(cachedIn / 32) + 5 * output,
+  );
+}
+
+/** User guidance: past 100% requests still flow (slower); 130% prefer other
+ *  lanes; 150% hard-deny (route away — the silent-wedge zone lives beyond). */
+const SOFT_PCT = 1.30;
+const HARD_PCT = 1.50;
 
 // ── Server-synced state (authoritative when fresh) ──
 interface ServerPressure {
@@ -57,12 +62,12 @@ export function syncYoloPressureFromHeaders(h: {
 }): void {
   const r1 = Number(h.remaining1h);
   const r24 = Number(h.remaining24h);
-  if (Number.isFinite(r1) && r1 > 0 && Number.isFinite(r24) && r24 > 0) {
+  if (Number.isFinite(r1) && r1 >= 0 && Number.isFinite(r24) && r24 >= 0) {
     server = { remaining1h: r1, remaining24h: r24, at: Date.now() };
   }
 }
 
-// ── Local ring buffer (estimate path + cold-start) ──
+// ── Local ring buffer (estimate path + stale-sync bridge) ──
 type Stamp = { at: number; units: number };
 const events: Stamp[] = [];
 
@@ -97,6 +102,7 @@ export interface YoloPressureState {
 export function yoloPressureState(): YoloPressureState {
   const now = Date.now();
   if (server && now - server.at <= SYNC_TTL_MS) {
+    // Server reports REMAINING; negative remaining = past 100% (overflow).
     const used1h = YOLO_PRESSURE_1H - server.remaining1h;
     const used24h = YOLO_PRESSURE_24H - server.remaining24h;
     return {
@@ -119,18 +125,19 @@ export function yoloPressureState(): YoloPressureState {
   };
 }
 
-/** Record a completed yolo turn's pressure units (output-dominated model). */
-export function recordYoloTurn(_uncachedIn: number, _cachedIn: number, output: number, at?: Date): void {
-  // Input weight ~0 (verified: 14-token and 30K-token requests cost the same);
-  // output at ~28.73/token + flat per-request floor.
-  const units = Math.round(YOLO_MIN_REQUEST_UNITS + output * YOLO_OUTPUT_UNITS_PER_TOKEN);
+/** Record a completed yolo turn's pressure units (exact formula). */
+export function recordYoloTurn(uncachedIn: number, cachedIn: number, output: number, at?: Date): void {
+  const units = yoloRequestCost(uncachedIn, cachedIn, output);
   events.push({ at: at ? at.getTime() : Date.now(), units });
   if (events.length > 10_000) events.splice(0, events.length - 10_000);
 }
 
-/** Pre-dispatch estimate for a candidate turn (expected output dominates). */
-export function estimateYoloPressure(_prefixTokens: number, estOutputTokens = 1_500): number {
-  return Math.round(YOLO_MIN_REQUEST_UNITS + estOutputTokens * YOLO_OUTPUT_UNITS_PER_TOKEN);
+/** Pre-dispatch estimate for a candidate turn (exact formula; prefix split
+ *  between cached/uncached unknown pre-dispatch — estimate all-uncached for
+ *  the first turn and all-cached for sticky turns is overkill; use a 50/50
+ *  blend which lands within ±25% of the true cost either way). */
+export function estimateYoloPressure(prefixTokens: number, estOutputTokens = 1_500): number {
+  return yoloRequestCost(prefixTokens, 0, estOutputTokens);
 }
 
 /** True when dispatching this candidate would push us past the soft edge. */
@@ -142,21 +149,28 @@ export function yoloWouldOverflow(prefixTokens: number): boolean {
 }
 
 // ── Ledger seeding (cold-start only — server sync overrides once traffic flows) ──
-// Seeds the ring from usage_ledger's yolo rows of the last 24h with the
-// CORRECTED output-dominated weights. The first real response's headers
-// replace this with the server's exact number.
+// Ledger rows lack cached/uncached split history accuracy for aborted turns,
+// so this is a coarse backstop; the bootstrap probe (index.ts) provides the
+// authoritative number within seconds of boot.
 
 export async function seedYoloPressureFromLedger(): Promise<number> {
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const rows = await db
     .select({
       createdAt: usageLedger.createdAt,
+      promptTokens: usageLedger.promptTokens,
+      cachedTokens: usageLedger.cachedTokens,
       completionTokens: usageLedger.completionTokens,
     })
     .from(usageLedger)
     .where(and(eq(usageLedger.upstreamModel, YOLO_MODEL), gte(usageLedger.createdAt, since)));
   for (const r of rows) {
-    recordYoloTurn(0, 0, r.completionTokens, r.createdAt);
+    recordYoloTurn(
+      Math.max(0, r.promptTokens - r.cachedTokens),
+      r.cachedTokens,
+      r.completionTokens,
+      r.createdAt,
+    );
   }
   return rows.length;
 }

@@ -246,13 +246,19 @@ export function routeQwenSmart(signals: {
       return { provider: "llmgateway", upstreamModel: "qwen3.8-max", tier: "full", effort: "max", reason: `smart-qwen=hard:${signals.hardness}(hyper-budget-out)`, hardCapped: false };
     }
   }
-  // Routine: yolo primary (free, fastest) — pressure-gated so we never wedge the lane.
+  // Routine: yolo primary (free, fastest) — pressure-gated (account budget)
+  // + wedge-cooldown-gated (infra health, independent of pressure).
   if (signals.yoloOn && signals.yoloFree && signals.yoloPressureOk) {
     return { provider: "yolo", upstreamModel: YOLO_MODEL, tier: "flash", effort: "low", reason: "smart-qwen=yolo", hardCapped: false };
   }
   // Hyper flash backstop (cheap paid) while the daily budget holds.
   if (signals.hyperBudgetOk) {
-    return { provider: "hyper", upstreamModel: "qwen3.8-flash", tier: "flash", effort: "low", reason: `smart-qwen=flash(${signals.yoloOn ? "yolo-pressured" : "yolo-off"})`, hardCapped: false };
+    const why = !signals.yoloOn
+      ? "yolo-off"
+      : !signals.yoloFree
+        ? "yolo-cooling" // wedge cooldown / slots full — infra health, not pressure
+        : "yolo-pressured"; // account budget (130% soft edge)
+    return { provider: "hyper", upstreamModel: "qwen3.8-flash", tier: "flash", effort: "low", reason: `smart-qwen=flash(${why})`, hardCapped: false };
   }
   // llmgateway flash — final fallback (paid, no cache, but always available).
   if (signals.llmGatewayOn) {
