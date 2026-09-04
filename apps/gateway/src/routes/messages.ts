@@ -181,20 +181,23 @@ app.post("/v1/messages", async (c) => {
   }
   const key = pickKeyForSession(keys, auth.apiKeyId);
   let upstream: Response;
+  // Client-disconnect propagation + 10-min ceiling, combined. A cancelled
+  // client must not leave a 12-min generation running on Hyper.
+  const dispatchSignal = AbortSignal.any([c.req.raw.signal, AbortSignal.timeout(10 * 60 * 1000)]);
   const gwDispatch = () =>
     llmGatewayMessages({
       model: decision.upstreamModel,
       body: payload,
       apiKey: process.env.LLMGATEWAY_API_KEY ?? "",
-      signal: AbortSignal.timeout(10 * 60 * 1000),
+      signal: dispatchSignal,
     });
   try {
     // Pre-stream retry on connection errors: no client bytes sent yet, safe to retry once.
-    upstream = await hyperMessages({ model: decision.upstreamModel, body: payload, apiKey: key.key, signal: AbortSignal.timeout(10 * 60 * 1000) });
+    upstream = await hyperMessages({ model: decision.upstreamModel, body: payload, apiKey: key.key, signal: dispatchSignal });
   } catch (err) {
     console.warn(`[messages dispatch] attempt 1 failed (${(err as Error).message.slice(0, 60)}), retrying`);
     try {
-      upstream = await hyperMessages({ model: decision.upstreamModel, body: payload, apiKey: key.key, signal: AbortSignal.timeout(10 * 60 * 1000) });
+      upstream = await hyperMessages({ model: decision.upstreamModel, body: payload, apiKey: key.key, signal: dispatchSignal });
     } catch (err2) {
       // Hyper unreachable twice → llmgateway same-model hop (Anthropic-compat).
       if (llmGatewayEnabled()) {

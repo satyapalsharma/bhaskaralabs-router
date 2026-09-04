@@ -224,7 +224,7 @@ app.post("/v1/chat/completions", async (c) => {
   let upstream: Response;
   let usedDecision = decision;
   const terse = terseEnabled(c.req.header("x-bhaskara-terse"));
-  const attempt = (d: RouterDecision) => dispatchUpstream(endpointModel, d, messages, obj, auth, sessionId, terse);
+  const attempt = (d: RouterDecision) => dispatchUpstream(endpointModel, d, messages, obj, auth, sessionId, terse, c.req.raw.signal);
   // Backchannel failover (smart routing): the router owns the chain policy
   // (backchannelNext / failoverDecision); this handler only executes a hop.
   // Bidirectional now that yolo is a full lane: feihoa→yolo always (128K
@@ -270,6 +270,12 @@ app.post("/v1/chat/completions", async (c) => {
   try {
     upstream = await attempt(decision);
   } catch (err) {
+    // Client gone → no point retrying (each attempt would abort instantly
+    // via the propagated signal; and the response has no reader anyway).
+    if (c.req.raw.signal.aborted) {
+      console.log(`[dispatch ${decision.provider}] client disconnected mid-generation — aborting turn`);
+      return c.json({ error: { message: "Client disconnected", type: "api_error" } }, 408);
+    }
     console.warn(`[dispatch ${decision.provider}] attempt 1 failed (${(err as Error).message.slice(0, 60)}), retrying`);
     try {
       upstream = await attempt(decision);
@@ -480,6 +486,7 @@ function dispatchUpstream(
   auth: AuthContext,
   sessionId: string,
   terse = false,
+  clientSignal?: AbortSignal,
 ): Promise<Response> {
   const payload = { ...originalBody, messages: withIdentity(messages, endpointModel, terse), model: decision.upstreamModel, stream_options: { include_usage: true } };
   // Backchannel lanes hang when their backend wedges (observed 2026-09-04:
@@ -493,11 +500,25 @@ function dispatchUpstream(
   // root cause of the 429 shower ("current: 9, limit: 8") — our mirror said
   // 0 in flight while the server ran 8+. stepfun p90=24s sits right at the
   // ceiling, so ~10% of turns aborted into zombies under load.
-  const ttftMs = decision.provider === "hyper" || decision.provider === "stepfun" ? 10 * 60 * 1000 : BACKCHANNEL_TTFT_CEILING_MS;
+  // llmgateway is also EXEMPT: it's pay-as-you-go metered (no server-side
+  // concurrency slots to zombie — unlike stepfun), and its p90 TTFT measured
+  // 41s under load. Aborting at 25s just failed 25 turns with 502s that
+  // would have completed. Only yolo/feihoa keep the tight wedge-guard
+  // ceiling (those lanes genuinely hang silently at pressure exhaustion).
+  const ttftMs = decision.provider === "hyper" || decision.provider === "stepfun" || decision.provider === "llmgateway" ? 10 * 60 * 1000 : BACKCHANNEL_TTFT_CEILING_MS;
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(new Error("backchannel ttft ceiling")), ttftMs);
+  // Client-disconnect propagation: if the client goes away (opencode cancel,
+  // harness timeout), abort the upstream fetch too. Without this a cancelled
+  // non-stream turn kept generating on Hyper for minutes (observed: 12-min
+  // 25K-token generations billed after the client had moved on).
   const signal = ac.signal;
-  const clearTtft = () => clearTimeout(timer);
+  const onClientAbort = () => ac.abort(new Error("client disconnected"));
+  clientSignal?.addEventListener("abort", onClientAbort, { once: true });
+  const clearTtft = () => {
+    clearTimeout(timer);
+    clientSignal?.removeEventListener("abort", onClientAbort);
+  };
   if (decision.provider === "hyper") {
     const key = pickKeyForSession(hyperKeys(), sessionId);
     return hyperChat({ model: decision.upstreamModel, body: payload, apiKey: key.key, signal }).finally(clearTtft);
