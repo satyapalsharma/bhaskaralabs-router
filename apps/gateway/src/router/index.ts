@@ -220,21 +220,27 @@ export function backchannelNext(
 
 
 /**
- * qwen-3.8 smart routing (v2 chain redesign 2026-09-04):
- *   routine: yolo (free, pressure-gated) → qwen3.8-flash on Hyper (till $12.5/day)
+ * qwen-3.8 smart routing (v3 2026-09-05: feihoa primary after plan upgrade):
+ *   routine: feihoa (free, 28-30 TPS upgraded, ctx ≤32K, concurrency-1)
+ *            → yolo (free, concurrency-4, pressure+wedge gated)
+ *            → qwen3.8-flash on Hyper (till $12.5/day)
  *            → qwen3.8-flash on llmgateway (paid fallback)
  *   hard:    qwen3.8-max on Hyper (till $12.5/day) → qwen3.8-max on llmgateway
- * Pressure/budget gates are evaluated by the caller (decision.ts) and passed
- * in as booleans — this function stays pure/synchronous.
+ * Feihoa's upgrade (measured live: 3.4→28-30 TPS, ~8x) makes it the fastest
+ * free lane; its concurrency-1 slot is the only constraint, so yolo
+ * absorbs overflow. Gates evaluated by the caller — this stays pure.
  */
 export function routeQwenSmart(signals: {
   hardness: RouterSignals["hardness"];
   prefixTokens: number;
   fullShareThisWeek: number;
+  feihoaOn: boolean;
+  feihoaFree: boolean;           // concurrency-1 semaphore
+  feihoaFits: boolean;           // ctx ≤ 32K budget
   yoloOn: boolean;
-  yoloFree: boolean;            // semaphore: does yolo have a free slot (<4 in flight)?
-  yoloPressureOk: boolean;     // pressure tracker: below soft edge, and this turn won't overflow
-  hyperBudgetOk: boolean;       // $12.5/day global budget has headroom
+  yoloFree: boolean;             // semaphore: does yolo have a free slot (<4 in flight)?
+  yoloPressureOk: boolean;       // pressure tracker: below soft edge, and this turn won't overflow
+  hyperBudgetOk: boolean;         // $12.5/day global budget has headroom
   llmGatewayOn: boolean;
 }): RouterDecision {
   const hard = signals.hardness === "planning" || signals.hardness === "debugging" || signals.hardness === "architect";
@@ -246,10 +252,13 @@ export function routeQwenSmart(signals: {
       return { provider: "llmgateway", upstreamModel: "qwen3.8-max", tier: "full", effort: "max", reason: `smart-qwen=hard:${signals.hardness}(hyper-budget-out)`, hardCapped: false };
     }
   }
-  // Routine: yolo primary (free, fastest) — pressure-gated (account budget)
-  // + wedge-cooldown-gated (infra health, independent of pressure).
+  // Routine: feihoa primary (free, fastest single-stream after upgrade).
+  if (signals.feihoaOn && signals.feihoaFree && signals.feihoaFits) {
+    return { provider: "feihoa", upstreamModel: FEIHOA_MODEL, tier: "flash", effort: "low", reason: "smart-qwen=feihoa", hardCapped: false };
+  }
+  // Yolo secondary: concurrency-4 overflow lane (pressure + wedge gated).
   if (signals.yoloOn && signals.yoloFree && signals.yoloPressureOk) {
-    return { provider: "yolo", upstreamModel: YOLO_MODEL, tier: "flash", effort: "low", reason: "smart-qwen=yolo", hardCapped: false };
+    return { provider: "yolo", upstreamModel: YOLO_MODEL, tier: "flash", effort: "low", reason: `smart-qwen=yolo(${signals.feihoaOn ? "feihoa-busy" : "feihoa-off"})`, hardCapped: false };
   }
   // Hyper flash backstop (cheap paid) while the daily budget holds.
   if (signals.hyperBudgetOk) {

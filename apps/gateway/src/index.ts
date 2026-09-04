@@ -1,6 +1,6 @@
 import app from "./routes/chat";
 import { syncYoloPressureFromHeaders, yoloPressureState } from "./lib/yolo-pressure";
-import { yoloEnabled } from "./providers/yolo";
+import { yoloEnabled, markYoloWedged } from "./providers/yolo";
 
 const port = Number(process.env.PORT ?? 8787);
 console.log(`[gateway] listening on :${port}`);
@@ -14,11 +14,16 @@ console.log(`[gateway] listening on :${port}`);
 // floor) once per boot.
 if (yoloEnabled()) {
   const key = process.env.YOLO_AUTO_API_KEY ?? "";
-  fetch(`${process.env.YOLO_BASE_URL ?? "https://yolo-auto.com/v1"}/chat/completions`, {
+  // 15s deadline: a healthy yolo answers a 1-token call in seconds. A
+  // timeout here means the lane is wedged (global capacity) — pre-mark the
+  // wedge cooldown so the FIRST real turn doesn't burn 25s discovering it.
+  const probe = fetch(`${process.env.YOLO_BASE_URL ?? "https://yolo-auto.com/v1"}/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
     body: JSON.stringify({ model: "qwen3.8-27b", messages: [{ role: "user", content: "hi" }], max_tokens: 1, reasoning_effort: "none" }),
-  })
+    signal: AbortSignal.timeout(15_000),
+  });
+  probe
     .then((res) => {
       const r1 = Number(res.headers.get("x-yolo-pressure-remaining-1h"));
       const r24 = Number(res.headers.get("x-yolo-pressure-remaining-24h"));
@@ -30,7 +35,10 @@ if (yoloEnabled()) {
         console.warn("[yolo-pressure] bootstrap probe returned no pressure headers");
       }
     })
-    .catch((err) => console.warn("[yolo-pressure] bootstrap probe failed:", (err as Error).message));
+    .catch((err) => {
+      console.warn("[yolo-pressure] bootstrap probe failed:", (err as Error).message, "— marking yolo wedged");
+      markYoloWedged(30 * 60 * 1000);
+    });
 }
 export default {
   port,

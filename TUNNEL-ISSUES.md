@@ -2396,3 +2396,49 @@ Key diagnosis: current wedge (models 200/1.1s, chat timeout, pressure
 77%) is GLOBAL capacity/infra — NOT account pressure. Two separate
 guards now, honestly labeled: 'yolo-pressured' (account budget) vs
 'yolo-cooling' (wedge cooldown from TTFT aborts).
+
+## check 2026-09-05 01:23 — turns=7 failovers=2 cache_hit=48% max_billed=35111
+- [2026-09-05 01:23] failover (gw) — :"69/471","raw":8,"cached":0,"ms":13404,"ttft":null} {"ev":"backchannel-failover","from":"yolo","to":"feihoa","status":502,"cause":"connection:client disconnected"} [dispatch yolo]
+- [2026-09-05 01:23] failover (gw) — ttempt 1 failed (backchannel ttft ceiling), retrying {"ev":"backchannel-failover","from":"yolo","to":"feihoa","status":502,"cause":"connection:backchannel ttft ceiling"} [feihoa] 4
+- [2026-09-05 01:23] stream/dispatch-error (gw) — ":"17832/383","raw":17475,"cached":0,"ms":7612,"ttft":null} [dispatch yolo] attempt 1 failed (backchannel ttft ceiling), retrying {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 01:23] stream/dispatch-error (gw) — hoa","status":502,"cause":"connection:client disconnected"} [dispatch yolo] attempt 1 failed (backchannel ttft ceiling), retrying {"ev":"backchannel-failover","from":"yolo","to":"f
+- [2026-09-05 01:23] stream/dispatch-error (gw) — oa] 429 — short backoff 2000ms, then failover if still busy [dispatch yolo] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"t
+
+## check 2026-09-05 01:35 — turns=169 failovers=0 cache_hit=78% max_billed=25146
+- [2026-09-05 01:35] tunnel-524-timeout (gw) — rd=stepfun","tok":"10065/171","raw":9468,"cached":7168,"ms":5247,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"step-3.7-flash","tier":"flash",
+- [2026-09-05 01:35] tunnel-524-timeout (gw) — ier":"flash","why":"session-sticky-hop(yolo-busy)","tok":"12524/311","raw":10048,"cached":11648,"ms":4706,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"qwe
+
+## check 2026-09-05 01:47 — turns=352 failovers=4 cache_hit=86% max_billed=49145
+- [2026-09-05 01:47] upstream-error (gw) — 20812/53","raw":17743,"cached":20352,"ms":3910,"ttft":null} [upstream hyper] 429: {"error":{"message":"You've hit your hourly rate limit. Please try again in 1m34s.","type":"rate_l
+- [2026-09-05 01:47] upstream-error (gw) — ":"3120/73","raw":2635,"cached":2048,"ms":5487,"ttft":null} [upstream hyper] 429: {"error":{"message":"You've hit your hourly rate limit. Please try again in 1m25s.","type":"rate_l
+- [2026-09-05 01:47] upstream-error (gw) — y again in 1m25s.","type":"rate_limit_error","code":null}}  [upstream hyper] 429: {"error":{"message":"You've hit your hourly rate limit. Please try again in 28s.","type":"rate_lim
+- [2026-09-05 01:47] upstream-error (gw) — 4935/185","raw":21206,"cached":20736,"ms":6116,"ttft":null} [upstream hyper] 429: {"error":{"message":"You've hit your hourly rate limit. Please try again in 1m0s.","type":"rate_li
+- [2026-09-05 01:47] upstream-error (gw) — ry again in 1m0s.","type":"rate_limit_error","code":null}}  [upstream hyper] 429: {"error":{"message":"You've hit your hourly rate limit. Please try again in 4s.","type":"rate_limi
+- [2026-09-05 01:47] upstream-error (gw) — try again in 4s.","type":"rate_limit_error","code":null}}  [upstream hyper] 429: {"error":{"message":"You've hit your hourly rate limit. Please try again in 4s.","type":"rate_limi
+- [2026-09-05 01:47] upstream-error (gw) — try again in 4s.","type":"rate_limit_error","code":null}}  [upstream hyper] 429: {"error":{"message":"You've hit your hourly rate limit. Please try again in 53s.","type":"rate_lim
+- [2026-09-05 01:47] upstream-error (gw) — 8886/541","raw":15714,"cached":14336,"ms":8534,"ttft":null} [upstream hyper] 429: {"error":{"message":"You've hit your hourly rate limit. Please try again in 5s.","type":"rate_limi
+- [2026-09-05 01:47] upstream-error (gw) — try again in 5s.","type":"rate_limit_error","code":null}}  [upstream hyper] 429: {"error":{"message":"You've hit your hourly rate limit. Please try again in 3s.","type":"rate_limi
+- [2026-09-05 01:47] upstream-error (gw) — 29507/70","raw":24466,"cached":28672,"ms":4276,"ttft":null} [upstream hyper] 429: {"error":{"message":"You've hit your hourly rate limit. Please try again in 1s.","type":"rate_limi
+- [2026-09-05 01:47] upstream-error (gw) — 0776/196","raw":25475,"cached":29696,"ms":6479,"ttft":null} [upstream hyper] 429: {"error":{"message":"You've hit your hourly rate limit. Please try again in 14s.","type":"rate_lim
+- [2026-09-05 01:47] upstream-error (gw) — 66/1410","raw":15328,"cached":16640,"ms":20445,"ttft":null} [upstream hyper] 429: {"error":{"message":"You've hit your hourly rate limit. Please try again in 9s.","type":"rate_limi
+- [2026-09-05 01:47] failover (gw) — essage\":\"You've hit your hourly rate limit. Plea"} {"ev":"backchannel-failover","from":"yolo","to":"feihoa","status":502,"cause":"connection:backchannel ttft ceiling"} [feihoa] 4
+- [2026-09-05 01:47] failover (gw) — /93","raw":7329,"cached":5248,"ms":3878,"ttft":null} {"ev":"backchannel-failover","from":"yolo","to":"feihoa","status":502,"cause":"connection:backchannel ttft ceiling"} [feihoa] 4
+- [2026-09-05 01:47] failover (gw) — 48","raw":8438,"cached":7424,"ms":10798,"ttft":null} {"ev":"backchannel-failover","from":"yolo","to":"feihoa","status":502,"cause":"connection:backchannel ttft ceiling"} {"ev":"bac
+- [2026-09-05 01:47] failover (gw) — ":502,"cause":"connection:backchannel ttft ceiling"} {"ev":"backchannel-failover","from":"yolo","to":"feihoa","status":502,"cause":"connection:backchannel ttft ceiling"} [feihoa] 4
+- [2026-09-05 01:47] tunnel-524-timeout (gw) — hop(yolo-busy)","tok":"3263/26","raw":3062,"cached":0,"ms":2524,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"qwen-3.8","to":"qwen3.8-flash","tier":"flash"
+- [2026-09-05 01:47] tunnel-524-timeout (gw) — tier":"flash","why":"session-sticky-hop(yolo-busy)","tok":"15243/27","raw":13191,"cached":0,"ms":21263,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"qwen-3
+- [2026-09-05 01:47] tunnel-524-timeout (gw) — y":"theta-hard=stepfun","tok":"7692/93","raw":7329,"cached":5248,"ms":3878,"ttft":null} {"ev":"backchannel-failover","from":"yolo","to":"feihoa","status":502,"cause":"connection:ba
+- [2026-09-05 01:47] stream/dispatch-error (gw) — ":"9386/59","raw":8227,"cached":8960,"ms":3312,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71",
+- [2026-09-05 01:47] stream/dispatch-error (gw) — \":{\"message\":\"You've hit your hourly rate limit. Plea"} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71",
+- [2026-09-05 01:47] stream/dispatch-error (gw) — 15304/27","raw":13214,"cached":15269,"ms":5136,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71",
+- [2026-09-05 01:47] stream/dispatch-error (gw) — 14744/53","raw":11899,"cached":14656,"ms":4247,"ttft":null} [dispatch yolo] attempt 1 failed (backchannel ttft ceiling), retrying {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 01:47] stream/dispatch-error (gw) — \":{\"message\":\"You've hit your hourly rate limit. Plea"} [dispatch yolo] attempt 1 failed (backchannel ttft ceiling), retrying {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 01:47] stream/dispatch-error (gw) — 62/9221","raw":16271,"cached":14976,"ms":91067,"ttft":null} [dispatch yolo] attempt 1 failed (backchannel ttft ceiling), retrying [dispatch yolo] attempt 1 failed (backchannel ttft
+- [2026-09-05 01:47] stream/dispatch-error (gw) — yolo] attempt 1 failed (backchannel ttft ceiling), retrying [dispatch yolo] attempt 1 failed (backchannel ttft ceiling), retrying {"ev":"llmgateway-failover","from":"hyper","to":"q
+- [2026-09-05 01:47] stream/dispatch-error (gw) — ok":"5578/166","raw":5497,"cached":0,"ms":6016,"ttft":null} [dispatch yolo] connection failure: backchannel ttft ceiling {"ev":"llmgateway-failover","from":"hyper","to":"qwen3.8-fl
+- [2026-09-05 01:47] stream/dispatch-error (gw) — oa] 429 — short backoff 2000ms, then failover if still busy [dispatch yolo] connection failure: backchannel ttft ceiling {"ev":"llmgateway-failover","from":"hyper","to":"qwen3.8-fl
+- [2026-09-05 01:47] stream/dispatch-error (gw) — oa] 429 — short backoff 2000ms, then failover if still busy [dispatch yolo] connection failure: backchannel ttft ceiling [dispatch yolo] connection failure: backchannel ttft ceilin
+- [2026-09-05 01:47] stream/dispatch-error (gw) — dispatch yolo] connection failure: backchannel ttft ceiling [dispatch yolo] connection failure: backchannel ttft ceiling {"ev":"llmgateway-failover","from":"hyper","to":"qwen3.8-fl
+
+## check 2026-09-05 01:59 — turns=3 failovers=0 cache_hit=77% max_billed=7488
+- no new issues

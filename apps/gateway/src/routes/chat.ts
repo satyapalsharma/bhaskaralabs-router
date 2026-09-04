@@ -20,10 +20,11 @@ import { agnesChat, agnesEnabled, markAgnesDead } from "../providers/agnes";
 import { stepfunChat, stepfunEnabled, markStepfunThrottled } from "../providers/stepfun";
 import { devpassChat, devpassEnabled } from "../providers/devpass";
 import { llmGatewayChat, llmGatewayEnabled } from "../providers/llmgateway";
-import { feihoaChat, feihoaEnabled, FEIHOA_MODEL, FEIHOA_MAX_OUTPUT, FEIHOA_INPUT_BUDGET } from "../providers/feihoa";
-import { yoloChat, yoloEnabled, YOLO_MODEL, YOLO_MAX_OUTPUT, YOLO_INPUT_BUDGET } from "../providers/yolo";
+import { feihoaChat, feihoaEnabled, feihoaSlotFree, FEIHOA_MODEL, FEIHOA_MAX_OUTPUT, FEIHOA_INPUT_BUDGET } from "../providers/feihoa";
+import { yoloChat, yoloEnabled, yoloSlotFree, YOLO_MODEL, YOLO_MAX_OUTPUT, YOLO_INPUT_BUDGET } from "../providers/yolo";
 import { fitUpstreamWindow } from "../lib/window-guard";
 import { recordYoloTurn } from "../lib/yolo-pressure";
+import { hyperBudgetAvailable } from "../lib/hyper-budget";
 import { type RouterDecision, type BackchannelLane, FLASH_OF, backchannelNext, backchannelPrimary, failoverDecision } from "../router";
 import { decideTurn } from "../lib/decision";
 import messagesApp from "./messages";
@@ -234,10 +235,13 @@ app.post("/v1/chat/completions", async (c) => {
     const fitsFeihoa = estimateTokens(messages) + toolTokens <= FEIHOA_INPUT_BUDGET;
     const next = backchannelNext(usedDecision.provider, status, { fitsFeihoa });
     if (!next) return null;
-    if (next === "yolo" && !yoloEnabled()) return null;
-    if (next === "feihoa" && !feihoaEnabled()) return null;
+    // HEALTH GATES: never dispatch into a busy/wedged lane. enabled() alone
+    // is not enough — a wedged yolo (pressure/global-capacity) passes
+    // enabled() but every dispatch burns the full 25s TTFT ceiling before
+    // failing (observed: feihoa↔yolo bounce loop, 90s client timeout).
+    if (next === "yolo" && (!yoloEnabled() || !yoloSlotFree())) return null;
+    if (next === "feihoa" && (!feihoaEnabled() || !feihoaSlotFree())) return null;
     const alt = failoverDecision(usedDecision, next, cause);
-    alt.upstreamModel = next === "yolo" ? YOLO_MODEL : FEIHOA_MODEL;
     console.log(JSON.stringify({ ev: "backchannel-failover", from: usedDecision.provider, to: next, status, cause: cause.slice(0, 80) }));
     try {
       const res = await attempt(alt);
@@ -272,6 +276,65 @@ app.post("/v1/chat/completions", async (c) => {
     }
     return null;
   };
+  // Connection-failure fallback chain, shared by the first-attempt and
+  // retry-exhausted paths. Order: degraded flash (hyper full) → healthy
+  // backchannel peer → same-catalog llmgateway → paid flash tier.
+  const connectionFailover = async (errMsg: string): Promise<Response | null> => {
+    const flashModel = decision.provider === "hyper" && decision.tier === "full"
+      ? FLASH_OF[decision.upstreamModel] ?? null
+      : null;
+    if (flashModel) {
+      const degraded: RouterDecision = {
+        ...decision,
+        upstreamModel: flashModel,
+        tier: "flash",
+        effort: "low",
+        reason: `${decision.reason} → degraded-flash(retry-failed)`,
+        hardCapped: true,
+      };
+      try {
+        const res = await attempt(degraded);
+        if (res.ok) {
+          usedDecision = degraded;
+          console.log(JSON.stringify({ ev: "dispatch-degraded", from: decision.upstreamModel, to: flashModel, cause: errMsg }));
+          return res;
+        }
+      } catch { /* fall through */ }
+    }
+    // Free backchannel lanes: hop to the HEALTHY peer (gated).
+    if (decision.provider === "feihoa" || decision.provider === "yolo") {
+      const hop = await tryBackchannelFailover(`connection:${errMsg}`, 502);
+      if (hop) return hop;
+    }
+    // Hyper/same-catalog lanes: same-model llmgateway hop.
+    const gw = await tryLlmGatewayFailover(`connection:${errMsg}`);
+    if (gw) return gw;
+    // Free lanes whose peers are also unhealthy/busy → paid flash tier.
+    // (Both free lanes dead must never 502 while paid lanes sit idle.)
+    if (decision.provider === "feihoa" || decision.provider === "yolo") {
+      if (await hyperBudgetAvailable()) {
+        const paidFlash: RouterDecision = {
+          ...decision,
+          provider: "hyper",
+          upstreamModel: endpointModel === "theta" ? "glm-5.3-flash" : "qwen3.8-flash",
+          tier: "flash",
+          effort: "low",
+          reason: `${decision.reason} → paid-flash(connection-failover)`,
+          hardCapped: true,
+        };
+        try {
+          const res = await attempt(paidFlash);
+          if (res.ok) {
+            usedDecision = paidFlash;
+            console.log(JSON.stringify({ ev: "paid-flash-fallback", from: decision.provider, to: paidFlash.upstreamModel, cause: errMsg }));
+            return res;
+          }
+        } catch { /* fall through */ }
+      }
+    }
+    return null;
+  };
+
   try {
     upstream = await attempt(decision);
   } catch (err) {
@@ -281,64 +344,33 @@ app.post("/v1/chat/completions", async (c) => {
       console.log(`[dispatch ${decision.provider}] client disconnected mid-generation — aborting turn`);
       return c.json({ error: { message: "Client disconnected", type: "api_error" } }, 408);
     }
-    console.warn(`[dispatch ${decision.provider}] attempt 1 failed (${(err as Error).message.slice(0, 60)}), retrying`);
-    try {
-      upstream = await attempt(decision);
-    } catch (err2) {
-      const flashModel = decision.provider === "hyper" && decision.tier === "full"
-        ? FLASH_OF[decision.upstreamModel] ?? null
-        : null;
-      if (flashModel) {
-        const degraded: RouterDecision = {
-          ...decision,
-          upstreamModel: flashModel,
-          tier: "flash",
-          effort: "low",
-          reason: `${decision.reason} → degraded-flash(retry-failed)`,
-          hardCapped: true,
-        };
-        try {
-          upstream = await attempt(degraded);
-          usedDecision = degraded;
-          console.log(JSON.stringify({ ev: "dispatch-degraded", from: decision.upstreamModel, to: flashModel, cause: String((err2 as Error).message).slice(0, 60) }));
-        } catch (err3) {
-          // degraded flash also unreachable → llmgateway same-model hop.
-          const gw = await tryLlmGatewayFailover(`connection:${(err3 as Error).message.slice(0, 60)}`);
-          if (gw) {
-            upstream = gw;
-          } else {
-            console.error(`[dispatch ${decision.provider}] degraded attempt also failed:`, (err3 as Error).message);
-            return c.json({ error: { message: "Upstream provider temporarily unreachable", type: "api_error" } }, 502);
-          }
-        }
-      } else if (decision.provider === "hyper") {
-        // Hyper unreachable → llmgateway same-model hop (no backchannel fit needed).
-        const gw = await tryLlmGatewayFailover(`connection:${(err2 as Error).message.slice(0, 60)}`);
-        if (gw) {
-          upstream = gw;
-        } else {
-          console.error(`[dispatch ${decision.provider}] connection failure:`, (err2 as Error).message);
-          return c.json({ error: { message: "Upstream provider temporarily unreachable", type: "api_error" } }, 502);
-        }
+    const msg = (err as Error).message.slice(0, 60);
+    if (msg.includes("ttft ceiling")) {
+      // Wedged lane: same-lane retry is a guaranteed 25s waste (observed:
+      // 50s+ per turn against the yolo wedge). Fail over immediately.
+      console.log(`[dispatch ${decision.provider}] ttft ceiling — lane wedged, failing over (no same-lane retry)`);
+      const alt = await connectionFailover(msg);
+      if (alt) {
+        upstream = alt;
       } else {
-        // Backchannel lane unreachable → hop to the next lane in the chain,
-        // then llmgateway if the chain end also fails.
-        const hop = await tryBackchannelFailover(`connection:${(err2 as Error).message.slice(0, 60)}`, 502);
-        if (hop) {
-          upstream = hop;
+        console.error(`[dispatch ${decision.provider}] connection failure:`, msg);
+        return c.json({ error: { message: "Upstream provider temporarily unreachable", type: "api_error" } }, 502);
+      }
+    } else {
+      console.warn(`[dispatch ${decision.provider}] attempt 1 failed (${msg}), retrying`);
+      try {
+        upstream = await attempt(decision);
+      } catch (err2) {
+        console.error(`[dispatch ${decision.provider}] connection failure:`, (err2 as Error).message);
+        const alt = await connectionFailover((err2 as Error).message.slice(0, 60));
+        if (alt) {
+          upstream = alt;
         } else {
-          const gw = await tryLlmGatewayFailover(`connection:${(err2 as Error).message.slice(0, 60)}`);
-          if (gw) {
-            upstream = gw;
-          } else {
-            console.error(`[dispatch ${decision.provider}] connection failure:`, (err2 as Error).message);
-            return c.json({ error: { message: "Upstream provider temporarily unreachable", type: "api_error" } }, 502);
-          }
+          return c.json({ error: { message: "Upstream provider temporarily unreachable", type: "api_error" } }, 502);
         }
       }
     }
   }
-
   if (!upstream.ok) {
     const errText = await upstream.text().catch(() => "");
     const hop = await tryBackchannelFailover(errText, upstream.status);
@@ -379,8 +411,49 @@ app.post("/v1/chat/completions", async (c) => {
           return c.json({ error: { message: `Upstream error ${upstream.status}`, type: "api_error" } }, 502);
         }
       } else {
-        console.error(`[upstream ${usedDecision.provider}] ${upstream.status}: ${errText.slice(0, 500)}`);
-        return c.json({ error: { message: `Upstream error ${upstream.status}`, type: "api_error" } }, 502);
+        // Re-decide returned the SAME provider (e.g. feihoa still busy,
+        // yolo wedged, no free lane) — fall through to the paid FLASH tier
+        // so a concurrent burst never 502s while paid lanes sit idle.
+        // (Observed live: 2 parallel turns → feihoa 429 + yolo wedge → 502
+        // with both paid lanes healthy. Paid flash is the same capability
+        // class as the free 27b lanes for routine turns.)
+        const paidFlash = await hyperBudgetAvailable();
+        if (paidFlash) {
+          const degraded: RouterDecision = {
+            ...usedDecision,
+            provider: "hyper",
+            upstreamModel: FLASH_OF[usedDecision.upstreamModel] ?? (endpointModel === "theta" ? "glm-5.3-flash" : "qwen3.8-flash"),
+            tier: "flash",
+            effort: "low",
+            reason: `${usedDecision.reason} → paid-flash(all-free-lanes-busy)`,
+            hardCapped: true,
+          };
+          try {
+            const res = await attempt(degraded);
+            if (res.ok) {
+              usedDecision = degraded;
+              upstream = res;
+              console.log(JSON.stringify({ ev: "paid-flash-fallback", from: usedDecision.reason.slice(0, 30), to: degraded.upstreamModel }));
+            } else {
+              console.error(`[upstream ${usedDecision.provider}] ${upstream.status}: ${errText.slice(0, 500)}`);
+              return c.json({ error: { message: `Upstream error ${upstream.status}`, type: "api_error" } }, 502);
+            }
+          } catch {
+            console.error(`[upstream ${usedDecision.provider}] ${upstream.status}: ${errText.slice(0, 500)}`);
+            return c.json({ error: { message: `Upstream error ${upstream.status}`, type: "api_error" } }, 502);
+          }
+        } else if (llmGatewayEnabled()) {
+          const gw = await tryLlmGatewayFailover(`all-free-lanes-busy status ${upstream.status}`);
+          if (gw) {
+            upstream = gw;
+          } else {
+            console.error(`[upstream ${usedDecision.provider}] ${upstream.status}: ${errText.slice(0, 500)}`);
+            return c.json({ error: { message: `Upstream error ${upstream.status}`, type: "api_error" } }, 502);
+          }
+        } else {
+          console.error(`[upstream ${usedDecision.provider}] ${upstream.status}: ${errText.slice(0, 500)}`);
+          return c.json({ error: { message: `Upstream error ${upstream.status}`, type: "api_error" } }, 502);
+        }
       }
     }
   }
