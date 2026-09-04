@@ -2310,3 +2310,12 @@ Issues found in a complete pass over both gateway logs + ledger:
    now 6/8 with cooldown, ceiling exempt.
 Known-benign: feihoa 429 single-retry (by design); feihoa 27B empty-output
 (escalation streak handles); ngrok GET /health 404 (route cosmetic).
+
+## check 2026-09-05 00:11 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- [2026-09-05 00:11] stream/dispatch-error (gw) — eeded 1357 turns: 1h=0.82M/3M, 24h=9.76M/14M, softDeny=true [dispatch hyper] client disconnected mid-generation — aborting turn
+
+## check 2026-09-05 00:23 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-05 00:35 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues

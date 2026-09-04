@@ -147,14 +147,23 @@ export async function decideTurn(
         await touchSession(sessionId, auth.userId);
         return { provider: "yolo", upstreamModel: YOLO_MODEL, tier: "flash", effort: "low", reason: "session-sticky-hop(feihoa-busy)", hardCapped: false };
       }
-      // yolo-locked but all 4 slots busy → hop to feihoa (secondary free lane)
-      // if it fits, else hyper flash (backstop).
-      if (lock.lockedModel === YOLO_MODEL && !yoloSlotFree()) {
+      // yolo-locked but all 4 slots busy OR the pressure tracker says the
+      // lane is wedged/pressured → hop for this turn (lock preserved).
+      // Pressure check is CRITICAL for sticky locks: a wedged yolo serves
+      // nothing but every sticky turn still burned 25s on the TTFT ceiling
+      // before failing over (observed live 2026-09-04/05).
+      const yoloUsable = yoloSlotFree() && !yoloWouldOverflow(estimateTokens(messages));
+      if (lock.lockedModel === YOLO_MODEL && !yoloUsable) {
         await touchSession(sessionId, auth.userId);
         if (feihoaEnabled() && feihoaSlotFree() && estimateTokens(messages) <= FEIHOA_INPUT_BUDGET) {
           return { provider: "feihoa", upstreamModel: FEIHOA_MODEL, tier: "flash", effort: "low", reason: "session-sticky-hop(yolo-busy)", hardCapped: false };
         }
-        return { provider: "hyper", upstreamModel: "qwen3.8-flash", tier: "flash", effort: "low", reason: "session-sticky-hop(yolo+feihoa-busy)", hardCapped: false };
+        if (await hyperBudgetAvailable()) {
+          return { provider: "hyper", upstreamModel: "qwen3.8-flash", tier: "flash", effort: "low", reason: "session-sticky-hop(yolo-busy)", hardCapped: false };
+        }
+        if (llmGatewayEnabled()) {
+          return { provider: "llmgateway", upstreamModel: "qwen3.8-flash", tier: "flash", effort: "low", reason: "session-sticky-hop(yolo-busy,hyper-budget-out)", hardCapped: false };
+        }
       }
       await touchSession(sessionId, auth.userId);
       const tier = lock.lockedModel.includes("flash") || lock.lockedModel.includes("feihoa") || lock.lockedModel.includes("yolo") || lock.lockedModel.includes("27b") || lock.lockedModel.includes("27B") ? "flash" : "full";

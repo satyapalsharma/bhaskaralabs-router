@@ -16,9 +16,18 @@ export const YOLO_INPUT_BUDGET = 97_280;
 export const YOLO_MAX_CONCURRENCY = 4;
 
 let yoloInFlight = 0;
-/** True when yolo has a free generation slot (<4 requests in flight). */
+/** Wedge cooldown: a TTFT abort/connection death means the lane is silently
+ *  wedged (pressure exhaustion gives NO 429/headers — requests just hang).
+ *  Cool the lane 10 min so dispatches skip it instead of burning the
+ *  25s ceiling per turn. Pressure tracker may re-admit earlier if the
+ *  window drains; the cooldown is the hard floor. */
+let wedgedUntil = 0;
+/** True when yolo has a free generation slot AND isn't in wedge cooldown. */
 export function yoloSlotFree(): boolean {
-  return yoloInFlight < YOLO_MAX_CONCURRENCY;
+  return yoloInFlight < YOLO_MAX_CONCURRENCY && Date.now() >= wedgedUntil;
+}
+export function markYoloWedged(cooldownMs = 10 * 60 * 1000): void {
+  wedgedUntil = Date.now() + cooldownMs;
 }
 function yoloAcquire(): void {
   yoloInFlight++;
@@ -68,6 +77,11 @@ export async function yoloChat(req: YoloRequest): Promise<Response> {
     return wrapRelease(res);
   } catch (err) {
     yoloRelease();
+    // TTFT-ceiling abort or connection death: the lane is likely wedged
+    // (pressure exhaustion wedges silently — no 429, no headers). Cool the
+    // lane for 10 min so fresh dispatches skip yolo instead of burning a
+    // 25s ceiling per turn (observed: 6h+ wedges).
+    markYoloWedged();
     throw err;
   }
 }
