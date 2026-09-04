@@ -2319,3 +2319,6 @@ Known-benign: feihoa 429 single-retry (by design); feihoa 27B empty-output
 
 ## check 2026-09-05 00:35 — turns=0 failovers=0 cache_hit=0% max_billed=0
 - no new issues
+
+## check 2026-09-05 00:47 — turns=7 failovers=0 cache_hit=46% max_billed=10277
+- no new issues

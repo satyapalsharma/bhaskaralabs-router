@@ -254,6 +254,11 @@ app.post("/v1/chat/completions", async (c) => {
   // hop to llmgateway with the SAME model id (verified same catalog upstreams).
   const tryLlmGatewayFailover = async (cause: string): Promise<Response | null> => {
     if (!llmGatewayEnabled() || usedDecision.provider === "llmgateway") return null;
+    // FREE-BACKCHANNEL models (27b) must NEVER hop to llmgateway — it's the
+    // PAID fallback. 27b exists to be free; paying per-token for it defeats
+    // the whole lane design (observed: 54 turns / 852K tokens leaked here).
+    // Free-lane failure falls back to hyper flash (cheap paid) instead.
+    if (usedDecision.upstreamModel === YOLO_MODEL || usedDecision.upstreamModel === FEIHOA_MODEL) return null;
     const alt = failoverDecision(usedDecision, "llmgateway", cause);
     console.log(JSON.stringify({ ev: "llmgateway-failover", from: usedDecision.provider, to: usedDecision.upstreamModel, cause: cause.slice(0, 80) }));
     try {
