@@ -50,6 +50,12 @@ const HARD_PATTERNS: RegExp[] = [
   /\b(root\s+cause|debug\s+this|mysterious|flaky\s+test)\b/i,
   /\b(security|race\s+condition|deadlock|memory\s+leak)\b/i,
   /\b(refactor.{0,30}(whole|entire|large)\b)/i,
+  // fix/repair turns — 27B models are weak at precise TS type-repair
+  // (observed: TS2339/TS2345 union-narrowing errors survived 8 fix rounds);
+  // route them to the frontier model.
+  /\b(fix|repair|resolve)\b.{0,30}\b(error|errors|fail|fails|failing|broken|type|TS\d{3,5}|compile|compilation|build)\b/i,
+  /\b(error|errors|fail|fails|failing|broken|type|TS\d{3,5}|compile|compilation|build)\b.{0,30}\b(fix|repair|resolve)\b/i,
+  /\bTS\d{3,5}\b/,
 ];
 
 export function classifyHardness(text: string): RouterSignals["hardness"] {

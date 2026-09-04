@@ -116,6 +116,18 @@ export async function decideTurn(
   if (endpointModel === "qwen-3.8" && process.env.BHASKARA_QWEN_SMART === "1") {
     const lock = await getLock(sessionId, auth.userId);
     if (lock.lockedModel && !lock.stale) {
+      // Hard/fix turn on a 27B-locked session → escalate this turn to the
+      // frontier model (qwen3.8-max) — 27B models are weak at precise TS
+      // type-repair (observed: union-narrowing errors survived 8 rounds).
+      // Lock preserved for cache; next routine turn returns to the free lane.
+      const hardness = classifyHardness(lastUserText(messages));
+      if (hardness !== "routine" && lock.lockedModel !== "qwen3.8-max" && lock.lockedModel !== "qwen3.8-flash") {
+        const share = await weeklyFullShare(auth.userId);
+        if (share < ROUTER.fullShareCapPerUserPerWeek) {
+          await touchSession(sessionId, auth.userId);
+          return { provider: "hyper", upstreamModel: "qwen3.8-max", tier: "full", effort: "max", reason: `sticky-escalate(${hardness})`, hardCapped: false };
+        }
+      }
       // feihoa-locked but its single slot is busy → temporary hop to yolo for
       // this turn only (lock preserved; next free turn returns to feihoa).
       if (lock.lockedModel === FEIHOA_MODEL && !feihoaSlotFree() && yoloEnabled() && yoloSlotFree() && estimateTokens(messages) <= YOLO_INPUT_BUDGET) {
