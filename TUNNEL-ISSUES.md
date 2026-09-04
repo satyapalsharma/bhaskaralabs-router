@@ -2337,3 +2337,15 @@ User alarm: full-tier (max) routing way past the 10% cap. Verified:
 - $20 hyper burn audit: Sep-4 spend ($18.78) predates budget tracker;
   Sep-5 burn $0.22 (tracker + all leak fixes live). Hyper remaining
   $55.66 (1113 credits, live probe).
+
+## 2026-09-05 (agnes zero-calls — upstream dead, commit c41d13e)
+
+Q: theta me agnes pe ek bhi call kyun nahi gayi (chain me first hai)?
+A: Agnes subscription EXPIRED. Key cpk-6nJ52VUs... (working Aug 17 per
+gitforge registry live-probe) ab har model pe 401 invalid-token /
+402 subscription_not_found deta hai. Routing sahi tha — pehli 401 pe
+markAgnesDead → stepfun ne 785 theta turns absorb kiye ($0 flat).
+Cooldown 30min → 6h extended (subscription death minutes me heal nahi
+hoti; har 30min wasted retry round-trip tha).
+ACTION (user): Agnes subscription renew karo → key wahi rahegi →
+gateway restart pe lane wapas on (ya 6h cooldown khud expire).
