@@ -1,14 +1,13 @@
 // [BOOTSTRAP] Agnes — flat-plan bootstrap lane (theta chain).
 // Verified live 2026-09-04: base https://apihub.agnes-ai.com/v1, Bearer auth.
-// Free-tier reference: ~20 RPM text models → mirror as a 4-slot semaphore.
 // Per-request COGS = 0 (flat plan); ledger tracks request count.
-// NOTE: paid key currently returns 402 subscription_not_found (2026-09-04) —
-// enabled() stays key-based; the lane self-disables on 402 via failover.
+// Key rotated 2026-09-05 (cpk-WvNL..., renewed subscription): plan
+// concurrency is 10 — verified by user from the Agnes dashboard.
 
 export const AGNES_BASE = process.env.AGNES_BASE_URL ?? "https://apihub.agnes-ai.com/v1";
 
-/** Agnes concurrency cap (free-tier ~20 RPM mirrored as 4 concurrent). */
-export const AGNES_MAX_CONCURRENCY = 4;
+/** Agnes concurrency cap — new paid plan allows 10 concurrent. */
+export const AGNES_MAX_CONCURRENCY = 10;
 
 let agnesInFlight = 0;
 /** True when agnes has a free generation slot (<4 requests in flight). */

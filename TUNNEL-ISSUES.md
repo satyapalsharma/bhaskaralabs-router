@@ -2356,3 +2356,6 @@ Purani key cpk-6nJ... subscription-expired thi. User ne nayi renewed
 key di (cpk-WvNL...). Rotated in gateway .env + gitforge pipeline-v5.
 Live: theta-routine=agnes → agnes-2.5-flash 788ms serve. Lane wapas
 chain-FIRST pe. (6h dead-cooldown ab dormant — naya session fresh state.)
+
+## check 2026-09-05 00:59 — turns=12 failovers=1 cache_hit=52% max_billed=286
+- [2026-09-05 00:59] failover (gw) — :"286/41","raw":2,"cached":256,"ms":539,"ttft":null} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"Your current generatio
