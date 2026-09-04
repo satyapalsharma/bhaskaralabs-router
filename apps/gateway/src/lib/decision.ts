@@ -29,6 +29,10 @@ export const FULL_OF: Record<string, string> = {
   "qwen-3.8": "qwen3.8-max",
 };
 
+/** Per-session max escalations (sticky-escalate turns) per rolling hour —
+ *  runaway fix-loop guard. Hard turns beyond this serve on the free lane. */
+const SESSION_MAX_ESCALATIONS_PER_HOUR = 30;
+
 function lastUserText(messages: ChatMessage[]): string {
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
   return typeof lastUser?.content === "string" ? lastUser.content : "";
@@ -43,10 +47,21 @@ export function cacheSwitchPenaltyUsd(flashModel: string, fullModel: string, pre
 
 async function weeklyFullShare(userId: string): Promise<number> {
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  // Denominator: FRONTIER turns only (glm-5.3 + qwen-3.8 endpoints).
+  // Theta turns are flash-tier by design and never upgrade to full, so
+  // counting them dilutes the share (observed live: 23.4% real qwen full-share
+  // displayed as 8.9% overall because 1300+ theta turns padded the denominator
+  // — the 10% cap was silently blown while the metric looked healthy).
   const rows = await db
     .select({ total: sql`count(*)`, full: sql`count(*) filter (where routed_to = 'full')` })
     .from(usageLedger)
-    .where(and(eq(usageLedger.userId, userId), gte(usageLedger.createdAt, since)));
+    .where(
+      and(
+        eq(usageLedger.userId, userId),
+        gte(usageLedger.createdAt, since),
+        sql`${usageLedger.endpointModel} in ('glm-5.3', 'qwen-3.8')`,
+      ),
+    );
   const total = Number(rows[0]?.total ?? 0);
   if (total === 0) return 0;
   return Number(rows[0]?.full ?? 0) / total;
@@ -136,9 +151,25 @@ export async function decideTurn(
       const hardness = classifyHardness(lastUserText(messages));
       if (hardness !== "routine" && lock.lockedModel !== "qwen3.8-max" && lock.lockedModel !== "qwen3.8-flash") {
         const share = await weeklyFullShare(auth.userId);
-        if (share < ROUTER.fullShareCapPerUserPerWeek) {
+        // SESSION THROTTLE: a fix-looping agent re-triggers sticky-escalate
+        // every turn (observed: 22 max turns in a single minute, 189 in 2h —
+        // 23.4% qwen full-share vs the 10% cap). Cap a session's escalated
+        // (non-sticky) turns at a fixed count per hour; further hard turns
+        // serve on the locked free lane instead of burning max budget.
+        const escRows = await db
+          .select({ n: sql`count(*)` })
+          .from(usageLedger)
+          .where(
+            and(
+              eq(usageLedger.sessionId, sessionId),
+              eq(usageLedger.upstreamModel, "qwen3.8-max"),
+              gte(usageLedger.createdAt, new Date(Date.now() - 60 * 60 * 1000)),
+            ),
+          );
+        const sessionEscHour = Number(escRows[0]?.n ?? 0);
+        if (share < ROUTER.fullShareCapPerUserPerWeek && sessionEscHour < SESSION_MAX_ESCALATIONS_PER_HOUR) {
           await touchSession(sessionId, auth.userId);
-          return { provider: "hyper", upstreamModel: "qwen3.8-max", tier: "full", effort: "max", reason: `sticky-escalate(${hardness})`, hardCapped: false };
+          return { provider: "hyper", upstreamModel: "qwen3.8-max", tier: "full", effort: "max", reason: sessionEscHour >= SESSION_MAX_ESCALATIONS_PER_HOUR - 5 ? `sticky-escalate(${hardness}) near-session-limit` : `sticky-escalate(${hardness})`, hardCapped: false };
         }
       }
       // feihoa-locked but its single slot is busy → temporary hop to yolo for
