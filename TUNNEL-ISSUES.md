@@ -2653,3 +2653,13 @@ Verified: disconnect 3s into generation → 6 parallel turns → 0 429s.
 
 ## check 2026-09-05 10:11 — turns=7 failovers=0 cache_hit=88% max_billed=286
 - no new issues
+
+## 2026-09-05 (shadow-release — user-directed design, commit 2dd4cb0)
+
+User: disconnect propagation sab lanes pe rakhna hai, semaphore pe actively
+handle karo. Implemented lib/shadow-release.ts: abort pe flat-lane slot
+≈p90 generation tak SHADOW-HOLD hota hai (server-side zombie ko mirror me
+count karta hai), normal completion instant release. Wired: stepfun 25s,
+agnes 5s, feihoa 15s, yolo 30s. Live-verified: kill@3s → shadow-hold log →
+6 parallel turns → 0 429s. Propagation ab sab lanes pe (paid pe paisa
+bachata hai, flat pe cleanup + zombie-accounted mirror).
