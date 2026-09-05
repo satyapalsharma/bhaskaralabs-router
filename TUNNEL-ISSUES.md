@@ -2683,3 +2683,23 @@ on cache-priced lanes when possible, (2) chain stability (done). Gateway
 side is already clean (static identity, session-sticky, lock-preserving
 hops). If opencode injects time into prompts, moving it late in the
 system prompt is a client-side change outside gateway scope.
+
+## 2026-09-05 (cache hit/miss deep-dive)
+
+12h window, per-lane hit% (token-weighted):
+  stepfun 75% | qwen3.8-flash 83% (hyper) / 85% (llmgateway) | agnes 66%
+  glm-5.3-flash 59% (llmgw) / 32% (hyper — failover window) | max 52%
+  yolo 69% | feihoa 43% | 27b@llmgateway 36% (the leak window)
+
+Cold-turn causes (1252 total, categorized):
+  55% parallel-overlap  (sub-agents concurrent — both prefixes uncached)
+  34% lane-switch       (failover churn: agnes-dead + yolo-wedge windows)
+  11% structural        (first-turn + genuine TTL)
+
+Avoidable = 89%, but both causes are already addressed/known:
+  - lane-switch → stable chains + sticky-hop (post-fix ~0)
+  - overlap → client-side concurrency, gateway can't serialize agents
+
+Savings from caching (12h): $6.20 (max $2.94, flash $2.00, llmgw $0.86).
+Post-fix stepfun hourly trend: 46% → 70-84% after agnes revived + chains
+stabilized (00:00-07:00 window).
