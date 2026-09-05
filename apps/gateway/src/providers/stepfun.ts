@@ -3,10 +3,16 @@
 //
 // Concurrency: SERVER-ENFORCED limit 8 ("concurrency reached, current: 9,
 // limit: 8" observed live 2026-09-04 at 429). Mirror at 6, not 8 — running at
-// exactly the server limit leaves zero headroom for the retry burst after a
-// failover, which is how we hit current:9. Non-2xx releases the slot
-// immediately (the request is dead upstream; holding the slot only starves
-// the retry).
+// exactly the server limit leaves zero headroom for in-flight accounting
+// drift. Non-2xx releases the slot immediately (the request is dead upstream;
+// holding the slot only starves the retry).
+//
+// Zombies: a client-disconnect abort frees OUR slot while the server keeps
+// generating. The stepfun semaphore SHADOW-HOLDS the slot for ≈p90 of a
+// generation (lib/shadow-release.ts) so the mirror stays conservative and
+// the server never sees mirror+undead > 8.
+
+import { makeShadowRelease, SHADOW_HOLD_MS } from "../lib/shadow-release";
 
 export const STEPFUN_BASE = process.env.STEPFUN_BASE_URL ?? "https://api.stepfun.ai/step_plan/v1";
 
@@ -26,6 +32,11 @@ export function stepfunSlotFree(): boolean {
 export function markStepfunThrottled(seconds = 20): void {
   throttleUntil = Date.now() + seconds * 1000;
 }
+
+export function stepfunEnabled(): boolean {
+  return !!process.env.STEPFUN_API_KEY;
+}
+
 function stepfunAcquire(): void {
   stepfunInFlight++;
 }
@@ -33,16 +44,15 @@ function stepfunRelease(): void {
   stepfunInFlight = Math.max(0, stepfunInFlight - 1);
 }
 
-export function stepfunEnabled(): boolean {
-  return !!process.env.STEPFUN_API_KEY;
-}
-
-/** Wrap a Response so the stepfun slot is released when the body ends/aborts. */
+/** Wrap a Response so the stepfun slot is released when the body ends;
+ *  an ABORT (client disconnect) shadow-holds instead — the server-side
+ *  zombie keeps a real slot warm for the rest of its generation. */
 function wrapRelease(res: Response): Response {
   if (!res.body) {
     stepfunRelease();
     return res;
   }
+  const [release, shadowRelease] = makeShadowRelease(stepfunRelease, SHADOW_HOLD_MS.stepfun, "stepfun");
   const body = res.body.tee();
   const tracked = body[0];
   void tracked.cancel().catch(() => {});
@@ -53,17 +63,20 @@ function wrapRelease(res: Response): Response {
         const { done, value } = await reader.read();
         if (done) {
           controller.close();
-          stepfunRelease();
+          release();
           return;
         }
         controller.enqueue(value);
       } catch (err) {
-        stepfunRelease();
+        // Mid-stream error: bytes stopped — server generation ended abruptly.
+        release();
         controller.error(err);
       }
     },
     cancel(reason) {
-      stepfunRelease();
+      // Client went away: upstream reader cancelled → server MAY keep
+      // generating. Shadow-hold so our mirror counts that zombie.
+      shadowRelease();
       return reader.cancel(reason);
     },
   });
@@ -77,6 +90,10 @@ export async function stepfunChat(opts: {
   signal?: AbortSignal;
 }): Promise<Response> {
   stepfunAcquire();
+  // Abort BEFORE headers (TTFT phase, client disconnect): the request may or
+  // may not have been admitted server-side. Shadow-hold p90 — worst case we
+  // briefly under-use one slot; never money.
+  const [release, shadowRelease] = makeShadowRelease(stepfunRelease, SHADOW_HOLD_MS.stepfun, "stepfun");
   try {
     const res = await fetch(`${STEPFUN_BASE}/chat/completions`, {
       method: "POST",
@@ -88,12 +105,12 @@ export async function stepfunChat(opts: {
       // 429/5xx/4xx — request is dead upstream; release NOW. Holding the slot
       // until body-consume starves the failover retry (observed: retry burst
       // at full mirror → server "current: 9, limit: 8" → more 429s).
-      stepfunRelease();
+      release();
       return res;
     }
     return wrapRelease(res);
   } catch (err) {
-    stepfunRelease();
+    shadowRelease();
     throw err;
   }
 }

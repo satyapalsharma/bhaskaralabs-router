@@ -1,3 +1,4 @@
+import { makeShadowRelease, SHADOW_HOLD_MS } from "../lib/shadow-release";
 // FEIHOA provider client — OpenAI-compat backchannel (api.feihoa.com/v1).
 // Single model: Qwen3.8-27B-Uncensored. HARD limits (from /v1/models):
 //   context_window 32768 (input), max_output_tokens 4096.
@@ -80,12 +81,14 @@ export async function feihoaChat(req: FeihoaRequest): Promise<Response> {
   }
 }
 
-/** Wrap a Response so the feihoa slot is released when the body ends/aborts. */
+/** Wrap a Response so the feihoa slot is released when the body ends;
+ *  an ABORT shadow-holds for the server-side zombie (lib/shadow-release). */
 function wrapRelease(res: Response): Response {
   if (!res.body) {
     feihoaRelease();
     return res;
   }
+  const [release, shadowRelease] = makeShadowRelease(feihoaRelease, SHADOW_HOLD_MS.feihoa, "feihoa");
   const reader = res.body.getReader();
   const stream = new ReadableStream<Uint8Array>({
     async pull(controller) {
@@ -93,17 +96,18 @@ function wrapRelease(res: Response): Response {
         const { done, value } = await reader.read();
         if (done) {
           controller.close();
-          feihoaRelease();
+          release();
         } else {
           controller.enqueue(value);
         }
       } catch {
         controller.close();
-        feihoaRelease();
+        release();
       }
     },
-    cancel() {
-      feihoaRelease();
+    cancel(reason) {
+      shadowRelease();
+      return reader.cancel(reason);
     },
   });
   return new Response(stream, { status: res.status, statusText: res.statusText, headers: res.headers });

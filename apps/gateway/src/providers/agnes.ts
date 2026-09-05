@@ -4,6 +4,7 @@
 // Key rotated 2026-09-05 (cpk-WvNL..., renewed subscription): plan
 // concurrency is 10 — verified by user from the Agnes dashboard.
 
+import { makeShadowRelease, SHADOW_HOLD_MS } from "../lib/shadow-release";
 export const AGNES_BASE = process.env.AGNES_BASE_URL ?? "https://apihub.agnes-ai.com/v1";
 
 /** Agnes concurrency cap — new paid plan allows 10 concurrent. */
@@ -47,12 +48,14 @@ function agnesAlive(): void {
     console.log("[agnes] recovered — cooldown cleared after 2xx response");
   }
 }
-/** Wrap a Response so the agnes slot is released when the body ends/aborts. */
+/** Wrap a Response so the agnes slot is released when the body ends;
+ *  an ABORT shadow-holds for the server-side zombie (lib/shadow-release). */
 function wrapRelease(res: Response): Response {
   if (!res.body) {
     agnesRelease();
     return res;
   }
+  const [release, shadowRelease] = makeShadowRelease(agnesRelease, SHADOW_HOLD_MS.agnes, "agnes");
   const body = res.body.tee();
   const tracked = body[0];
   void tracked.cancel().catch(() => {});
@@ -63,17 +66,17 @@ function wrapRelease(res: Response): Response {
         const { done, value } = await reader.read();
         if (done) {
           controller.close();
-          agnesRelease();
+          release();
           return;
         }
         controller.enqueue(value);
       } catch (err) {
-        agnesRelease();
+        release();
         controller.error(err);
       }
     },
     cancel(reason) {
-      agnesRelease();
+      shadowRelease();
       return reader.cancel(reason);
     },
   });

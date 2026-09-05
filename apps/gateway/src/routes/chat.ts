@@ -586,18 +586,16 @@ function dispatchUpstream(
   const ttftMs = decision.provider === "hyper" || decision.provider === "stepfun" || decision.provider === "llmgateway" ? 10 * 60 * 1000 : BACKCHANNEL_TTFT_CEILING_MS;
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(new Error("backchannel ttft ceiling")), ttftMs);
-  // Client-disconnect propagation — PAID LANES ONLY (hyper, llmgateway).
-  // Aborting those saves per-token money when the client is gone.
-  // FLAT lanes (stepfun/agnes/feihoa/yolo) must NOT propagate: the abort
-  // releases our mirror slot while the server keeps generating a zombie
-  // that holds one of its concurrency slots. 19 such client aborts on
-  // stepfun accumulated 3 live zombies → server "current: 9, limit: 8" →
-  // 429s with our mirror reading ≤6. A flat-lane generation costs nothing
-  // extra; let it finish so the mirror stays truthful.
-  const paidLane = decision.provider === "hyper" || decision.provider === "llmgateway";
+  // Client-disconnect propagation — ALL lanes. Paid lanes (hyper/llmgateway)
+  // save per-token money on abort; flat lanes free the turn instantly. The
+  // flat-lane zombie risk (server keeps generating after our abort, holding
+  // one of its server slots while our mirror reads free — observed as
+  // "current: 9, limit: 8" 429s) is handled at the semaphore: providers
+  // shadow-hold the slot for the estimated remaining generation
+  // (lib/shadow-release.ts) so the mirror stays conservative.
   const signal = ac.signal;
   const onClientAbort = () => ac.abort(new Error("client disconnected"));
-  if (paidLane) clientSignal?.addEventListener("abort", onClientAbort, { once: true });
+  clientSignal?.addEventListener("abort", onClientAbort, { once: true });
   const clearTtft = () => {
     clearTimeout(timer);
     clientSignal?.removeEventListener("abort", onClientAbort);

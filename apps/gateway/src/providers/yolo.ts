@@ -1,5 +1,5 @@
 import { syncYoloPressureFromHeaders } from "../lib/yolo-pressure";
-
+import { makeShadowRelease, SHADOW_HOLD_MS } from "../lib/shadow-release";
 // Backchannel failover lane: qwen3.8-27b @ yolo-auto.com (Builder plan).
 //   context_window 131072, model output limit 32768 (per opencode config),
 //   BUILDER plan: unlimited requests/day, maxConcurrency 4.
@@ -93,12 +93,14 @@ export async function yoloChat(req: YoloRequest): Promise<Response> {
   }
 }
 
-/** Wrap a Response so the yolo slot is released when the body ends/aborts. */
+/** Wrap a Response so the yolo slot is released when the body ends;
+ *  an ABORT shadow-holds for the server-side zombie (lib/shadow-release). */
 function wrapRelease(res: Response): Response {
   if (!res.body) {
     yoloRelease();
     return res;
   }
+  const [release, shadowRelease] = makeShadowRelease(yoloRelease, SHADOW_HOLD_MS.yolo, "yolo");
   const reader = res.body.getReader();
   const stream = new ReadableStream<Uint8Array>({
     async pull(controller) {
@@ -106,17 +108,18 @@ function wrapRelease(res: Response): Response {
         const { done, value } = await reader.read();
         if (done) {
           controller.close();
-          yoloRelease();
+          release();
         } else {
           controller.enqueue(value);
         }
       } catch {
         controller.close();
-        yoloRelease();
+        release();
       }
     },
-    cancel() {
-      yoloRelease();
+    cancel(reason) {
+      shadowRelease();
+      return reader.cancel(reason);
     },
   });
   return new Response(stream, { status: res.status, statusText: res.statusText, headers: res.headers });

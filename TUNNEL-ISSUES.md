@@ -2650,3 +2650,6 @@ hyper) was aborting flat-lane fetches too — each abort freed OUR slot but
 left a server-side zombie (19 disconnects ≈ 3 concurrent zombies:
 6 mirror + 3 = 9). Fix: propagation only on paid lanes (hyper/llmgateway).
 Verified: disconnect 3s into generation → 6 parallel turns → 0 429s.
+
+## check 2026-09-05 10:11 — turns=7 failovers=0 cache_hit=88% max_billed=286
+- no new issues
