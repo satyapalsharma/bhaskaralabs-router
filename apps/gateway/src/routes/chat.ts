@@ -586,13 +586,18 @@ function dispatchUpstream(
   const ttftMs = decision.provider === "hyper" || decision.provider === "stepfun" || decision.provider === "llmgateway" ? 10 * 60 * 1000 : BACKCHANNEL_TTFT_CEILING_MS;
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(new Error("backchannel ttft ceiling")), ttftMs);
-  // Client-disconnect propagation: if the client goes away (opencode cancel,
-  // harness timeout), abort the upstream fetch too. Without this a cancelled
-  // non-stream turn kept generating on Hyper for minutes (observed: 12-min
-  // 25K-token generations billed after the client had moved on).
+  // Client-disconnect propagation — PAID LANES ONLY (hyper, llmgateway).
+  // Aborting those saves per-token money when the client is gone.
+  // FLAT lanes (stepfun/agnes/feihoa/yolo) must NOT propagate: the abort
+  // releases our mirror slot while the server keeps generating a zombie
+  // that holds one of its concurrency slots. 19 such client aborts on
+  // stepfun accumulated 3 live zombies → server "current: 9, limit: 8" →
+  // 429s with our mirror reading ≤6. A flat-lane generation costs nothing
+  // extra; let it finish so the mirror stays truthful.
+  const paidLane = decision.provider === "hyper" || decision.provider === "llmgateway";
   const signal = ac.signal;
   const onClientAbort = () => ac.abort(new Error("client disconnected"));
-  clientSignal?.addEventListener("abort", onClientAbort, { once: true });
+  if (paidLane) clientSignal?.addEventListener("abort", onClientAbort, { once: true });
   const clearTtft = () => {
     clearTimeout(timer);
     clientSignal?.removeEventListener("abort", onClientAbort);

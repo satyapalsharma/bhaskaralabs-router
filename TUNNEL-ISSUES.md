@@ -2464,3 +2464,180 @@ paid-flash terminal fallback, 15s bootstrap probe that pre-marks wedge.
 - [2026-09-05 02:11] failover (gw) — ing — lane wedged, failing over (no same-lane retry) {"ev":"backchannel-failover","from":"yolo","to":"feihoa","status":502,"cause":"connection:backchannel ttft ceiling"} {"ev":"tur
 - [2026-09-05 02:11] tunnel-524-timeout (gw) — =stepfun","tok":"25447/158","raw":20332,"cached":24960,"ms":5243,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"qwen-3.8","to":"qwen3.8-27b","tier":"flash",
 - [2026-09-05 02:11] stream/dispatch-error (gw) — 5723/540","raw":20460,"cached":25216,"ms":8417,"ttft":null} [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"backchannel-failover","from":"yolo"
+
+## check 2026-09-05 02:23 — turns=3 failovers=0 cache_hit=88% max_billed=291
+- no new issues
+
+## check 2026-09-05 02:35 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-05 02:47 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-05 02:59 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-05 03:11 — turns=21 failovers=0 cache_hit=63% max_billed=12725
+- [2026-09-05 03:11] tunnel-524-timeout (gw) — d=stepfun","tok":"4918/1420","raw":4505,"cached":3968,"ms":15244,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"step-3.7-flash","tier":"flash",
+
+## check 2026-09-05 03:23 — turns=228 failovers=0 cache_hit=65% max_billed=24524
+- [2026-09-05 03:23] tunnel-524-timeout (gw) — ":"theta-hard=stepfun","tok":"6382/105","raw":5620,"cached":5248,"ms":3624,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"step-3.7-flash","tier
+- [2026-09-05 03:23] tunnel-524-timeout (gw) — y":"theta-hard=stepfun","tok":"6768/75","raw":5860,"cached":5248,"ms":3371,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"agnes-2.5-flash","tie
+- [2026-09-05 03:23] tunnel-524-timeout (gw) — ":"theta-hard=stepfun","tok":"5759/490","raw":5039,"cached":5248,"ms":7145,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"agnes-2.5-flash","tie
+- [2026-09-05 03:23] tunnel-524-timeout (gw) — :"flash","why":"theta-hard=agnes","tok":"13963/735","raw":11524,"cached":11008,"ms":4744,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"agnes-2
+- [2026-09-05 03:23] tunnel-524-timeout (gw) — a-hard=stepfun","tok":"12730/50","raw":8114,"cached":0,"ms":5243,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"step-3.7-flash","tier":"flash",
+- [2026-09-05 03:23] tunnel-524-timeout (gw) — 7-flash","tier":"flash","why":"theta-hard=stepfun","tok":"24524/626","raw":13604,"cached":22272,"ms":13921,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"th
+- [2026-09-05 03:23] stream/dispatch-error (gw) — :"5237/339","raw":4196,"cached":4608,"ms":6285,"ttft":null} [dispatch stepfun] attempt 1 failed (The operation timed out.), retrying [dispatch stepfun] connection failure: client d
+- [2026-09-05 03:23] stream/dispatch-error (gw) — pfun] attempt 1 failed (The operation timed out.), retrying [dispatch stepfun] connection failure: client disconnected {"ev":"llmgateway-failover","from":"stepfun","to":"step-3.7-f
+- [2026-09-05 03:23] stream/dispatch-error (gw) — :"step-3.7-flash","cause":"connection:client disconnected"} [dispatch stepfun] client disconnected mid-generation — aborting turn [dispatch stepfun] client disconnected mid-generat
+- [2026-09-05 03:23] stream/dispatch-error (gw) — stepfun] client disconnected mid-generation — aborting turn [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+
+## check 2026-09-05 03:35 — turns=14 failovers=0 cache_hit=76% max_billed=25107
+- [2026-09-05 03:35] stream/dispatch-error (gw) — ":"3268/8035","raw":3162,"cached":0,"ms":98746,"ttft":null} [dispatch stepfun] client disconnected mid-generation — aborting turn
+
+## check 2026-09-05 03:47 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-05 03:59 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-05 04:11 — turns=212 failovers=0 cache_hit=64% max_billed=27009
+- [2026-09-05 04:11] stream/dispatch-error (gw) — k":"10054/474","raw":8663,"cached":0,"ms":9949,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 04:11] stream/dispatch-error (gw) — 12323/291","raw":9382,"cached":11776,"ms":2256,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 04:11] stream/dispatch-error (gw) — 25060/98","raw":14297,"cached":14592,"ms":1707,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 04:11] stream/dispatch-error (gw) — t/data/user_data/83538214-62fa-413a-b514-bf26204b32a7': N…" [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 04:11] stream/dispatch-error (gw) — k":"13789/135","raw":9598,"cached":0,"ms":1854,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 04:11] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 04:11] stream/dispatch-error (gw) — 7789/210","raw":11384,"cached":17408,"ms":2084,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 04:11] stream/dispatch-error (gw) — 2954/801","raw":9509,"cached":10880,"ms":11605,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 04:11] stream/dispatch-error (gw) — 14857/88","raw":12340,"cached":14208,"ms":4015,"ttft":null} [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 04:11] stream/dispatch-error (gw) — :"22769/822","raw":14644,"cached":0,"ms":16340,"ttft":null} [dispatch stepfun] attempt 1 failed (The operation timed out.), retrying [dispatch stepfun] attempt 1 failed (The operat
+- [2026-09-05 04:11] stream/dispatch-error (gw) — pfun] attempt 1 failed (The operation timed out.), retrying [dispatch stepfun] attempt 1 failed (The operation timed out.), retrying [dispatch stepfun] client disconnected mid-gene
+- [2026-09-05 04:11] stream/dispatch-error (gw) — pfun] attempt 1 failed (The operation timed out.), retrying [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+
+## check 2026-09-05 04:23 — turns=142 failovers=0 cache_hit=71% max_billed=28260
+- [2026-09-05 04:23] stream/dispatch-error (gw) — ":"3262/5291","raw":3157,"cached":0,"ms":68979,"ttft":null} [dispatch stepfun] attempt 1 failed (The socket connection was closed unexpectedly. For more info), retrying {"ev":"turn
+- [2026-09-05 04:23] stream/dispatch-error (gw) — 85/2047","raw":12660,"cached":11904,"ms":26451,"ttft":null} [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+
+## check 2026-09-05 04:35 — turns=161 failovers=0 cache_hit=65% max_billed=33337
+- [2026-09-05 04:35] tunnel-524-timeout (gw) — 3.7-flash","tier":"flash","why":"theta-hard=stepfun","tok":"5244/128","raw":4828,"cached":3200,"ms":4206,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"thet
+- [2026-09-05 04:35] tunnel-524-timeout (gw) — 3.7-flash","tier":"flash","why":"theta-hard=stepfun","tok":"5240/440","raw":4829,"cached":0,"ms":8900,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta",
+- [2026-09-05 04:35] tunnel-524-timeout (gw) — :"flash","why":"theta-hard=agnes","tok":"12092/125","raw":10524,"cached":11264,"ms":1871,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"step-3.
+- [2026-09-05 04:35] tunnel-524-timeout (gw) — stepfun","tok":"12970/3304","raw":10394,"cached":12288,"ms":52417,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"step-3.7-flash","tier":"flash"
+- [2026-09-05 04:35] stream/dispatch-error (gw) — 0737/4103","raw":4024,"cached":3968,"ms":49530,"ttft":null} [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 04:35] stream/dispatch-error (gw) — "13644/165","raw":9212,"cached":9216,"ms":1410,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 04:35] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+
+## check 2026-09-05 04:47 — turns=110 failovers=0 cache_hit=79% max_billed=22067
+- [2026-09-05 04:47] tunnel-524-timeout (gw) — ard=stepfun","tok":"8308/235","raw":7822,"cached":5120,"ms":5246,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"step-3.7-flash","tier":"flash",
+
+## check 2026-09-05 04:59 — turns=47 failovers=0 cache_hit=82% max_billed=28098
+- [2026-09-05 04:59] tunnel-524-timeout (gw) — y":"theta-hard=stepfun","tok":"5645/69","raw":4948,"cached":5248,"ms":3541,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"step-3.7-flash","tier
+- [2026-09-05 04:59] tunnel-524-timeout (gw) — :"flash","why":"theta-hard=stepfun","tok":"6175/2771","raw":5244,"cached":5504,"ms":36613,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"step-3
+
+## check 2026-09-05 05:11 — turns=198 failovers=0 cache_hit=71% max_billed=26027
+- [2026-09-05 05:11] tunnel-524-timeout (gw) — ":"flash","why":"theta-hard=agnes","tok":"18270/259","raw":15241,"cached":17664,"ms":2270,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"agnes-
+- [2026-09-05 05:11] tunnel-524-timeout (gw) — 2.5-flash","tier":"flash","why":"theta-hard=agnes","tok":"16524/230","raw":14625,"cached":15360,"ms":2050,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"the
+- [2026-09-05 05:11] stream/dispatch-error (gw) — 2413/932","raw":18742,"cached":21888,"ms":9502,"ttft":null} [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 05:11] stream/dispatch-error (gw) — 2606/612","raw":18818,"cached":22144,"ms":8284,"ttft":null} [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+
+## check 2026-09-05 05:23 — turns=155 failovers=0 cache_hit=77% max_billed=39280
+- [2026-09-05 05:23] tunnel-524-timeout (gw) — .7-flash","tier":"flash","why":"theta-hard=stepfun","tok":"15246/310","raw":13262,"cached":12928,"ms":7511,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"th
+- [2026-09-05 05:23] tunnel-524-timeout (gw) — flash","why":"theta-hard=stepfun","tok":"17625/194","raw":15524,"cached":17152,"ms":6036,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"agnes-2
+- [2026-09-05 05:23] tunnel-524-timeout (gw) — flash","why":"theta-hard=stepfun","tok":"11355/449","raw":10524,"cached":9216,"ms":9894,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"step-3.7
+- [2026-09-05 05:23] stream/dispatch-error (gw) — 08/4092","raw":19852,"cached":23168,"ms":41008,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 05:23] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+
+## check 2026-09-05 05:35 — turns=251 failovers=0 cache_hit=70% max_billed=40584
+- [2026-09-05 05:35] tunnel-524-timeout (gw) — y":"theta-hard=stepfun","tok":"5768/74","raw":5030,"cached":5248,"ms":3242,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"step-3.7-flash","tier
+- [2026-09-05 05:35] stream/dispatch-error (gw) — 07/2274","raw":22601,"cached":18048,"ms":34236,"ttft":null} [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 05:35] stream/dispatch-error (gw) — 91/1117","raw":30700,"cached":33792,"ms":20930,"ttft":null} [dispatch stepfun] client disconnected mid-generation — aborting turn [dispatch stepfun] client disconnected mid-generat
+- [2026-09-05 05:35] stream/dispatch-error (gw) — stepfun] client disconnected mid-generation — aborting turn [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+
+## check 2026-09-05 05:47 — turns=69 failovers=0 cache_hit=84% max_billed=52721
+- [2026-09-05 05:47] stream/dispatch-error (gw) — 743/390","raw":26756,"cached":37888,"ms":11708,"ttft":null} [dispatch stepfun] client disconnected mid-generation — aborting turn [dispatch stepfun] client disconnected mid-generat
+- [2026-09-05 05:47] stream/dispatch-error (gw) — stepfun] client disconnected mid-generation — aborting turn [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+
+## check 2026-09-05 05:59 — turns=158 failovers=0 cache_hit=73% max_billed=56905
+- [2026-09-05 05:59] tunnel-524-timeout (gw) — .7-flash","tier":"flash","why":"theta-hard=stepfun","tok":"5524/162","raw":5196,"cached":4992,"ms":4455,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta
+- [2026-09-05 05:59] tunnel-524-timeout (gw) — r":"flash","why":"theta-hard=stepfun","tok":"5636/59","raw":5248,"cached":5248,"ms":5266,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"step-3.
+- [2026-09-05 05:59] tunnel-524-timeout (gw) — y":"theta-hard=stepfun","tok":"5636/59","raw":5248,"cached":5248,"ms":5266,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"step-3.7-flash","tier
+- [2026-09-05 05:59] tunnel-524-timeout (gw) — "flash","why":"theta-hard=stepfun","tok":"45803/454","raw":35243,"cached":23296,"ms":9240,"ttft":null} [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"
+- [2026-09-05 05:59] stream/dispatch-error (gw) — 87/2579","raw":14106,"cached":15360,"ms":26888,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 05:59] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 05:59] stream/dispatch-error (gw) — 185/596","raw":18124,"cached":19200,"ms":11004,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 05:59] stream/dispatch-error (gw) — 0160/182","raw":20319,"cached":28160,"ms":6431,"ttft":null} [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 05:59] stream/dispatch-error (gw) — 5803/454","raw":35243,"cached":23296,"ms":9240,"ttft":null} [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+
+## check 2026-09-05 06:11 — turns=134 failovers=0 cache_hit=77% max_billed=58821
+- [2026-09-05 06:11] tunnel-524-timeout (gw) — ":"flash","why":"theta-hard=stepfun","tok":"6705/59","raw":6524,"cached":0,"ms":3435,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"step-3.7-fl
+
+## check 2026-09-05 06:23 — turns=94 failovers=0 cache_hit=77% max_billed=49399
+- [2026-09-05 06:23] tunnel-524-timeout (gw) — epfun","tok":"27240/1641","raw":25137,"cached":22272,"ms":23524,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"step-3.7-flash","tier":"flash","
+
+## check 2026-09-05 06:35 — turns=207 failovers=0 cache_hit=77% max_billed=43606
+- [2026-09-05 06:35] tunnel-524-timeout (gw) — :"flash","why":"theta-hard=agnes","tok":"10845/1462","raw":7524,"cached":0,"ms":10559,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"agnes-2.5-
+- [2026-09-05 06:35] tunnel-524-timeout (gw) — d=stepfun","tok":"3308/2221","raw":2926,"cached":2816,"ms":25244,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"step-3.7-flash","tier":"flash",
+- [2026-09-05 06:35] tunnel-524-timeout (gw) — ":"theta-hard=stepfun","tok":"5840/209","raw":2997,"cached":5248,"ms":13612,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"step-3.7-flash","tie
+- [2026-09-05 06:35] stream/dispatch-error (gw) — 9333/2170","raw":8009,"cached":8960,"ms":26902,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 06:35] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 06:35] stream/dispatch-error (gw) — 37/3474","raw":31486,"cached":36480,"ms":43606,"ttft":null} [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 06:35] stream/dispatch-error (gw) — 27/3907","raw":31615,"cached":36864,"ms":42632,"ttft":null} [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+
+## check 2026-09-05 06:47 — turns=132 failovers=0 cache_hit=75% max_billed=57353
+- [2026-09-05 06:47] tunnel-524-timeout (gw) — y":"theta-hard=stepfun","tok":"5669/47","raw":4939,"cached":5248,"ms":4868,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"agnes-2.5-flash","tie
+- [2026-09-05 06:47] tunnel-524-timeout (gw) — ":"theta-hard=stepfun","tok":"5812/922","raw":4996,"cached":5248,"ms":15629,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"step-3.7-flash","tie
+- [2026-09-05 06:47] tunnel-524-timeout (gw) — :"flash","why":"theta-hard=stepfun","tok":"7737/547","raw":6524,"cached":0,"ms":9382,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"agnes-2.5-f
+- [2026-09-05 06:47] stream/dispatch-error (gw) — 2147/221","raw":19053,"cached":21632,"ms":5178,"ttft":null} [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 06:47] stream/dispatch-error (gw) — 33/1261","raw":15832,"cached":20864,"ms":16877,"ttft":null} [dispatch stepfun] attempt 1 failed (The operation timed out.), retrying {"ev":"turn","user":"ccf19648","session":"cc734
+
+## check 2026-09-05 06:59 — turns=133 failovers=0 cache_hit=70% max_billed=27979
+- [2026-09-05 06:59] stream/dispatch-error (gw) — 684/724","raw":10577,"cached":18176,"ms":10375,"ttft":null} [dispatch stepfun] attempt 1 failed (The operation timed out.), retrying [dispatch stepfun] connection failure: client d
+- [2026-09-05 06:59] stream/dispatch-error (gw) — pfun] attempt 1 failed (The operation timed out.), retrying [dispatch stepfun] connection failure: client disconnected {"ev":"llmgateway-failover","from":"stepfun","to":"step-3.7-f
+
+## check 2026-09-05 07:11 — turns=139 failovers=0 cache_hit=74% max_billed=31883
+- [2026-09-05 07:11] stream/dispatch-error (gw) — "9073/913","raw":7815,"cached":4864,"ms":12418,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 07:11] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+
+## check 2026-09-05 07:23 — turns=34 failovers=0 cache_hit=84% max_billed=22819
+- [2026-09-05 07:23] tunnel-524-timeout (gw) — ":"theta-hard=stepfun","tok":"8585/117","raw":8110,"cached":5248,"ms":3886,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"step-3.7-flash","tier
+
+## check 2026-09-05 07:35 — turns=30 failovers=0 cache_hit=89% max_billed=33282
+- [2026-09-05 07:35] tunnel-524-timeout (gw) — ":"theta-hard=stepfun","tok":"5589/176","raw":5503,"cached":5248,"ms":3894,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"step-3.7-flash","tier
+- [2026-09-05 07:35] tunnel-524-timeout (gw) — sh","tier":"flash","why":"theta-hard=stepfun","tok":"15157/1524","raw":12928,"cached":14720,"ms":14837,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta"
+
+## check 2026-09-05 07:47 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-05 07:59 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-05 08:11 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-05 08:23 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-05 08:35 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-05 08:47 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-05 08:59 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-05 09:11 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-05 09:23 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-05 09:35 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-05 09:47 — turns=2 failovers=0 cache_hit=88% max_billed=291
+- no new issues
+
+## check 2026-09-05 09:59 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
