@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import UpstreamFleet from "./UpstreamFleet";
+import PlansPanel from "./PlansPanel";
 type AdminUser = {
   id: string;
   email: string;
@@ -93,7 +94,7 @@ export default function AdminClient() {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [alertsData, setAlertsData] = useState<AlertsData | null>(null);
   const [gate, setGate] = useState({ signup_enabled: "true", cohort_cap: "100", waitlistCount: 0 });
-  const [tab, setTab] = useState<"users" | "economics" | "alerts" | "coupons" | "growth" | "fleet">("users");
+  const [tab, setTab] = useState<"users" | "economics" | "alerts" | "coupons" | "growth" | "fleet" | "plans">("users");
   const [newCode, setNewCode] = useState({ code: "", discountPct: 20, usageLimit: 100 });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
@@ -128,7 +129,7 @@ export default function AdminClient() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Admin</h1>
         <div className="flex gap-1 rounded-lg border border-zinc-800 p-1 text-sm">
-          {(["users", "economics", "alerts", "coupons", "growth", "fleet"] as const).map((t) => (
+          {(["users", "economics", "alerts", "coupons", "growth", "fleet", "plans"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -466,6 +467,11 @@ export default function AdminClient() {
       {tab === "fleet" && (
         <div className="mt-8">
           <UpstreamFleet />
+        </div>
+      )}
+      {tab === "plans" && (
+        <div className="mt-8">
+          <PlansPanel />
         </div>
       )}
     </main>

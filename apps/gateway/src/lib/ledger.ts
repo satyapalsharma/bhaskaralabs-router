@@ -18,6 +18,9 @@ export interface LedgerEntry {
   latencyMs?: number;
   ttftMs?: number;
   providerMeta?: Record<string, unknown>;
+  /** Override computed costs (admin fleet models with DB pricing; unknown to the static rate card). */
+  actualCostUsd?: number;
+  userEquivUsd?: number;
 }
 
 export async function writeLedger(entry: LedgerEntry): Promise<void> {
@@ -30,6 +33,8 @@ export async function writeLedger(entry: LedgerEntry): Promise<void> {
   entry.usage.reasoningTokens = r(entry.usage.reasoningTokens);
   const valuation = valueUserFacing(entry.usage);
   const actual = valueActualCost(entry.usage);
+  const equiv = entry.userEquivUsd ?? valuation.equivalentApiCost;
+  const real = entry.actualCostUsd ?? actual;
   await db.insert(usageLedger).values({
     id: randomUUID(),
     userId: entry.userId,
@@ -44,8 +49,8 @@ export async function writeLedger(entry: LedgerEntry): Promise<void> {
     completionTokens: entry.usage.completionTokens,
     cachedTokens: entry.usage.cachedTokens ?? 0,
     reasoningTokens: entry.usage.reasoningTokens ?? 0,
-    userEquivalentCostUsd: valuation.equivalentApiCost.toFixed(6),
-    actualCostUsd: actual.toFixed(6),
+    userEquivalentCostUsd: equiv.toFixed(6),
+    actualCostUsd: real.toFixed(6),
     providerMeta: entry.providerMeta ? JSON.stringify(entry.providerMeta) : null,
     latencyMs: entry.latencyMs,
     ttftMs: entry.ttftMs,

@@ -276,3 +276,23 @@ export const upstreamModels = pgTable(
     index("upstream_model_alias_idx").on(t.alias),
   ],
 );
+
+// ── Plan entitlements: per-plan, per-model, per-window usage caps ──
+// E.g. bigpro → qwen-3.8: 100 requests / 5h; theta: 500 requests / 5h.
+// Windows as hours (5, 24, 168) generalize 5h/daily/weekly. The gateway
+// enforces these from usage_ledger aggregates (no separate counters).
+export const planModelLimits = pgTable(
+  "plan_model_limits",
+  {
+    id: text("id").primaryKey(),
+    plan: text("plan").notNull(), // matches subscriptions.plan ("basic","advanced","bigpro"...)
+    endpointModel: text("endpoint_model").notNull(), // "qwen-3.8" | "theta" | "glm-5.3" | fleet alias
+    windowHours: integer("window_hours").notNull(),
+    maxRequests: integer("max_requests"),
+    maxTokens: bigint("max_tokens", { mode: "number" }),
+    maxCostUsd: numeric("max_cost_usd", { precision: 10, scale: 4 }),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("plan_model_window_unique").on(t.plan, t.endpointModel, t.windowHours)],
+);

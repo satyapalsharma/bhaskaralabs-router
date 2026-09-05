@@ -27,7 +27,10 @@ import { recordYoloTurn } from "../lib/yolo-pressure";
 import { hyperBudgetAvailable } from "../lib/hyper-budget";
 import { type RouterDecision, type BackchannelLane, FLASH_OF, backchannelNext, backchannelPrimary, failoverDecision } from "../router";
 import { decideTurn } from "../lib/decision";
-import { getFleet, pickAccount, getPublicModels } from "../lib/upstream-config";
+import { getFleet, pickAccount, getPublicModels, type UpstreamProviderConfig } from "../lib/upstream-config";
+import { checkPlanLimits } from "../lib/plan-limits";
+import { checkAccountWindows } from "../lib/account-windows";
+import { meterFleetResponse } from "../lib/fleet-meter";
 import { genericChat, accountSlotFreeFor } from "../providers/generic";
 import messagesApp from "./messages";
 
@@ -166,12 +169,12 @@ app.post("/v1/chat/completions", async (c) => {
   if (!ENDPOINT_MODELS.has(endpointModel)) {
     // DB-fleet aliases (admin panel) are callable too — route to the generic
     // lane when the model matches a fleet alias/modelId.
-    const fleet = await getFleet().catch(() => new Map());
-    let fleetMatch: { providerId: string; modelId: string } | null = null;
+    const fleet = await getFleet().catch((): Map<string, UpstreamProviderConfig> => new Map());
+    let fleetMatch: { providerId: string; modelId: string; inputUsdPerM: number; outputUsdPerM: number } | null = null;
     for (const p of fleet.values()) {
       for (const m of p.models) {
         if (m.alias === endpointModel || m.modelId === endpointModel) {
-          fleetMatch = { providerId: p.id, modelId: m.modelId };
+          fleetMatch = { providerId: p.id, modelId: m.modelId, inputUsdPerM: m.inputUsdPerM, outputUsdPerM: m.outputUsdPerM };
           break;
         }
       }
@@ -185,17 +188,56 @@ app.post("/v1/chat/completions", async (c) => {
     }
     // Fleet model → generic dispatch directly (bypasses the smart router
     // chains; fleet models are explicitly admin-configured).
-    const account = pickAccount(fleetMatch.providerId, fleet.get(fleetMatch.providerId)?.accounts ?? []);
+    // Account rotation: healthy + slot-free + window-limits-ok.
+    const provider = fleet.get(fleetMatch.providerId)!;
+    const eligible = provider.accounts.filter((a) => accountSlotFreeFor(a) && checkAccountWindows(a.id, a.limits).allowed);
+    const account = pickAccount(fleetMatch.providerId, eligible);
+    // Plan entitlement gate (admin-managed caps, e.g. bigpro: 100 req/5h qwen-3.8).
+    const gate = await checkPlanLimits(auth.userId, auth.plan, endpointModel);
+    if (!gate.allowed) {
+      console.log(JSON.stringify({ ev: "plan-limit", user: auth.userId, model: endpointModel, reason: gate.reason }));
+      return c.json({ error: { message: gate.reason ?? "Plan limit reached", type: "rate_limit_error" } }, 429);
+    }
     if (!account) return c.json({ error: { message: "No healthy account for this model's provider", type: "api_error" } }, 502);
-    if (!accountSlotFreeFor(account)) return c.json({ error: { message: "Provider at capacity, retry shortly", type: "rate_limit_error" } }, 429);
-    const upstreamRes = await genericChat({
-      provider: fleet.get(fleetMatch.providerId)!,
-      account,
-      modelId: fleetMatch.modelId,
-      body: obj,
-      signal: c.req.raw.signal,
-    });
-    return upstreamRes;
+    try {
+      const startedAt = Date.now();
+      const upstreamRes = await genericChat({
+        provider,
+        account,
+        modelId: fleetMatch.modelId,
+        body: obj,
+        signal: c.req.raw.signal,
+      });
+      if (!upstreamRes.ok) return upstreamRes;
+      // Meter into the ledger + account windows (plan limits + spend reports
+      // need these rows; the fleet path bypasses the smart-router trackTurn).
+      return await meterFleetResponse(upstreamRes, {
+        userId: auth.userId,
+        apiKeyId: auth.apiKeyId,
+        sessionId: deriveSessionId(auth.apiKeyId, c.req.raw.headers),
+        endpointModel,
+        providerId: provider.id,
+        accountId: account.id,
+        accountLabel: account.label,
+        upstreamModel: fleetMatch.modelId,
+        inputUsdPerM: fleetMatch.inputUsdPerM,
+        outputUsdPerM: fleetMatch.outputUsdPerM,
+        startedAt,
+        isStream: obj.stream === true,
+      });
+    } catch (err) {
+      console.error(`[fleet ${fleetMatch.providerId}] dispatch failed:`, (err as Error).message);
+      return c.json({ error: { message: "Upstream provider temporarily unreachable", type: "api_error" } }, 502);
+    }
+  }
+
+  // Plan entitlement gate for endpoint models (admin-managed per-model caps).
+  {
+    const gate = await checkPlanLimits(auth.userId, auth.plan, endpointModel);
+    if (!gate.allowed) {
+      console.log(JSON.stringify({ ev: "plan-limit", user: auth.userId, model: endpointModel, reason: gate.reason }));
+      return c.json({ error: { message: gate.reason ?? "Plan limit reached", type: "rate_limit_error" } }, 429);
+    }
   }
 
   const turnStartedAt = Date.now(); // true request-start clock (was captured post-dispatch → latency_ms ≈ 0)

@@ -3494,3 +3494,34 @@ stabilized (00:00-07:00 window).
 - [2026-09-05 23:11] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
 - [2026-09-05 23:11] stream/dispatch-error (gw) — oa] 429 — short backoff 2000ms, then failover if still busy [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"theta-failover","from":"feihoa","st
 - [2026-09-05 23:11] stream/dispatch-error (gw) — \":{\"message\":\"Your current generation is still runnin"} [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"paid-flash-fallback","from":"yolo",
+
+## check 2026-09-05 23:23 — turns=46 failovers=0 cache_hit=75% max_billed=42250
+- [2026-09-05 23:23] upstream-error (gw) — 235/4721","raw":5757,"cached":16640,"ms":41053,"ttft":null} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 23:23] upstream-error (gw) — 50/4905","raw":12779,"cached":41984,"ms":88604,"ttft":null} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 23:23] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 23:23] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"paid-flash-fallback","from":"session-sticky
+
+## check 2026-09-05 23:35 — turns=216 failovers=0 cache_hit=72% max_billed=51735
+- [2026-09-05 23:35] upstream-error (gw) — 239/470","raw":11635,"cached":11392,"ms":11962,"ttft":null} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 23:35] upstream-error (gw) — ":"3686/5966","raw":3394,"cached":0,"ms":65022,"ttft":null} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 23:35] upstream-error (gw) — 36787/50","raw":24388,"cached":32512,"ms":5328,"ttft":null} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 23:35] tunnel-524-timeout (gw) — -hard=agnes","tok":"33255/103","raw":27782,"cached":0,"ms":2524,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"step-3.7-flash","tier":"flash","
+- [2026-09-05 23:35] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 23:35] stream/dispatch-error (gw) — ":"16074/337","raw":14809,"cached":0,"ms":3541,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 23:35] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling [shadow-release] stepfun: holding slot 25s for server-side
+- [2026-09-05 23:35] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] attempt 1 failed (The operation timed out.), retrying {"ev":"turn","user":"ccf19648","session":"cc734
+- [2026-09-05 23:35] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] connection failure: client disconnected {"ev":"llmgateway-failover","from":"stepfun","to":"step-3.7-f
+- [2026-09-05 23:35] stream/dispatch-error (gw) — ":"24974/218","raw":23376,"cached":0,"ms":2825,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 23:35] stream/dispatch-error (gw) — 8671/410","raw":26623,"cached":28160,"ms":3673,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 23:35] stream/dispatch-error (gw) — 36852/64","raw":28606,"cached":36352,"ms":4834,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 23:35] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 23:35] stream/dispatch-error (gw) — 59/3107","raw":39389,"cached":44032,"ms":55311,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 23:35] stream/dispatch-error (gw) — 735/421","raw":24617,"cached":24320,"ms":10424,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 23:35] stream/dispatch-error (gw) — 0576/157","raw":24873,"cached":29440,"ms":7040,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 23:35] stream/dispatch-error (gw) — \":{\"message\":\"Your current generation is still runnin"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 23:35] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] attempt 1 failed (The socket connection was closed unexpectedly. For more info), retrying {"ev":"turn
+
+## check 2026-09-05 23:47 — turns=55 failovers=0 cache_hit=75% max_billed=38851
+- [2026-09-05 23:47] upstream-error (gw) — k":"18763/99","raw":16374,"cached":0,"ms":7858,"ttft":null} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 23:47] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 23:47] stream/dispatch-error (gw) — :"8458/164","raw":7349,"cached":5120,"ms":4518,"ttft":null} [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"turn","user":"ccf19648","session":"

@@ -10,6 +10,7 @@ import { authenticate, type AuthContext } from "../lib/auth";
 import { estimateTokens, deriveSessionId, type ChatMessage } from "../lib/prefix";
 import { getQuotaState, quotaRejection } from "../lib/quotas";
 import { writeLedger } from "../lib/ledger";
+import { checkPlanLimits } from "../lib/plan-limits";
 import { setQuotaHeaders, setRetryHeaders } from "../lib/quota-headers";
 import { decideTurn } from "../lib/decision";
 import { recordContentChars, contentCharsOf } from "../lib/escalation";
@@ -127,6 +128,13 @@ app.post("/v1/messages", async (c) => {
       { type: "error", error: { type: "invalid_request_error", message: `model must be one of glm-5.3, qwen-3.8, theta (got '${endpointModel}')` } },
       400,
     );
+  }
+  {
+    const gate = await checkPlanLimits(auth.userId, auth.plan, endpointModel);
+    if (!gate.allowed) {
+      console.log(JSON.stringify({ ev: "plan-limit", route: "messages", user: auth.userId, model: endpointModel, reason: gate.reason }));
+      return c.json({ type: "error", error: { type: "rate_limit_error", message: gate.reason ?? "Plan limit reached" } }, 429);
+    }
   }
   const sessionId = deriveSessionId(auth.apiKeyId, c.req.raw.headers);
   let messages = toChatMessages(obj);
