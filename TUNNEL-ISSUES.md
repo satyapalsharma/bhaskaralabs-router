@@ -2663,3 +2663,23 @@ count karta hai), normal completion instant release. Wired: stepfun 25s,
 agnes 5s, feihoa 15s, yolo 30s. Live-verified: kill@3s → shadow-hold log →
 6 parallel turns → 0 429s. Propagation ab sab lanes pe (paid pe paisa
 bachata hai, flat pe cleanup + zombie-accounted mirror).
+
+## 2026-09-05 (agent's timestamp/cache-miss theory — DEBUNKED with data)
+
+Project agent claimed: "ms-precision timestamps in sub-agent prompts break
+exact prefix match → 1-2 turn cache misses; stripping them → 90%+ hit."
+
+Data analysis (12h window, consecutive same-session same-model pairs):
+- Gateway injects ZERO timestamps (IDENTITY_LINE static, code-verified).
+- 130 cold pairs: 123 (95%) were PARALLEL overlapping turns (next turn's
+  created_at < prev's created_at+latency → both generated concurrently →
+  both prefixes uncached). Concurrency artifact, not prefix breakage.
+- Sequential flash pairs: only 9% cold; 1084 warm under 1min.
+- glm-5.3-flash 58% / max 36% cold = the yolo-wedge/agnes-dead failover
+  windows (lane switching), already fixed by stable chains.
+
+Verdict: theory wrong. Real levers: (1) avoid parallel same-session turns
+on cache-priced lanes when possible, (2) chain stability (done). Gateway
+side is already clean (static identity, session-sticky, lock-preserving
+hops). If opencode injects time into prompts, moving it late in the
+system prompt is a client-side change outside gateway scope.
