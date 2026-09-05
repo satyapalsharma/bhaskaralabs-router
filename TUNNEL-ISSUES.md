@@ -2703,3 +2703,794 @@ Avoidable = 89%, but both causes are already addressed/known:
 Savings from caching (12h): $6.20 (max $2.94, flash $2.00, llmgw $0.86).
 Post-fix stepfun hourly trend: 46% → 70-84% after agnes revived + chains
 stabilized (00:00-07:00 window).
+
+## check 2026-09-05 10:23 — turns=6 failovers=0 cache_hit=60% max_billed=286
+- [2026-09-05 10:23] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"shadow-l
+
+## check 2026-09-05 10:35 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-05 10:47 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-05 10:59 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-05 11:11 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-05 11:23 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-05 11:35 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-05 11:47 — turns=2 failovers=0 cache_hit=72% max_billed=290
+- no new issues
+
+## check 2026-09-05 11:59 — turns=14 failovers=0 cache_hit=21% max_billed=4760
+- [2026-09-05 11:59] stream/dispatch-error (gw) — [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 11:59] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 11:59] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn [dispatch agnes] client disconnected mid-generatio
+- [2026-09-05 11:59] stream/dispatch-error (gw) — stepfun] client disconnected mid-generation — aborting turn [dispatch agnes] client disconnected mid-generation — aborting turn [shadow-release] stepfun: holding slot 25s for serve
+- [2026-09-05 11:59] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn [shadow-release] stepfun: holding slot 25s for ser
+- [2026-09-05 11:59] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+
+## check 2026-09-05 12:11 — turns=497 failovers=1 cache_hit=64% max_billed=35090
+- [2026-09-05 12:11] failover (gw) — ing — lane wedged, failing over (no same-lane retry) {"ev":"backchannel-failover","from":"yolo","to":"feihoa","status":502,"cause":"connection:backchannel ttft ceiling"} {"ev":"tur
+- [2026-09-05 12:11] tunnel-524-timeout (gw) — ":"theta-hard=stepfun","tok":"5696/628","raw":4618,"cached":5248,"ms":10928,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"step-3.7-flash","tie
+- [2026-09-05 12:11] tunnel-524-timeout (gw) — ta-hard=agnes","tok":"3647/486","raw":3164,"cached":0,"ms":3524,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"agnes-2.5-flash","tier":"flash",
+- [2026-09-05 12:11] tunnel-524-timeout (gw) — ":"theta-hard=stepfun","tok":"9865/207","raw":5435,"cached":5248,"ms":5444,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"agnes-2.5-flash","tie
+- [2026-09-05 12:11] tunnel-524-timeout (gw) — .7-flash","tier":"flash","why":"theta-hard=stepfun","tok":"25247/77","raw":9746,"cached":24832,"ms":4906,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"thet
+- [2026-09-05 12:11] stream/dispatch-error (gw) — tok":"3417/21","raw":3411,"cached":0,"ms":7079,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:11] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 12:11] stream/dispatch-error (gw) — :"5690/221","raw":4531,"cached":5120,"ms":9566,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:11] stream/dispatch-error (gw) — 11360/213","raw":7401,"cached":11008,"ms":1939,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 12:11] stream/dispatch-error (gw) — :"4782/128","raw":3794,"cached":4096,"ms":1869,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:11] stream/dispatch-error (gw) — k":"3814/73","raw":3466,"cached":896,"ms":5885,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 12:11] stream/dispatch-error (gw) — :"7604/171","raw":5152,"cached":6912,"ms":1682,"ttft":null} [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"backchannel-failover","from":"yolo"
+- [2026-09-05 12:11] stream/dispatch-error (gw) — :"10031/78","raw":5495,"cached":7680,"ms":1074,"ttft":null} [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"turn","user":"ccf19648","session":"
+- [2026-09-05 12:11] stream/dispatch-error (gw) — 4355/7397","raw":3953,"cached":3968,"ms":79710,"ttft":null} [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) [dispatch yolo] ttft ceiling — lane wedged
+- [2026-09-05 12:11] stream/dispatch-error (gw) — ft ceiling — lane wedged, failing over (no same-lane retry) [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"turn","user":"ccf19648","session":"
+- [2026-09-05 12:11] stream/dispatch-error (gw) — "10613/265","raw":6882,"cached":8448,"ms":2361,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:11] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:11] stream/dispatch-error (gw) — :"12276/1324","raw":5714,"cached":0,"ms":12026,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 12:11] stream/dispatch-error (gw) — ":"14251/1017","raw":7361,"cached":0,"ms":8121,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:11] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] ttft ceiling — lane wedged, failing over
+- [2026-09-05 12:11] stream/dispatch-error (gw) — ispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:11] stream/dispatch-error (gw) — 6024/2139","raw":5761,"cached":5376,"ms":12739,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:11] stream/dispatch-error (gw) — 302/1419","raw":7408,"cached":14080,"ms":13406,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:11] stream/dispatch-error (gw) — ":"11811/1489","raw":5056,"cached":0,"ms":9331,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:11] stream/dispatch-error (gw) — "15492/88","raw":6381,"cached":13568,"ms":1210,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:11] stream/dispatch-error (gw) — k":"12259/111","raw":4980,"cached":0,"ms":4822,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 12:11] stream/dispatch-error (gw) — 8626/742","raw":7502,"cached":17664,"ms":11550,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71",
+- [2026-09-05 12:11] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 12:11] stream/dispatch-error (gw) — ":"9711/2068","raw":7941,"cached":0,"ms":14326,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+
+## check 2026-09-05 12:23 — turns=145 failovers=0 cache_hit=62% max_billed=23608
+- [2026-09-05 12:23] tunnel-524-timeout (gw) — -flash","tier":"flash","why":"theta-hard=agnes","tok":"9722/524","raw":6515,"cached":7168,"ms":5234,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","t
+- [2026-09-05 12:23] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 12:23] stream/dispatch-error (gw) — ":"6592/6783","raw":6562,"cached":0,"ms":69771,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:23] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 12:23] stream/dispatch-error (gw) — 0292/448","raw":16307,"cached":19712,"ms":3034,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:23] stream/dispatch-error (gw) — :"3233/1649","raw":2962,"cached":256,"ms":9814,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:23] stream/dispatch-error (gw) — 5050/1223","raw":7673,"cached":12288,"ms":8308,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:23] stream/dispatch-error (gw) — 10270/751","raw":7285,"cached":8192,"ms":12452,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:23] stream/dispatch-error (gw) — 329/1149","raw":8001,"cached":10112,"ms":18104,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:23] stream/dispatch-error (gw) — tok":"843/697","raw":810,"cached":0,"ms":11573,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:23] stream/dispatch-error (gw) — "tok":"853/459","raw":454,"cached":0,"ms":4024,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:23] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn [shadow-release] stepfun: holding slot 25s for ser
+- [2026-09-05 12:23] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn
+
+## check 2026-09-05 12:35 — turns=130 failovers=1 cache_hit=47% max_billed=27364
+- [2026-09-05 12:35] failover (gw) — ing — lane wedged, failing over (no same-lane retry) {"ev":"backchannel-failover","from":"yolo","to":"feihoa","status":502,"cause":"connection:backchannel ttft ceiling"} {"ev":"tur
+- [2026-09-05 12:35] tunnel-524-timeout (gw) — er":"flash","why":"theta-hard=yolo","tok":"5750/104","raw":4524,"cached":4864,"ms":5888,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"step-3.7
+- [2026-09-05 12:35] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn [shadow-release] stepfun: holding slot 25s for ser
+- [2026-09-05 12:35] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 12:35] stream/dispatch-error (gw) — k":"4418/900","raw":4025,"cached":0,"ms":19102,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:35] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 12:35] stream/dispatch-error (gw) — 1548/2412","raw":8104,"cached":9728,"ms":15880,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:35] stream/dispatch-error (gw) — :"7841/441","raw":5869,"cached":4352,"ms":6821,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 12:35] stream/dispatch-error (gw) — :"8015/100","raw":5921,"cached":6656,"ms":1290,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:35] stream/dispatch-error (gw) — ok":"4846/491","raw":4198,"cached":0,"ms":9978,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 12:35] stream/dispatch-error (gw) — 082/1704","raw":8174,"cached":10240,"ms":11457,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:35] stream/dispatch-error (gw) — ":"7625/9433","raw":7907,"cached":0,"ms":89990,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 12:35] stream/dispatch-error (gw) — 13307/435","raw":8829,"cached":11264,"ms":4672,"ttft":null} [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"backchannel-failover","from":"yolo"
+
+## check 2026-09-05 12:47 — turns=397 failovers=0 cache_hit=70% max_billed=50256
+- [2026-09-05 12:47] upstream-error (gw) — k":"10933/700","raw":4500,"cached":0,"ms":4980,"ttft":null} [upstream stepfun] 429: {"error":{"message":"concurrency reached, current: 9, limit: 8","type":"rate_limited"}} [dispatc
+- [2026-09-05 12:47] tunnel-524-timeout (gw) — -hard=agnes","tok":"7976/451","raw":5127,"cached":6912,"ms":5240,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"agnes-2.5-flash","tier":"flash"
+- [2026-09-05 12:47] tunnel-524-timeout (gw) — ":"theta-hard=stepfun","tok":"8753/192","raw":7965,"cached":5248,"ms":6014,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"agnes-2.5-flash","tie
+- [2026-09-05 12:47] tunnel-524-timeout (gw) — "theta-hard=stepfun","tok":"14808/1133","raw":8065,"cached":5248,"ms":19777,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"agnes-2.5-flash","ti
+- [2026-09-05 12:47] tunnel-524-timeout (gw) — 2.5-flash","tier":"flash","why":"theta-hard=agnes","tok":"38524/1782","raw":21563,"cached":32000,"ms":11649,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"t
+- [2026-09-05 12:47] stream/dispatch-error (gw) — 14468/296","raw":8893,"cached":13568,"ms":2920,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:47] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 12:47] stream/dispatch-error (gw) — 15276/115","raw":9009,"cached":14848,"ms":2599,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:47] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:47] stream/dispatch-error (gw) — 583/1599","raw":9750,"cached":15616,"ms":12481,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 12:47] stream/dispatch-error (gw) — "9098/1004","raw":6383,"cached":8192,"ms":8813,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] connection failure: backchannel ttft ceil
+- [2026-09-05 12:47] stream/dispatch-error (gw) — ispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 12:47] stream/dispatch-error (gw) — ":"4871/65","raw":4198,"cached":4224,"ms":4655,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:47] stream/dispatch-error (gw) — 17222/113","raw":9610,"cached":13056,"ms":1349,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] ttft ceiling — lane wedged, failing over
+- [2026-09-05 12:47] stream/dispatch-error (gw) — ispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:47] stream/dispatch-error (gw) — :"9604/255","raw":6782,"cached":4480,"ms":6543,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 12:47] stream/dispatch-error (gw) — 0046/1328","raw":8027,"cached":10752,"ms":9026,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:47] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] connection failure: backchannel ttft ceil
+- [2026-09-05 12:47] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 12:47] stream/dispatch-error (gw) — 7332/595","raw":16125,"cached":12288,"ms":5440,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:47] stream/dispatch-error (gw) — "11893/2356","raw":10887,"cached":0,"ms":33992,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 12:47] stream/dispatch-error (gw) — 3622/154","raw":17937,"cached":10496,"ms":2374,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:47] stream/dispatch-error (gw) — 3845/150","raw":18000,"cached":23552,"ms":1596,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:47] stream/dispatch-error (gw) — 5882/1200","raw":8093,"cached":4224,"ms":15270,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 12:47] stream/dispatch-error (gw) — 8048/3696","raw":14927,"cached":17152,"ms":592,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:47] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] ttft ceiling — lane wedged, failing over
+- [2026-09-05 12:47] stream/dispatch-error (gw) — 66/1852","raw":14994,"cached":17920,"ms":14440,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:47] stream/dispatch-error (gw) — 1537/122","raw":18445,"cached":30976,"ms":1506,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:47] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] attempt 1 failed (The operation timed out.), retrying {"ev":"turn","user":"ccf19648","session":"cc734
+- [2026-09-05 12:47] stream/dispatch-error (gw) — ":"9820/164","raw":6872,"cached":0,"ms":268680,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:47] stream/dispatch-error (gw) — :"34797/609","raw":19807,"cached":0,"ms":11174,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:47] stream/dispatch-error (gw) — ispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"theta-failover","from":"stepfun","status":429,"caus
+- [2026-09-05 12:47] stream/dispatch-error (gw) — 437/720","raw":19836,"cached":34432,"ms":12310,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:47] stream/dispatch-error (gw) — 0195/382","raw":18467,"cached":14080,"ms":3869,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:47] stream/dispatch-error (gw) — 26356/446","raw":23793,"cached":7936,"ms":4075,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:47] stream/dispatch-error (gw) — "22135/1600","raw":19638,"cached":0,"ms":25708,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:47] stream/dispatch-error (gw) — 2105/232","raw":16105,"cached":20736,"ms":3608,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:47] stream/dispatch-error (gw) — ":"25287/322","raw":20199,"cached":0,"ms":8187,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] connection failure: backchannel ttft ceil
+- [2026-09-05 12:47] stream/dispatch-error (gw) — ispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] ttft ceiling — lane wedged, failing over
+- [2026-09-05 12:47] stream/dispatch-error (gw) — 33176/60","raw":29722,"cached":32768,"ms":1240,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:47] stream/dispatch-error (gw) — k":"25308/94","raw":20482,"cached":0,"ms":2106,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 12:47] stream/dispatch-error (gw) — tok":"1123/522","raw":822,"cached":0,"ms":3276,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:47] stream/dispatch-error (gw) — 59/1488","raw":22906,"cached":21760,"ms":10786,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:47] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"theta-failover","from":"stepfun","status":4
+- [2026-09-05 12:47] stream/dispatch-error (gw) — \":{\"message\":\"concurrency reached, current: 9, limit:"} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:47] stream/dispatch-error (gw) — 395/6610","raw":15195,"cached":17408,"ms":1005,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:47] stream/dispatch-error (gw) — ency reached, current: 9, limit: 8","type":"rate_limited"}} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:47] stream/dispatch-error (gw) — 7396/241","raw":19602,"cached":25344,"ms":7249,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] ttft ceiling — lane wedged, failing over
+- [2026-09-05 12:47] stream/dispatch-error (gw) — 364/6763","raw":29843,"cached":33024,"ms":1030,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:47] stream/dispatch-error (gw) — 31489/67","raw":24896,"cached":30720,"ms":5550,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:47] stream/dispatch-error (gw) — 12066/1196","raw":4606,"cached":4864,"ms":7909,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:47] stream/dispatch-error (gw) — 2203/6293","raw":21538,"cached":18176,"ms":541,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:47] stream/dispatch-error (gw) — 32264/60","raw":19721,"cached":29952,"ms":5211,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:47] stream/dispatch-error (gw) — 1/8365","raw":22928,"cached":14464,"ms":106096,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 12:47] stream/dispatch-error (gw) — k":"32071/60","raw":19686,"cached":0,"ms":5419,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+
+## check 2026-09-05 12:59 — turns=312 failovers=0 cache_hit=65% max_billed=41912
+- [2026-09-05 12:59] tunnel-524-timeout (gw) — stepfun","tok":"22464/160","raw":18460,"cached":22016,"ms":6524,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failov
+- [2026-09-05 12:59] tunnel-524-timeout (gw) — -2.5-flash","tier":"flash","why":"theta-hard=agnes","tok":"25243/239","raw":20117,"cached":6144,"ms":2509,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling
+- [2026-09-05 12:59] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn [shadow-release] stepfun: holding slot 25s for ser
+- [2026-09-05 12:59] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 12:59] stream/dispatch-error (gw) — 16325/98","raw":14840,"cached":15872,"ms":6032,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:59] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 12:59] stream/dispatch-error (gw) — 2464/160","raw":18460,"cached":22016,"ms":6524,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:59] stream/dispatch-error (gw) — :"4310/106","raw":3686,"cached":4096,"ms":1731,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:59] stream/dispatch-error (gw) — :"5203/264","raw":4139,"cached":4352,"ms":2035,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:59] stream/dispatch-error (gw) — "5189/1177","raw":4123,"cached":4096,"ms":8823,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:59] stream/dispatch-error (gw) — 917/1317","raw":22602,"cached":22272,"ms":9694,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:59] stream/dispatch-error (gw) — 25243/239","raw":20117,"cached":6144,"ms":2509,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 12:59] stream/dispatch-error (gw) — 25329/99","raw":18433,"cached":23296,"ms":1483,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:59] stream/dispatch-error (gw) — :"11251/1641","raw":5338,"cached":0,"ms":23982,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:59] stream/dispatch-error (gw) — :"4018/1237","raw":3087,"cached":256,"ms":8245,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 12:59] stream/dispatch-error (gw) — 04/1458","raw":24600,"cached":28416,"ms":10084,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:59] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] ttft ceiling — lane wedged, failing over
+- [2026-09-05 12:59] stream/dispatch-error (gw) — ispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:59] stream/dispatch-error (gw) — :"27910/488","raw":18287,"cached":0,"ms":13293,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:59] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] attempt 1 failed (The socket connection was closed unexpectedly. For more info), retrying [shadow-rel
+- [2026-09-05 12:59] stream/dispatch-error (gw) — 79/1706","raw":15215,"cached":14336,"ms":14801,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:59] stream/dispatch-error (gw) — 57/1520","raw":18696,"cached":22784,"ms":10514,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:59] stream/dispatch-error (gw) — ":"16529/450","raw":12905,"cached":0,"ms":3800,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:59] stream/dispatch-error (gw) — 748/305","raw":15966,"cached":17152,"ms":14041,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 12:59] stream/dispatch-error (gw) — tok":"4824/91","raw":3918,"cached":0,"ms":4044,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+
+## check 2026-09-05 13:11 — turns=436 failovers=1 cache_hit=70% max_billed=81661
+- [2026-09-05 13:11] failover (gw) — ing — lane wedged, failing over (no same-lane retry) {"ev":"backchannel-failover","from":"yolo","to":"feihoa","status":502,"cause":"connection:backchannel ttft ceiling"} {"ev":"tur
+- [2026-09-05 13:11] tunnel-524-timeout (gw) — :"theta-hard=stepfun","tok":"6632/1534","raw":4725,"cached":5248,"ms":16606,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"step-3.7-flash","tie
+- [2026-09-05 13:11] tunnel-524-timeout (gw) — rd=agnes","tok":"19752/733","raw":18363,"cached":14592,"ms":5241,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"step-3.7-flash","tier":"flash",
+- [2026-09-05 13:11] tunnel-524-timeout (gw) — 2.5-flash","tier":"flash","why":"theta-hard=agnes","tok":"38524/2572","raw":32853,"cached":36608,"ms":19465,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"t
+- [2026-09-05 13:11] stream/dispatch-error (gw) — "9927/1533","raw":5564,"cached":4608,"ms":8764,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:11] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 13:11] stream/dispatch-error (gw) — ":"20280/9320","raw":18435,"cached":0,"ms":592,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:11] stream/dispatch-error (gw) — 3104/136","raw":15460,"cached":23040,"ms":1651,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:11] stream/dispatch-error (gw) — ok":"7103/5094","raw":5346,"cached":0,"ms":438,"ttft":null} [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"backchannel-failover","from":"yolo"
+- [2026-09-05 13:11] stream/dispatch-error (gw) — 12426/113","raw":6623,"cached":11136,"ms":3342,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:11] stream/dispatch-error (gw) — :"8323/289","raw":4979,"cached":6144,"ms":2650,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 13:11] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 13:11] stream/dispatch-error (gw) — 902/637","raw":14709,"cached":16000,"ms":13842,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:11] stream/dispatch-error (gw) — 15201/160","raw":15335,"cached":6144,"ms":2089,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:11] stream/dispatch-error (gw) — 61/1583","raw":16009,"cached":16640,"ms":22707,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 13:11] stream/dispatch-error (gw) — 5323/662","raw":30888,"cached":28160,"ms":6284,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:11] stream/dispatch-error (gw) — our slice, e.g. \"2025-01-15T14:00:00.000Z\"\n completed:…" [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:11] stream/dispatch-error (gw) — 20375/112","raw":9978,"cached":17664,"ms":1645,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 13:11] stream/dispatch-error (gw) — 8125/166","raw":21704,"cached":14336,"ms":2770,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:11] stream/dispatch-error (gw) — 7376/238","raw":31439,"cached":35072,"ms":2692,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] ttft ceiling — lane wedged, failing over
+- [2026-09-05 13:11] stream/dispatch-error (gw) — ispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:11] stream/dispatch-error (gw) — :"18050/549","raw":16067,"cached":0,"ms":13244,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 13:11] stream/dispatch-error (gw) — 188/913","raw":17867,"cached":17408,"ms":21914,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:11] stream/dispatch-error (gw) — 23302/75","raw":20844,"cached":22272,"ms":1434,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:11] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:11] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] connection failure: backchannel ttft ceil
+- [2026-09-05 13:11] stream/dispatch-error (gw) — ispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 13:11] stream/dispatch-error (gw) — 193/395","raw":21608,"cached":22272,"ms":13577,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:11] stream/dispatch-error (gw) — 6018/116","raw":23299,"cached":24064,"ms":1506,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:11] stream/dispatch-error (gw) — 0596/117","raw":29748,"cached":35072,"ms":2092,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 13:11] stream/dispatch-error (gw) — "19585/7193","raw":16031,"cached":0,"ms":77039,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:11] stream/dispatch-error (gw) — 17/2353","raw":30393,"cached":31232,"ms":15505,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:11] stream/dispatch-error (gw) — 84/1837","raw":24790,"cached":27136,"ms":11082,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 13:11] stream/dispatch-error (gw) — 16/6031","raw":21944,"cached":16512,"ms":82750,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 13:11] stream/dispatch-error (gw) — 8852/148","raw":23026,"cached":37376,"ms":2122,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:11] stream/dispatch-error (gw) — 40/3251","raw":24374,"cached":39808,"ms":43488,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] ttft ceiling — lane wedged, failing over
+- [2026-09-05 13:11] stream/dispatch-error (gw) — 63/7798","raw":20898,"cached":24192,"ms":94048,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:11] stream/dispatch-error (gw) — :"7989/132","raw":4644,"cached":6656,"ms":1276,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:11] stream/dispatch-error (gw) — :"8614/126","raw":5205,"cached":6144,"ms":1881,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 13:11] stream/dispatch-error (gw) — 6172/7069","raw":22454,"cached":24320,"ms":680,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:11] stream/dispatch-error (gw) — ":"5432/1723","raw":4191,"cached":0,"ms":25800,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:11] stream/dispatch-error (gw) — :"9798/183","raw":5658,"cached":8704,"ms":1824,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 13:11] stream/dispatch-error (gw) — k":"19664/721","raw":9074,"cached":0,"ms":5291,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:11] stream/dispatch-error (gw) — 29/2801","raw":13427,"cached":22528,"ms":43869,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 13:11] stream/dispatch-error (gw) — 13221/312","raw":6045,"cached":10240,"ms":2560,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:11] stream/dispatch-error (gw) — 12707/113","raw":4785,"cached":12544,"ms":1505,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:11] stream/dispatch-error (gw) — "20969/244","raw":9345,"cached":20480,"ms":583,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:11] stream/dispatch-error (gw) — 02/5276","raw":13442,"cached":22912,"ms":71521,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+
+## check 2026-09-05 13:23 — turns=211 failovers=1 cache_hit=68% max_billed=65859
+- [2026-09-05 13:23] upstream-error (gw) — \":{\"message\":\"Your current generation is still runnin"} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 13:23] upstream-error (gw) — ft ceiling — lane wedged, failing over (no same-lane retry) [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 13:23] upstream-error (gw) — ":"4134/2061","raw":3633,"cached":0,"ms":26638,"ttft":null} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 13:23] upstream-error (gw) — oa] 429 — short backoff 2000ms, then failover if still busy [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 13:23] upstream-error (gw) — "6224/10654","raw":4645,"cached":0,"ms":116712,"ttft":null} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 13:23] upstream-error (gw) — it_error","param":null,"code":"account_concurrency_limit"}} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 13:23] upstream-error (gw) — ":"10132/791","raw":6804,"cached":0,"ms":33580,"ttft":null} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 13:23] failover (gw) — 6/90","raw":3511,"cached":896,"ms":5668,"ttft":null} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"Your current generatio
+- [2026-09-05 13:23] stream/dispatch-error (gw) — "5793/418","raw":4786,"cached":4096,"ms":11450,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:23] stream/dispatch-error (gw) — oa] 429 — short backoff 2000ms, then failover if still busy [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 13:23] stream/dispatch-error (gw) — \":{\"message\":\"Your current generation is still runnin"} [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"turn","user":"ccf19648","session":"
+- [2026-09-05 13:23] stream/dispatch-error (gw) — :"6408/274","raw":5397,"cached":3840,"ms":8568,"ttft":null} [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) [upstream feihoa] 429: {"error":{"message"
+- [2026-09-05 13:23] stream/dispatch-error (gw) — oa] 429 — short backoff 2000ms, then failover if still busy [dispatch yolo] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"t
+- [2026-09-05 13:23] stream/dispatch-error (gw) — \":{\"message\":\"Your current generation is still runnin"} [dispatch yolo] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"t
+- [2026-09-05 13:23] stream/dispatch-error (gw) — ok":"8170/55","raw":6072,"cached":0,"ms":11003,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:23] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"theta-failover","from":"feihoa","status":429,"cause
+- [2026-09-05 13:23] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"theta-failover","from":"feihoa","status":42
+- [2026-09-05 13:23] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn [feihoa] 429 — short backoff 2000ms, then failover
+- [2026-09-05 13:23] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"paid-flash-fallback","from":"session-sticky
+- [2026-09-05 13:23] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+
+## check 2026-09-05 13:35 — turns=241 failovers=0 cache_hit=68% max_billed=69105
+- [2026-09-05 13:35] tunnel-524-timeout (gw) — 7-flash","tier":"flash","why":"theta-hard=stepfun","tok":"19524/291","raw":16891,"cached":0,"ms":7051,"ttft":null} [prefix-lint] ccf19648-d4c0-400e-b82c-8ed78ceced06: volatile:iso-
+- [2026-09-05 13:35] tunnel-524-timeout (gw) — ":"flash","why":"theta-hard=agnes","tok":"47380/95","raw":30524,"cached":46848,"ms":1651,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"agnes-2
+- [2026-09-05 13:35] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 13:35] stream/dispatch-error (gw) — our slice, e.g. \"2025-01-15T14:00:00.000Z\"\n completed:…" [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:35] stream/dispatch-error (gw) — our slice, e.g. \"2025-01-15T14:00:00.000Z\"\n completed:…" [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 13:35] stream/dispatch-error (gw) — ":"22553/139","raw":18991,"cached":0,"ms":2099,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling [prefix-lint] ccf19648-d4c0-400e-b82c-8ed78ceced06: volati
+- [2026-09-05 13:35] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling [prefix-lint] ccf19648-d4c0-400e-b82c-8ed78ceced06: volati
+- [2026-09-05 13:35] stream/dispatch-error (gw) — 058/3541","raw":20608,"cached":7680,"ms":24382,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:35] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] ttft ceiling — lane wedged, failing over
+- [2026-09-05 13:35] stream/dispatch-error (gw) — ispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:35] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:35] stream/dispatch-error (gw) — tok":"811/1322","raw":517,"cached":0,"ms":9520,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling [prefix-lint] ccf19648-d4c0-400e-b82c-8ed78ceced06: volati
+- [2026-09-05 13:35] stream/dispatch-error (gw) — r slice, e.g. \\\"2025-01-15T14:00:00.000Z\\\"\\n complet…" [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:35] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 13:35] stream/dispatch-error (gw) — 28/4706","raw":22003,"cached":26624,"ms":52356,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:35] stream/dispatch-error (gw) — 77/5847","raw":25594,"cached":28928,"ms":58649,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:35] stream/dispatch-error (gw) — 21875/8514","raw":18192,"cached":4096,"ms":788,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:35] stream/dispatch-error (gw) — 1147/114","raw":25640,"cached":35328,"ms":2169,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling [prefix-lint] ccf19648-d4c0-400e-b82c-8ed78ceced06: volati
+- [2026-09-05 13:35] stream/dispatch-error (gw) — 405/1143","raw":18221,"cached":21760,"ms":7816,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 13:35] stream/dispatch-error (gw) — "tok":"568/240","raw":296,"cached":0,"ms":2129,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:35] stream/dispatch-error (gw) — 54/3721","raw":26191,"cached":37376,"ms":35368,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:35] stream/dispatch-error (gw) — r slice, e.g. \\\"2025-01-15T14:00:00.000Z\\\"\\n complet…" [dispatch agnes] connection failure: backchannel ttft ceiling [prefix-lint] ccf19648-d4c0-400e-b82c-8ed78ceced06: volati
+- [2026-09-05 13:35] stream/dispatch-error (gw) — "57363/3151","raw":39532,"cached":0,"ms":21738,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:35] stream/dispatch-error (gw) — 9461/2672","raw":7972,"cached":6400,"ms":20208,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:35] stream/dispatch-error (gw) — :"9300/262","raw":7596,"cached":8064,"ms":5607,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 13:35] stream/dispatch-error (gw) — ":"2659/1461","raw":2270,"cached":0,"ms":43485,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:35] stream/dispatch-error (gw) — :"13961/59","raw":7874,"cached":9728,"ms":4261,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:35] stream/dispatch-error (gw) — 8646/120","raw":33980,"cached":49152,"ms":8459,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 13:35] stream/dispatch-error (gw) — 0617/108","raw":21049,"cached":39936,"ms":1561,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:35] stream/dispatch-error (gw) — 3398/240","raw":23958,"cached":24320,"ms":3329,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 13:35] stream/dispatch-error (gw) — 48377/78","raw":28822,"cached":44032,"ms":5858,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:35] stream/dispatch-error (gw) — ":"2781/5103","raw":2385,"cached":0,"ms":48977,"ttft":null} [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"turn","user":"ccf19648","session":"
+
+## check 2026-09-05 13:47 — turns=212 failovers=2 cache_hit=59% max_billed=22301
+- [2026-09-05 13:47] upstream-error (gw) — ok":"7973/469","raw":3456,"cached":0,"ms":3477,"ttft":null} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 13:47] failover (gw) — 204","raw":5168,"cached":5184,"ms":7162,"ttft":null} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"Your current generatio
+- [2026-09-05 13:47] failover (gw) — 217","raw":5178,"cached":5184,"ms":7362,"ttft":null} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"Your current generatio
+- [2026-09-05 13:47] tunnel-524-timeout (gw) — .7-flash","tier":"flash","why":"theta-hard=stepfun","tok":"8524/668","raw":6325,"cached":0,"ms":12157,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta",
+- [2026-09-05 13:47] stream/dispatch-error (gw) — [dispatch yolo] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"q
+- [2026-09-05 13:47] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn [shadow-release] stepfun: holding slot 25s for ser
+- [2026-09-05 13:47] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 13:47] stream/dispatch-error (gw) — :"11078/90","raw":7402,"cached":7168,"ms":1344,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:47] stream/dispatch-error (gw) — 13607/100","raw":9138,"cached":13056,"ms":1443,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 13:47] stream/dispatch-error (gw) — 8851/1613","raw":6474,"cached":8192,"ms":25179,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:47] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 13:47] stream/dispatch-error (gw) — \":{\"message\":\"Your current generation is still runnin"} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:47] stream/dispatch-error (gw) — 9276/1549","raw":6739,"cached":8576,"ms":22451,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 13:47] stream/dispatch-error (gw) — \":{\"message\":\"Your current generation is still runnin"} [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"turn","user":"ccf19648","session":"
+- [2026-09-05 13:47] stream/dispatch-error (gw) — :"13038/241","raw":11617,"cached":0,"ms":30336,"ttft":null} [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) [feihoa] 429 — short backoff 2000ms, then
+- [2026-09-05 13:47] stream/dispatch-error (gw) — 4908/187","raw":12886,"cached":12288,"ms":8670,"ttft":null} [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"paid-flash-fallback","from":"sessio
+- [2026-09-05 13:47] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"paid-flash-fallback","from":"session-sticky
+
+## check 2026-09-05 13:59 — turns=48 failovers=0 cache_hit=78% max_billed=26539
+- [2026-09-05 13:59] upstream-error (gw) — "3340/12768","raw":3239,"cached":0,"ms":138816,"ttft":null} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 13:59] upstream-error (gw) — stepfun] client disconnected mid-generation — aborting turn [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 13:59] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 13:59] stream/dispatch-error (gw) — ":"20377/54","raw":17052,"cached":0,"ms":22937,"ttft":null} [dispatch hyper] attempt 1 failed (The operation timed out.), retrying {"ev":"turn","user":"ccf19648","session":"cc734e7
+- [2026-09-05 13:59] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn [feihoa] 429 — short backoff 2000ms, then failover
+- [2026-09-05 13:59] stream/dispatch-error (gw) — \":{\"message\":\"Your current generation is still runnin"} [dispatch hyper] connection failure: client disconnected [feihoa] 429 — short backoff 2000ms, then failover if still bus
+- [2026-09-05 13:59] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn [upstream feihoa] 429: {"error":{"message":"Your c
+- [2026-09-05 13:59] stream/dispatch-error (gw) — :"21792/129","raw":18376,"cached":0,"ms":29616,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71",
+- [2026-09-05 13:59] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn [shadow-release] stepfun: holding slot 25s for ser
+- [2026-09-05 13:59] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn
+
+## check 2026-09-05 14:11 — turns=136 failovers=0 cache_hit=66% max_billed=85313
+- [2026-09-05 14:11] upstream-error (gw) — onnection was closed unexpectedly. For more info), retrying [upstream stepfun] 429: {"error":{"message":"concurrency reached, current: 9, limit: 8","type":"rate_limited"}} [prefix-
+- [2026-09-05 14:11] upstream-error (gw) — our slice, e.g. \"2025-01-15T14:00:00.000Z\"\n completed:…" [upstream stepfun] 429: {"error":{"message":"concurrency reached, current: 9, limit: 8","type":"rate_limited"}} {"ev":"t
+- [2026-09-05 14:11] stream/dispatch-error (gw) — 26/1641","raw":28276,"cached":28672,"ms":13060,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 14:11] stream/dispatch-error (gw) — our slice, e.g. \"2025-01-15T14:00:00.000Z\"\n completed:…" [dispatch agnes] connection failure: backchannel ttft ceiling [prefix-lint] ccf19648-d4c0-400e-b82c-8ed78ceced06: volati
+- [2026-09-05 14:11] stream/dispatch-error (gw) — our slice, e.g. \"2025-01-15T14:00:00.000Z\"\n completed:…" [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 14:11] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"theta-failover","from":"stepfun","status":429,"caus
+- [2026-09-05 14:11] stream/dispatch-error (gw) — \":{\"message\":\"concurrency reached, current: 9, limit:"} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 14:11] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling [prefix-lint] ccf19648-d4c0-400e-b82c-8ed78ceced06: volati
+- [2026-09-05 14:11] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] attempt 1 failed (The socket connection was closed unexpectedly. For more info), retrying [upstream s
+- [2026-09-05 14:11] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 14:11] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 14:11] stream/dispatch-error (gw) — 0653/196","raw":44926,"cached":45824,"ms":2285,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 14:11] stream/dispatch-error (gw) — our slice, e.g. \"2025-01-15T14:00:00.000Z\"\n completed:…" [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 14:11] stream/dispatch-error (gw) — 8340/141","raw":23717,"cached":37888,"ms":7202,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling [prefix-lint] ccf19648-d4c0-400e-b82c-8ed78ceced06: volati
+- [2026-09-05 14:11] stream/dispatch-error (gw) — 67/1121","raw":25257,"cached":38528,"ms":13513,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 14:11] stream/dispatch-error (gw) — 4712/109","raw":29204,"cached":41216,"ms":1878,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 14:11] stream/dispatch-error (gw) — \":{\"message\":\"concurrency reached, current: 9, limit:"} [dispatch agnes] connection failure: backchannel ttft ceiling [prefix-lint] ccf19648-d4c0-400e-b82c-8ed78ceced06: volati
+- [2026-09-05 14:11] stream/dispatch-error (gw) — 01/8246","raw":46319,"cached":52608,"ms":72000,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 14:11] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] ttft ceiling — lane wedged, failing over
+- [2026-09-05 14:11] stream/dispatch-error (gw) — ispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 14:11] stream/dispatch-error (gw) — "4752/1977","raw":3369,"cached":256,"ms":13225,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 14:11] stream/dispatch-error (gw) — 0541/3241","raw":4770,"cached":8576,"ms":28569,"ttft":null} [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"turn","user":"ccf19648","session":"
+- [2026-09-05 14:11] stream/dispatch-error (gw) — 827/4851","raw":4821,"cached":10240,"ms":39770,"ttft":null} [dispatch yolo] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"t
+- [2026-09-05 14:11] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn [shadow-release] stepfun: holding slot 25s for ser
+
+## check 2026-09-05 14:23 — turns=256 failovers=0 cache_hit=68% max_billed=33737
+- [2026-09-05 14:23] upstream-error (gw) — ":"7884/74","raw":6773,"cached":7168,"ms":6237,"ttft":null} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 14:23] upstream-error (gw) — oa] 429 — short backoff 2000ms, then failover if still busy [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 14:23] upstream-error (gw) — :"7108/350","raw":6197,"cached":6400,"ms":5561,"ttft":null} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 14:23] upstream-error (gw) — it_error","param":null,"code":"account_concurrency_limit"}} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 14:23] upstream-error (gw) — :"8226/127","raw":7100,"cached":6144,"ms":2211,"ttft":null} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 14:23] upstream-error (gw) — :"9958/283","raw":8719,"cached":8704,"ms":6544,"ttft":null} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 14:23] upstream-error (gw) — "25690/1012","raw":17730,"cached":0,"ms":12954,"ttft":null} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 14:23] upstream-error (gw) — \":{\"message\":\"Your current generation is still runnin"} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 14:23] upstream-error (gw) — "11843/88","raw":8616,"cached":11392,"ms":3630,"ttft":null} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 14:23] upstream-error (gw) — 7849/115","raw":10527,"cached":17408,"ms":4537,"ttft":null} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 14:23] upstream-error (gw) — 9086/155","raw":11182,"cached":17664,"ms":5000,"ttft":null} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 14:23] upstream-error (gw) — 14849/424","raw":9842,"cached":14464,"ms":7419,"ttft":null} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 14:23] upstream-error (gw) — ":"3686/2091","raw":3470,"cached":0,"ms":20618,"ttft":null} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 14:23] tunnel-524-timeout (gw) — 7-flash","tier":"flash","why":"theta-hard=stepfun","tok":"12524/30112","raw":10300,"cached":0,"ms":247336,"ttft":null} {"ev":"theta-failover","from":"feihoa","status":429,"cause":"
+- [2026-09-05 14:23] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn [shadow-release] stepfun: holding slot 25s for ser
+- [2026-09-05 14:23] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn [feihoa] 429 — short backoff 2000ms, then failover
+- [2026-09-05 14:23] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] attempt 1 failed (The socket connection was closed unexpectedly. For more info), retrying {"ev":"turn
+- [2026-09-05 14:23] stream/dispatch-error (gw) — \":{\"message\":\"Your current generation is still runnin"} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 14:23] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 14:23] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 14:23] stream/dispatch-error (gw) — 27940/87","raw":22257,"cached":27579,"ms":5946,"ttft":null} [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"paid-flash-fallback","from":"yolo",
+
+## check 2026-09-05 14:35 — turns=50 failovers=0 cache_hit=77% max_billed=41283
+- [2026-09-05 14:35] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 14:35] stream/dispatch-error (gw) — 901/472","raw":22548,"cached":36608,"ms":10029,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn [prefix-lint] ccf19648-d4c0-400e-b82c-8ed78ceced06:
+
+## check 2026-09-05 14:47 — turns=247 failovers=1 cache_hit=61% max_billed=35320
+- [2026-09-05 14:47] failover (gw) — — short backoff 2000ms, then failover if still busy {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"Your current generatio
+- [2026-09-05 14:47] tunnel-524-timeout (gw) — ta-hard=agnes","tok":"4163/111","raw":3640,"cached":0,"ms":1524,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"step-3.7-flash","tier":"flash","
+- [2026-09-05 14:47] tunnel-524-timeout (gw) — nes-busy)","tok":"28070/4453","raw":24211,"cached":0,"ms":92524,"ttft":null} {"ev":"paid-flash-fallback","from":"session-sticky → paid-flash(al","to":"qwen3.8-flash"} {"ev":"turn",
+- [2026-09-05 14:47] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn [dispatch hyper] client disconnected mid-generatio
+- [2026-09-05 14:47] stream/dispatch-error (gw) — stepfun] client disconnected mid-generation — aborting turn [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71",
+- [2026-09-05 14:47] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 14:47] stream/dispatch-error (gw) — 515/146","raw":14532,"cached":20224,"ms":10112,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71",
+- [2026-09-05 14:47] stream/dispatch-error (gw) — 89/1198","raw":15707,"cached":20352,"ms":13585,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71",
+- [2026-09-05 14:47] stream/dispatch-error (gw) — 5061/56","raw":22222,"cached":15755,"ms":14444,"ttft":null} [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"turn","user":"ccf19648","session":"
+- [2026-09-05 14:47] stream/dispatch-error (gw) — \":{\"message\":\"Your current generation is still runnin"} [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"paid-flash-fallback","from":"sessio
+
+## check 2026-09-05 14:59 — turns=76 failovers=0 cache_hit=66% max_billed=51011
+- [2026-09-05 14:59] upstream-error (gw) — oa] 429 — short backoff 2000ms, then failover if still busy [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 14:59] upstream-error (gw) — 3/9479","raw":20991,"cached":19328,"ms":105215,"ttft":null} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 14:59] upstream-error (gw) — ":"3110/3952","raw":2813,"cached":0,"ms":43605,"ttft":null} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 14:59] tunnel-524-timeout (gw) — .7-flash","tier":"flash","why":"theta-hard=stepfun","tok":"15241/1326","raw":13673,"cached":12416,"ms":11850,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 14:59] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn [feihoa] 429 — short backoff 2000ms, then failover
+- [2026-09-05 14:59] stream/dispatch-error (gw) — 18/13679","raw":7216,"cached":9216,"ms":130259,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn [feihoa] 429 — short backoff 2000ms, then failover i
+- [2026-09-05 14:59] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+
+## check 2026-09-05 15:11 — turns=42 failovers=0 cache_hit=83% max_billed=20374
+- [2026-09-05 15:11] stream/dispatch-error (gw) — ":"4139/2797","raw":4113,"cached":0,"ms":21694,"ttft":null} [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"turn","user":"ccf19648","session":"
+- [2026-09-05 15:11] stream/dispatch-error (gw) — ,"tok":"0/0","raw":3177,"cached":0,"ms":214029,"ttft":null} [dispatch yolo] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"q
+
+## check 2026-09-05 15:23 — turns=116 failovers=0 cache_hit=69% max_billed=39232
+- [2026-09-05 15:23] upstream-error (gw) — [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 15:23] upstream-error (gw) — k":"11037/29","raw":7511,"cached":0,"ms":14720,"ttft":null} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 15:23] upstream-error (gw) — it_error","param":null,"code":"account_concurrency_limit"}} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 15:23] upstream-error (gw) — oa] 429 — short backoff 2000ms, then failover if still busy [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 15:23] upstream-error (gw) — \":{\"message\":\"Your current generation is still runnin"} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 15:23] upstream-error (gw) — "…,\n createdAt: \"2024-06-18T10:30:00.000Z\",\n views: …" [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 15:23] stream/dispatch-error (gw) — "…,\n createdAt: \"2024-06-18T10:30:00.000Z\",\n views: …" [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"turn","user":"ccf19648","session":"
+- [2026-09-05 15:23] stream/dispatch-error (gw) — oa] 429 — short backoff 2000ms, then failover if still busy [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"theta-failover","from":"feihoa","st
+- [2026-09-05 15:23] stream/dispatch-error (gw) — \":{\"message\":\"Your current generation is still runnin"} [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) [dispatch yolo] ttft ceiling — lane wedged
+- [2026-09-05 15:23] stream/dispatch-error (gw) — ft ceiling — lane wedged, failing over (no same-lane retry) [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"paid-flash-fallback","from":"yolo",
+
+## check 2026-09-05 15:35 — turns=2 failovers=0 cache_hit=0% max_billed=1758
+- no new issues
+
+## check 2026-09-05 15:47 — turns=107 failovers=1 cache_hit=61% max_billed=22048
+- [2026-09-05 15:47] upstream-error (gw) — oa] 429 — short backoff 2000ms, then failover if still busy [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 15:47] upstream-error (gw) — \":{\"message\":\"Your current generation is still runnin"} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 15:47] upstream-error (gw) — "…,\n createdAt: \"2024-06-18T10:30:00.000Z\",\n views: …" [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 15:47] failover (gw) — 63","raw":4974,"cached":3968,"ms":10674,"ttft":null} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"Your current generatio
+- [2026-09-05 15:47] stream/dispatch-error (gw) — "…,\n createdAt: \"2024-06-18T10:30:00.000Z\",\n views: …" [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) [prefix-lint] ccf19648-d4c0-400e-b82c-8ed7
+- [2026-09-05 15:47] stream/dispatch-error (gw) — oa] 429 — short backoff 2000ms, then failover if still busy [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"turn","user":"ccf19648","session":"
+
+## check 2026-09-05 15:59 — turns=11 failovers=0 cache_hit=50% max_billed=22688
+- [2026-09-05 15:59] upstream-error (gw) — ,"tok":"0/0","raw":3153,"cached":0,"ms":160130,"ttft":null} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 15:59] upstream-error (gw) — it_error","param":null,"code":"account_concurrency_limit"}} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+
+## check 2026-09-05 16:11 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-05 16:23 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-05 16:35 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-05 16:47 — turns=103 failovers=1 cache_hit=64% max_billed=16525
+- [2026-09-05 16:47] failover (gw) — 5","raw":9957,"cached":10880,"ms":13006,"ttft":null} {"ev":"backchannel-failover","from":"feihoa","to":"yolo","status":429,"cause":"{\"error\":{\"message\":\"Your current generatio
+- [2026-09-05 16:47] stream/dispatch-error (gw) — 0931/457","raw":8735,"cached":10112,"ms":18950,"ttft":null} [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) [prefix-lint] ccf19648-d4c0-400e-b82c-8ed7
+- [2026-09-05 16:47] stream/dispatch-error (gw) — "…,\n createdAt: \"2024-06-18T10:30:00.000Z\",\n views: …" [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) [feihoa] 429 — short backoff 2000ms, then
+
+## check 2026-09-05 16:59 — turns=17 failovers=0 cache_hit=62% max_billed=21689
+- [2026-09-05 16:59] upstream-error (gw) — \":{\"message\":\"Your current generation is still runnin"} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 16:59] upstream-error (gw) — yper] attempt 1 failed (The operation timed out.), retrying [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 16:59] upstream-error (gw) — "…,\n createdAt: \"2024-06-18T10:30:00.000Z\",\n views: …" [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 16:59] upstream-error (gw) — it_error","param":null,"code":"account_concurrency_limit"}} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 16:59] upstream-error (gw) — 9/3098","raw":17316,"cached":14976,"ms":356704,"ttft":null} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 16:59] stream/dispatch-error (gw) — \":{\"message\":\"Your current generation is still runnin"} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71",
+- [2026-09-05 16:59] stream/dispatch-error (gw) — ,"tok":"0/0","raw":4648,"cached":0,"ms":157540,"ttft":null} [dispatch hyper] attempt 1 failed (The operation timed out.), retrying [upstream feihoa] 429: {"error":{"message":"Your
+- [2026-09-05 16:59] stream/dispatch-error (gw) — it_error","param":null,"code":"account_concurrency_limit"}} [dispatch hyper] connection failure: client disconnected [prefix-lint] ccf19648-d4c0-400e-b82c-8ed78ceced06: volatile:is
+
+## check 2026-09-05 17:11 — turns=102 failovers=0 cache_hit=69% max_billed=29560
+- [2026-09-05 17:11] upstream-error (gw) — oa] 429 — short backoff 2000ms, then failover if still busy [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 17:11] upstream-error (gw) — 0f3/clients/3564-8a14d44f-36a7-4ea9-a04c-4b2e11a7ba31.jso…" [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 17:11] upstream-error (gw) — it_error","param":null,"code":"account_concurrency_limit"}} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 17:11] stream/dispatch-error (gw) — [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"turn","user":"ccf19648","session":"
+- [2026-09-05 17:11] stream/dispatch-error (gw) — "tok":"0/0","raw":19666,"cached":0,"ms":155143,"ttft":null} [dispatch yolo] connection failure: backchannel ttft ceiling [feihoa] 429 — short backoff 2000ms, then failover if still
+
+## check 2026-09-05 17:23 — turns=21 failovers=0 cache_hit=76% max_billed=28178
+- [2026-09-05 17:23] upstream-error (gw) — \", createdAt: \"2024-06-18T10:30:00.000Z\", views: 1284,…" [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 17:23] upstream-error (gw) — it_error","param":null,"code":"account_concurrency_limit"}} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 17:23] upstream-error (gw) — 203/114","raw":14170,"cached":11621,"ms":13729,"ttft":null} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+
+## check 2026-09-05 17:35 — turns=43 failovers=0 cache_hit=51% max_billed=19923
+- [2026-09-05 17:35] stream/dispatch-error (gw) — ":"11509/66","raw":10822,"cached":0,"ms":14231,"ttft":null} [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"turn","user":"ccf19648","session":"
+- [2026-09-05 17:35] stream/dispatch-error (gw) — oa] 429 — short backoff 2000ms, then failover if still busy [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"turn","user":"ccf19648","session":"
+
+## check 2026-09-05 17:47 — turns=25 failovers=0 cache_hit=67% max_billed=33293
+- [2026-09-05 17:47] upstream-error (gw) — 293/106","raw":28700,"cached":22244,"ms":18686,"ttft":null} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 17:47] stream/dispatch-error (gw) — oa] 429 — short backoff 2000ms, then failover if still busy [dispatch feihoa] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71"
+
+## check 2026-09-05 17:59 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-05 18:11 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-05 18:23 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-05 18:35 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-05 18:47 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-05 18:59 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-05 19:11 — turns=2 failovers=0 cache_hit=0% max_billed=285
+- no new issues
+
+## check 2026-09-05 19:23 — turns=31 failovers=0 cache_hit=62% max_billed=11866
+- [2026-09-05 19:23] tunnel-524-timeout (gw) — ard=stepfun","tok":"9640/51","raw":4785,"cached":8320,"ms":3524,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"step-3.7-flash","tier":"flash","
+
+## check 2026-09-05 19:35 — turns=489 failovers=1 cache_hit=60% max_billed=47047
+- [2026-09-05 19:35] failover (gw) — ing — lane wedged, failing over (no same-lane retry) {"ev":"backchannel-failover","from":"yolo","to":"feihoa","status":502,"cause":"connection:backchannel ttft ceiling"} {"ev":"tur
+- [2026-09-05 19:35] tunnel-524-timeout (gw) — ta-hard=stepfun","tok":"3534/37","raw":3411,"cached":0,"ms":5247,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"agnes-2.5-flash","tier":"flash"
+- [2026-09-05 19:35] tunnel-524-timeout (gw) — :"flash","why":"theta-hard=agnes","tok":"14080/275","raw":12524,"cached":0,"ms":3052,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"agnes-2.5-f
+- [2026-09-05 19:35] tunnel-524-timeout (gw) — ":"flash","why":"theta-hard=agnes","tok":"18305/585","raw":15243,"cached":15104,"ms":4665,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"agnes-
+- [2026-09-05 19:35] tunnel-524-timeout (gw) — rd=agnes","tok":"20144/756","raw":15593,"cached":18944,"ms":5246,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"agnes-2.5-flash","tier":"flash"
+- [2026-09-05 19:35] tunnel-524-timeout (gw) — d=agnes","tok":"20310/159","raw":13659,"cached":19712,"ms":2524,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"agnes-2.5-flash","tier":"flash",
+- [2026-09-05 19:35] tunnel-524-timeout (gw) — lash","why":"theta-hard=stepfun","tok":"28672/1537","raw":19524,"cached":23424,"ms":21992,"ttft":null} [prefix-lint] ccf19648-d4c0-400e-b82c-8ed78ceced06: volatile:uuid in tool[33]
+- [2026-09-05 19:35] stream/dispatch-error (gw) — "9167/1212","raw":7906,"cached":7936,"ms":7783,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 19:35] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 19:35] stream/dispatch-error (gw) — :"9415/648","raw":8042,"cached":8448,"ms":3767,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 19:35] stream/dispatch-error (gw) — 11354/1281","raw":7223,"cached":9472,"ms":8641,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 19:35] stream/dispatch-error (gw) — :"9822/806","raw":6925,"cached":9216,"ms":5135,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 19:35] stream/dispatch-error (gw) — :"14293/945","raw":10460,"cached":0,"ms":13730,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 19:35] stream/dispatch-error (gw) — :"22839/594","raw":17320,"cached":0,"ms":14121,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 19:35] stream/dispatch-error (gw) — nt/data/userdata/83f8e0a7-0c01-4cfa-a8c2-f95a3d70315d': N…" [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 19:35] stream/dispatch-error (gw) — 69/5102","raw":12588,"cached":12544,"ms":62178,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 19:35] stream/dispatch-error (gw) — 1148/630","raw":17729,"cached":18432,"ms":4436,"ttft":null} [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"backchannel-failover","from":"yolo"
+- [2026-09-05 19:35] stream/dispatch-error (gw) — 1929/814","raw":18349,"cached":20992,"ms":4985,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 19:35] stream/dispatch-error (gw) — 7802/165","raw":14906,"cached":17408,"ms":1802,"ttft":null} [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"turn","user":"ccf19648","session":"
+- [2026-09-05 19:35] stream/dispatch-error (gw) — "23195/1457","raw":15907,"cached":0,"ms":12828,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 19:35] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] attempt 1 failed (The operation timed out.), retrying {"ev":"turn","user":"ccf19648","session":"cc734
+- [2026-09-05 19:35] stream/dispatch-error (gw) — 7126/354","raw":13109,"cached":14848,"ms":2862,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 19:35] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] connection failure: client disconnected {"ev":"llmgateway-failover","from":"stepfun","to":"step-3.7-f
+- [2026-09-05 19:35] stream/dispatch-error (gw) — 28/3579","raw":17955,"cached":11008,"ms":23427,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 19:35] stream/dispatch-error (gw) — rkspace created: 64b2bf95-3df7-4560-a1cf-3fda1825c50f\nAr…" [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 19:35] stream/dispatch-error (gw) — "26612/1761","raw":18981,"cached":0,"ms":27012,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 19:35] stream/dispatch-error (gw) — 1715/138","raw":30490,"cached":14848,"ms":3040,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 19:35] stream/dispatch-error (gw) — 91/1164","raw":23426,"cached":18048,"ms":25577,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 19:35] stream/dispatch-error (gw) — 48/1700","raw":17582,"cached":24960,"ms":24328,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 19:35] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 19:35] stream/dispatch-error (gw) — 7367/7045","raw":6486,"cached":6144,"ms":61864,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] ttft ceiling — lane wedged, failing over
+- [2026-09-05 19:35] stream/dispatch-error (gw) — ispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 19:35] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] connection failure: backchannel ttft ceil
+- [2026-09-05 19:35] stream/dispatch-error (gw) — ispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 19:35] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn [prefix-lint] ccf19648-d4c0-400e-b82c-8ed78ceced06
+- [2026-09-05 19:35] stream/dispatch-error (gw) — 0497/291","raw":20141,"cached":28160,"ms":2987,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 19:35] stream/dispatch-error (gw) — r: /api/articles/68e6bae2-e399-41e9-8e5e-6101a4712612/arc…" [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 19:35] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] ttft ceiling — lane wedged, failing over
+- [2026-09-05 19:35] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn [shadow-release] stepfun: holding slot 25s for ser
+- [2026-09-05 19:35] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 19:35] stream/dispatch-error (gw) — 47/1728","raw":29966,"cached":25600,"ms":25124,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 19:35] stream/dispatch-error (gw) — 2188/2304","raw":9245,"cached":9984,"ms":14212,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 19:35] stream/dispatch-error (gw) — 21/1972","raw":19149,"cached":33792,"ms":29746,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 19:35] stream/dispatch-error (gw) — 4748/900","raw":10508,"cached":14336,"ms":9700,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 19:35] stream/dispatch-error (gw) — 011/1471","raw":6717,"cached":13440,"ms":20217,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 19:35] stream/dispatch-error (gw) — 14712/599","raw":8060,"cached":7552,"ms":13981,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 19:35] stream/dispatch-error (gw) — k":"2325/1193","raw":2334,"cached":0,"ms":8172,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 19:35] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling
+
+## check 2026-09-05 19:47 — turns=172 failovers=0 cache_hit=69% max_billed=33373
+- [2026-09-05 19:47] tunnel-524-timeout (gw) — 7-flash","tier":"flash","why":"theta-hard=stepfun","tok":"11524/184","raw":10607,"cached":0,"ms":6076,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta",
+- [2026-09-05 19:47] stream/dispatch-error (gw) — "tok":"765/210","raw":498,"cached":0,"ms":1796,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 19:47] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 19:47] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 19:47] stream/dispatch-error (gw) — 12035/371","raw":11349,"cached":9728,"ms":8972,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+
+## check 2026-09-05 19:59 — turns=326 failovers=0 cache_hit=73% max_billed=43011
+- [2026-09-05 19:59] tunnel-524-timeout (gw) — "qwen3.8-27b","tier":"flash","why":"theta-hard=yolo","tok":"5244/115","raw":4754,"cached":896,"ms":5686,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {
+- [2026-09-05 19:59] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn [shadow-release] stepfun: holding slot 25s for ser
+- [2026-09-05 19:59] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 19:59] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"theta-failover","from":"stepfun","status":4
+- [2026-09-05 19:59] stream/dispatch-error (gw) — ":"5793/174","raw":5051,"cached":896,"ms":8439,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 19:59] stream/dispatch-error (gw) — ":"5244/115","raw":4754,"cached":896,"ms":5686,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 19:59] stream/dispatch-error (gw) — 9467/205","raw":28000,"cached":21760,"ms":2417,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 19:59] stream/dispatch-error (gw) — 22417/60","raw":17332,"cached":20224,"ms":1460,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 19:59] stream/dispatch-error (gw) — 6009/191","raw":23917,"cached":24064,"ms":4920,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 19:59] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 19:59] stream/dispatch-error (gw) — ":"25776/199","raw":23321,"cached":0,"ms":4079,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 19:59] stream/dispatch-error (gw) — 28944/78","raw":23836,"cached":27648,"ms":5672,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 19:59] stream/dispatch-error (gw) — k":"5934/562","raw":5694,"cached":0,"ms":10957,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 19:59] stream/dispatch-error (gw) — 37691/98","raw":27353,"cached":37376,"ms":1556,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 19:59] stream/dispatch-error (gw) — ":"1386/485","raw":1308,"cached":256,"ms":3112,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 19:59] stream/dispatch-error (gw) — 13808/248","raw":11212,"cached":5632,"ms":7116,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+
+## check 2026-09-05 20:11 — turns=218 failovers=0 cache_hit=72% max_billed=36641
+- [2026-09-05 20:11] tunnel-524-timeout (gw) — ash","tier":"flash","why":"theta-hard=stepfun","tok":"26410/524","raw":22575,"cached":17792,"ms":13170,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta"
+- [2026-09-05 20:11] stream/dispatch-error (gw) — 4954/149","raw":11990,"cached":13824,"ms":2854,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 20:11] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 20:11] stream/dispatch-error (gw) — ok":"7636/309","raw":4762,"cached":0,"ms":2397,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 20:11] stream/dispatch-error (gw) — 15/1098","raw":18753,"cached":24192,"ms":20899,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 20:11] stream/dispatch-error (gw) — 5410/4246","raw":19601,"cached":19968,"ms":459,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 20:11] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] ttft ceiling — lane wedged, failing over
+- [2026-09-05 20:11] stream/dispatch-error (gw) — ispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 20:11] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 20:11] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn
+
+## check 2026-09-05 20:23 — turns=140 failovers=0 cache_hit=74% max_billed=40664
+- [2026-09-05 20:23] tunnel-524-timeout (gw) — -2.5-flash","tier":"flash","why":"theta-hard=agnes","tok":"5524/136","raw":4757,"cached":4608,"ms":1697,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta
+- [2026-09-05 20:23] tunnel-524-timeout (gw) — -2.5-flash","tier":"flash","why":"theta-hard=agnes","tok":"25246/255","raw":20843,"cached":25088,"ms":2533,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"th
+- [2026-09-05 20:23] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 20:23] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn [shadow-release] stepfun: holding slot 25s for ser
+- [2026-09-05 20:23] stream/dispatch-error (gw) — 0725/143","raw":20163,"cached":19712,"ms":1619,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 20:23] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 20:23] stream/dispatch-error (gw) — 2699/132","raw":24777,"cached":31744,"ms":2183,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 20:23] stream/dispatch-error (gw) — 5546/207","raw":22842,"cached":25344,"ms":1991,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 20:23] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 20:23] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] connection failure: backchannel ttft ceil
+- [2026-09-05 20:23] stream/dispatch-error (gw) — ispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 20:23] stream/dispatch-error (gw) — 28080/78","raw":18185,"cached":27648,"ms":5931,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 20:23] stream/dispatch-error (gw) — 5609/3642","raw":21219,"cached":25088,"ms":588,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 20:23] stream/dispatch-error (gw) — 5990/292","raw":13431,"cached":15616,"ms":8196,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+
+## check 2026-09-05 20:35 — turns=93 failovers=0 cache_hit=77% max_billed=67634
+- [2026-09-05 20:35] tunnel-524-timeout (gw) — .7-flash","tier":"flash","why":"theta-hard=stepfun","tok":"15248/136","raw":13181,"cached":14848,"ms":6045,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"th
+- [2026-09-05 20:35] stream/dispatch-error (gw) — 26/1313","raw":29212,"cached":31360,"ms":28661,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 20:35] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 20:35] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+
+## check 2026-09-05 20:47 — turns=419 failovers=0 cache_hit=68% max_billed=67941
+- [2026-09-05 20:47] tunnel-524-timeout (gw) — sh","tier":"flash","why":"theta-hard=stepfun","tok":"48957/8524","raw":27243,"cached":26112,"ms":101914,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta
+- [2026-09-05 20:47] tunnel-524-timeout (gw) — "theta-hard=stepfun","tok":"16754/135","raw":16019,"cached":5248,"ms":5865,"ttft":null} [prefix-lint] ccf19648-d4c0-400e-b82c-8ed78ceced06: volatile:uuid in tool[18]: "…/', {'artic
+- [2026-09-05 20:47] tunnel-524-timeout (gw) — ":"theta-hard=stepfun","tok":"5756/107","raw":5187,"cached":5248,"ms":8532,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"agnes-2.5-flash","tie
+- [2026-09-05 20:47] tunnel-524-timeout (gw) — -2.5-flash","tier":"flash","why":"theta-hard=agnes","tok":"25241/668","raw":25841,"cached":18688,"ms":14795,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"t
+- [2026-09-05 20:47] tunnel-524-timeout (gw) — :"flash","why":"theta-hard=agnes","tok":"27243/123","raw":22524,"cached":25344,"ms":1701,"ttft":null} [prefix-lint] ccf19648-d4c0-400e-b82c-8ed78ceced06: volatile:uuid in tool[11]:
+- [2026-09-05 20:47] tunnel-524-timeout (gw) — 2.5-flash","tier":"flash","why":"theta-hard=agnes","tok":"62524/101","raw":27349,"cached":43008,"ms":2618,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"the
+- [2026-09-05 20:47] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 20:47] stream/dispatch-error (gw) — 11853/240","raw":9158,"cached":10496,"ms":2178,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 20:47] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 20:47] stream/dispatch-error (gw) — 2125/523","raw":38535,"cached":30464,"ms":5253,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 20:47] stream/dispatch-error (gw) — rdata/iud-hlth-1/9523c5c3-4c29-4107-b669-d508e84d605c/': …" [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 20:47] stream/dispatch-error (gw) — /11086","raw":25381,"cached":30208,"ms":150104,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 20:47] stream/dispatch-error (gw) — 6546/757","raw":31245,"cached":35584,"ms":6386,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 20:47] stream/dispatch-error (gw) — 1965/710","raw":25571,"cached":28672,"ms":5805,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 20:47] stream/dispatch-error (gw) — "39052/1255","raw":33255,"cached":0,"ms":21222,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 20:47] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn [dispatch agnes] ttft ceiling — lane wedged, faili
+- [2026-09-05 20:47] stream/dispatch-error (gw) — stepfun] client disconnected mid-generation — aborting turn [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 20:47] stream/dispatch-error (gw) — 2555/427","raw":11251,"cached":11008,"ms":3401,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 20:47] stream/dispatch-error (gw) — ":"4729/3297","raw":4643,"cached":0,"ms":50655,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 20:47] stream/dispatch-error (gw) — {'article_id': '00000000-0000-0000-0000-000000000000'}, …" [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 20:47] stream/dispatch-error (gw) — 6723/174","raw":25713,"cached":16512,"ms":6804,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling [prefix-lint] ccf19648-d4c0-400e-b82c-8ed78ceced06: volati
+- [2026-09-05 20:47] stream/dispatch-error (gw) — 9955/566","raw":33909,"cached":31744,"ms":4067,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 20:47] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling [prefix-lint] ccf19648-d4c0-400e-b82c-8ed78ceced06: volati
+
+## check 2026-09-05 20:59 — turns=84 failovers=0 cache_hit=75% max_billed=69566
+- [2026-09-05 20:59] stream/dispatch-error (gw) — ":"7656/1464","raw":6430,"cached":0,"ms":26539,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 20:59] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 20:59] stream/dispatch-error (gw) — "59667/5823","raw":37582,"cached":0,"ms":69385,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 20:59] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling [shadow-release] stepfun: holding slot 25s for server-side
+- [2026-09-05 20:59] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 20:59] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] attempt 1 failed (The operation timed out.), retrying {"ev":"turn","user":"ccf19648","session":"cc734
+- [2026-09-05 20:59] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] connection failure: client disconnected {"ev":"llmgateway-failover","from":"stepfun","to":"step-3.7-f
+- [2026-09-05 20:59] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn [shadow-release] stepfun: holding slot 25s for ser
+- [2026-09-05 20:59] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn
+
+## check 2026-09-05 21:11 — turns=160 failovers=0 cache_hit=64% max_billed=54587
+- [2026-09-05 21:11] tunnel-524-timeout (gw) — 2.5-flash","tier":"flash","why":"theta-hard=agnes","tok":"16524/159","raw":13014,"cached":14592,"ms":1961,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"the
+- [2026-09-05 21:11] tunnel-524-timeout (gw) — stepfun","tok":"25239/5134","raw":15959,"cached":24320,"ms":52420,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"step-3.7-flash","tier":"flash"
+- [2026-09-05 21:11] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 21:11] stream/dispatch-error (gw) — :"13610/1161","raw":11184,"cached":0,"ms":7050,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 21:11] stream/dispatch-error (gw) — k":"12687/64","raw":10135,"cached":0,"ms":1149,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 21:11] stream/dispatch-error (gw) — 8096/324","raw":13988,"cached":17408,"ms":2915,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 21:11] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 21:11] stream/dispatch-error (gw) — 742/1306","raw":14336,"cached":17920,"ms":8422,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 21:11] stream/dispatch-error (gw) — 41/1009","raw":14081,"cached":16128,"ms":12642,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 21:11] stream/dispatch-error (gw) — 21259/80","raw":12557,"cached":16256,"ms":5677,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 21:11] stream/dispatch-error (gw) — 18/2941","raw":23488,"cached":22528,"ms":18807,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 21:11] stream/dispatch-error (gw) — 4483/465","raw":14469,"cached":22528,"ms":3655,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 21:11] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] ttft ceiling — lane wedged, failing over
+- [2026-09-05 21:11] stream/dispatch-error (gw) — ispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 21:11] stream/dispatch-error (gw) — 5357/13935","raw":12853,"cached":0,"ms":159856,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+
+## check 2026-09-05 21:23 — turns=117 failovers=0 cache_hit=70% max_billed=62371
+- [2026-09-05 21:23] stream/dispatch-error (gw) — 23/1343","raw":27316,"cached":21376,"ms":19799,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 21:23] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 21:23] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 21:23] stream/dispatch-error (gw) — /11499","raw":36440,"cached":40832,"ms":128377,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 21:23] stream/dispatch-error (gw) — "1664/11162","raw":1391,"cached":0,"ms":106216,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 21:23] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling [prefix-lint] ccf19648-d4c0-400e-b82c-8ed78ceced06: volati
+- [2026-09-05 21:23] stream/dispatch-error (gw) — {'article_id': '00000000-0000-0000-0000-000000000000'}, …" [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 21:23] stream/dispatch-error (gw) — 37/3926","raw":28728,"cached":31872,"ms":44503,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling [prefix-lint] ccf19648-d4c0-400e-b82c-8ed78ceced06: volati
+- [2026-09-05 21:23] stream/dispatch-error (gw) — 6273/206","raw":31019,"cached":33024,"ms":6574,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+
+## check 2026-09-05 21:35 — turns=194 failovers=0 cache_hit=66% max_billed=61942
+- [2026-09-05 21:35] tunnel-524-timeout (gw) — ":"flash","why":"theta-hard=agnes","tok":"29739/146","raw":25247,"cached":26368,"ms":1782,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"agnes-
+- [2026-09-05 21:35] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn [dispatch agnes] ttft ceiling — lane wedged, faili
+- [2026-09-05 21:35] stream/dispatch-error (gw) — stepfun] client disconnected mid-generation — aborting turn [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 21:35] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 21:35] stream/dispatch-error (gw) — ":"1694/2204","raw":1427,"cached":0,"ms":23519,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 21:35] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling [prefix-lint] ccf19648-d4c0-400e-b82c-8ed78ceced06: volati
+- [2026-09-05 21:35] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] attempt 1 failed (The operation timed out.), retrying {"ev":"turn","user":"ccf19648","session":"cc734
+- [2026-09-05 21:35] stream/dispatch-error (gw) — 49771/70","raw":17254,"cached":39040,"ms":8286,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 21:35] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 21:35] stream/dispatch-error (gw) — ":"19105/427","raw":16446,"cached":0,"ms":7713,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 21:35] stream/dispatch-error (gw) — 2163/347","raw":27034,"cached":40960,"ms":8565,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 21:35] stream/dispatch-error (gw) — :"56535/369","raw":45026,"cached":0,"ms":15619,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling [prefix-lint] ccf19648-d4c0-400e-b82c-8ed78ceced06: volati
+- [2026-09-05 21:35] stream/dispatch-error (gw) — 8744/158","raw":22423,"cached":25856,"ms":1681,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 21:35] stream/dispatch-error (gw) — 1981/355","raw":19035,"cached":21248,"ms":4260,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 21:35] stream/dispatch-error (gw) — 13/1328","raw":26821,"cached":18432,"ms":21268,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 21:35] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] ttft ceiling — lane wedged, failing over
+- [2026-09-05 21:35] stream/dispatch-error (gw) — ispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 21:35] stream/dispatch-error (gw) — "34780/2476","raw":23608,"cached":0,"ms":25100,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 21:35] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 21:35] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] connection failure: backchannel ttft ceil
+- [2026-09-05 21:35] stream/dispatch-error (gw) — ispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 21:35] stream/dispatch-error (gw) — 5193/383","raw":21521,"cached":24064,"ms":3409,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 21:35] stream/dispatch-error (gw) — 2088/313","raw":19995,"cached":30080,"ms":7852,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 21:35] stream/dispatch-error (gw) — 6140/211","raw":23562,"cached":31744,"ms":9984,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 21:35] stream/dispatch-error (gw) — 7479/535","raw":32738,"cached":34816,"ms":4214,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 21:35] stream/dispatch-error (gw) — 7/9991","raw":18530,"cached":49920,"ms":100173,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 21:35] stream/dispatch-error (gw) — 2263/188","raw":28633,"cached":41344,"ms":7486,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 21:35] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn [shadow-release] stepfun: holding slot 25s for ser
+
+## check 2026-09-05 21:47 — turns=181 failovers=0 cache_hit=68% max_billed=63676
+- [2026-09-05 21:47] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 21:47] stream/dispatch-error (gw) — 37/1002","raw":15916,"cached":14592,"ms":29325,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 21:47] stream/dispatch-error (gw) — 81/1746","raw":29109,"cached":30208,"ms":10289,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 21:47] stream/dispatch-error (gw) — 4115/4094","raw":21346,"cached":20480,"ms":724,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 21:47] stream/dispatch-error (gw) — 85/1060","raw":23484,"cached":25344,"ms":17395,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 21:47] stream/dispatch-error (gw) — 11/2115","raw":25939,"cached":31232,"ms":14259,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 21:47] stream/dispatch-error (gw) — 52/2702","raw":23514,"cached":27520,"ms":47848,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] ttft ceiling — lane wedged, failing over
+- [2026-09-05 21:47] stream/dispatch-error (gw) — ispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 21:47] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+
+## check 2026-09-05 21:59 — turns=79 failovers=0 cache_hit=82% max_billed=72288
+- [2026-09-05 21:59] tunnel-524-timeout (gw) — .7-flash","tier":"flash","why":"theta-hard=stepfun","tok":"6524/76","raw":6403,"cached":0,"ms":5235,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","t
+
+## check 2026-09-05 22:11 — turns=71 failovers=0 cache_hit=78% max_billed=64949
+- [2026-09-05 22:11] tunnel-524-timeout (gw) — stepfun","tok":"41794/3317","raw":36421,"cached":32512,"ms":52438,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"step-3.7-flash","tier":"flash"
+- [2026-09-05 22:11] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 22:11] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] attempt 1 failed (The socket connection was closed unexpectedly. For more info), retrying [prefix-lin
+- [2026-09-05 22:11] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] attempt 1 failed (The operation timed out.), retrying [prefix-lint] ccf19648-d4c0-400e-b82c-8ed78cece
+
+## check 2026-09-05 22:23 — turns=66 failovers=0 cache_hit=75% max_billed=64829
+- [2026-09-05 22:23] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] connection failure: client disconnected {"ev":"llmgateway-failover","from":"stepfun","to":"step-3.7-f
+- [2026-09-05 22:23] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 22:23] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] attempt 1 failed (The operation timed out.), retrying [shadow-release] stepfun: holding slot 25s for
+
+## check 2026-09-05 22:35 — turns=313 failovers=0 cache_hit=68% max_billed=65872
+- [2026-09-05 22:35] tunnel-524-timeout (gw) — d=stepfun","tok":"13774/4063","raw":13161,"cached":0,"ms":61524,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"step-3.7-flash","tier":"flash","
+- [2026-09-05 22:35] tunnel-524-timeout (gw) — eta-hard=agnes","tok":"4174/91","raw":3652,"cached":0,"ms":1524,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"agnes-2.5-flash","tier":"flash",
+- [2026-09-05 22:35] tunnel-524-timeout (gw) — a-hard=stepfun","tok":"3681/31","raw":3656,"cached":0,"ms":5524,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"agnes-2.5-flash","tier":"flash",
+- [2026-09-05 22:35] tunnel-524-timeout (gw) — agnes","tok":"42926/1629","raw":36274,"cached":40192,"ms":10524,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"agnes-2.5-flash","tier":"flash",
+- [2026-09-05 22:35] tunnel-524-timeout (gw) — .7-flash","tier":"flash","why":"theta-hard=stepfun","tok":"3524/31","raw":3393,"cached":0,"ms":5273,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","t
+- [2026-09-05 22:35] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] attempt 1 failed (The operation timed out.), retrying [shadow-release] stepfun: holding slot 25s for
+- [2026-09-05 22:35] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] attempt 1 failed (The operation timed out.), retrying {"ev":"turn","user":"ccf19648","session":"cc734
+- [2026-09-05 22:35] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] connection failure: client disconnected {"ev":"llmgateway-failover","from":"stepfun","to":"step-3.7-f
+- [2026-09-05 22:35] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 22:35] stream/dispatch-error (gw) — ":"32547/355","raw":29394,"cached":0,"ms":3936,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 22:35] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 22:35] stream/dispatch-error (gw) — 6728/204","raw":12576,"cached":15360,"ms":1933,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 22:35] stream/dispatch-error (gw) — :"39886/312","raw":30127,"cached":0,"ms":10328,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 22:35] stream/dispatch-error (gw) — 8315/366","raw":13688,"cached":16640,"ms":4184,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 22:35] stream/dispatch-error (gw) — tok":"6687/57","raw":5836,"cached":0,"ms":4487,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 22:35] stream/dispatch-error (gw) — 84/3457","raw":33822,"cached":34304,"ms":22468,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 22:35] stream/dispatch-error (gw) — s1', timestamp: '2024-01-01T00:00:00Z', value: 20, unit: …" [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 22:35] stream/dispatch-error (gw) — 44609/81","raw":34168,"cached":44032,"ms":1425,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 22:35] stream/dispatch-error (gw) — ok":"7220/188","raw":6578,"cached":0,"ms":6144,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 22:35] stream/dispatch-error (gw) — ":"20484/119","raw":14886,"cached":0,"ms":1869,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 22:35] stream/dispatch-error (gw) — :"9294/338","raw":8469,"cached":4736,"ms":7393,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 22:35] stream/dispatch-error (gw) — 4480/321","raw":13245,"cached":13568,"ms":3264,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+
+## check 2026-09-05 22:47 — turns=180 failovers=0 cache_hit=74% max_billed=57124
+- [2026-09-05 22:47] stream/dispatch-error (gw) — 652/558","raw":18633,"cached":26112,"ms":19345,"ttft":null} [dispatch hyper] attempt 1 failed (The operation timed out.), retrying {"ev":"turn","user":"ccf19648","session":"cc734e7
+- [2026-09-05 22:47] stream/dispatch-error (gw) — 27438/92","raw":18697,"cached":27008,"ms":5079,"ttft":null} [dispatch hyper] connection failure: client disconnected {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta
+- [2026-09-05 22:47] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] attempt 1 failed (The operation timed out.), retrying {"ev":"turn","user":"ccf19648","session":"cc734
+- [2026-09-05 22:47] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] connection failure: client disconnected {"ev":"llmgateway-failover","from":"stepfun","to":"step-3.7-f
+- [2026-09-05 22:47] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 22:47] stream/dispatch-error (gw) — {'article_id': '00000000-0000-0000-0000-000000000000'}, …" [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 22:47] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 22:47] stream/dispatch-error (gw) — 8305/194","raw":21952,"cached":27520,"ms":7214,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 22:47] stream/dispatch-error (gw) — ":"26185/4164","raw":21339,"cached":0,"ms":476,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 22:47] stream/dispatch-error (gw) — s1', timestamp: '2024-01-01T00:00:00Z', value: 20, unit: …" [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+
+## check 2026-09-05 22:59 — turns=257 failovers=1 cache_hit=68% max_billed=80979
+- [2026-09-05 22:59] failover (gw) — ing — lane wedged, failing over (no same-lane retry) {"ev":"backchannel-failover","from":"yolo","to":"feihoa","status":502,"cause":"connection:backchannel ttft ceiling"} {"ev":"tur
+- [2026-09-05 22:59] tunnel-524-timeout (gw) — .7-flash","tier":"flash","why":"theta-hard=stepfun","tok":"45248/574","raw":37648,"cached":44032,"ms":9021,"ttft":null} [prefix-lint] ccf19648-d4c0-400e-b82c-8ed78ceced06: volatile
+- [2026-09-05 22:59] tunnel-524-timeout (gw) — :"flash","why":"theta-hard=agnes","tok":"29615/289","raw":25524,"cached":25088,"ms":2760,"ttft":null} {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"theta","to":"agnes-2
+- [2026-09-05 22:59] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 22:59] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] attempt 1 failed (The operation timed out.), retrying {"ev":"turn","user":"ccf19648","session":"cc734
+- [2026-09-05 22:59] stream/dispatch-error (gw) — 3668/504","raw":28792,"cached":9472,"ms":11231,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 22:59] stream/dispatch-error (gw) — 6009/223","raw":23069,"cached":17792,"ms":9499,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 22:59] stream/dispatch-error (gw) — ":"32755/213","raw":19338,"cached":0,"ms":6476,"ttft":null} [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"backchannel-failover","from":"yolo"
+- [2026-09-05 22:59] stream/dispatch-error (gw) — 18373/493","raw":15641,"cached":7552,"ms":8908,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 22:59] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 22:59] stream/dispatch-error (gw) — k":"5202/1663","raw":4649,"cached":0,"ms":8508,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 22:59] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] ttft ceiling — lane wedged, failing over
+- [2026-09-05 22:59] stream/dispatch-error (gw) — ispatch agnes] connection failure: backchannel ttft ceiling [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 22:59] stream/dispatch-error (gw) — 64/1267","raw":24546,"cached":21888,"ms":19408,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 22:59] stream/dispatch-error (gw) — 4977/146","raw":21843,"cached":19200,"ms":1774,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 22:59] stream/dispatch-error (gw) — 26237/73","raw":22952,"cached":24832,"ms":1330,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 22:59] stream/dispatch-error (gw) — oa] 429 — short backoff 2000ms, then failover if still busy [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 22:59] stream/dispatch-error (gw) — oa] 429 — short backoff 2000ms, then failover if still busy [dispatch agnes] connection failure: backchannel ttft ceiling [feihoa] 429 — short backoff 2000ms, then failover if stil
+- [2026-09-05 22:59] stream/dispatch-error (gw) — ":"3274/67","raw":3058,"cached":3233,"ms":3495,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 22:59] stream/dispatch-error (gw) — \":{\"message\":\"Your current generation is still runnin"} [dispatch agnes] connection failure: backchannel ttft ceiling [feihoa] 429 — short backoff 2000ms, then failover if stil
+- [2026-09-05 22:59] stream/dispatch-error (gw) — \":{\"message\":\"Your current generation is still runnin"} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 22:59] stream/dispatch-error (gw) — 4770/548","raw":55692,"cached":60160,"ms":4567,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+
+## check 2026-09-05 23:11 — turns=193 failovers=0 cache_hit=75% max_billed=68294
+- [2026-09-05 23:11] upstream-error (gw) — \":{\"message\":\"Your current generation is still runnin"} [upstream feihoa] 429: {"error":{"message":"Your current generation is still running. Please wait for it to finish befor
+- [2026-09-05 23:11] stream/dispatch-error (gw) — oa] 429 — short backoff 2000ms, then failover if still busy [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 23:11] stream/dispatch-error (gw) — ":"5975/58","raw":4810,"cached":4911,"ms":7671,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"turn","user":"ccf19648","session":"cc734e71","ep":"
+- [2026-09-05 23:11] stream/dispatch-error (gw) — k":"37610/79","raw":28004,"cached":0,"ms":6021,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 23:11] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling {"ev":"theta-failover","from":"feihoa","status":429,"cause
+- [2026-09-05 23:11] stream/dispatch-error (gw) — 8071/1473","raw":5926,"cached":7168,"ms":19975,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-05 23:11] stream/dispatch-error (gw) — 7314/1062","raw":5633,"cached":4992,"ms":15403,"ttft":null} [dispatch agnes] connection failure: backchannel ttft ceiling [feihoa] 429 — short backoff 2000ms, then failover if stil
+- [2026-09-05 23:11] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling [feihoa] 429 — short backoff 2000ms, then failover if stil
+- [2026-09-05 23:11] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] attempt 1 failed (The socket connection was closed unexpectedly. For more info), retrying {"ev":"paid
+- [2026-09-05 23:11] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"theta-failover","from":"feihoa","status":42
+- [2026-09-05 23:11] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"paid-flash-fallback","from":"session-sticky
+- [2026-09-05 23:11] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] client disconnected mid-generation — aborting turn {"ev":"turn","user":"ccf19648","session":"cc734e71
+- [2026-09-05 23:11] stream/dispatch-error (gw) — oa] 429 — short backoff 2000ms, then failover if still busy [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"theta-failover","from":"feihoa","st
+- [2026-09-05 23:11] stream/dispatch-error (gw) — \":{\"message\":\"Your current generation is still runnin"} [dispatch yolo] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"paid-flash-fallback","from":"yolo",

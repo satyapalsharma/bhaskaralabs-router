@@ -27,7 +27,21 @@ import { recordYoloTurn } from "../lib/yolo-pressure";
 import { hyperBudgetAvailable } from "../lib/hyper-budget";
 import { type RouterDecision, type BackchannelLane, FLASH_OF, backchannelNext, backchannelPrimary, failoverDecision } from "../router";
 import { decideTurn } from "../lib/decision";
+import { getFleet, pickAccount, getPublicModels } from "../lib/upstream-config";
+import { genericChat, accountSlotFreeFor } from "../providers/generic";
 import messagesApp from "./messages";
+
+// ── DB-fleet (admin-panel) provider dispatch ──
+// Providers registered via the admin panel are dispatchable through the
+// generic module; hardcoded providers (hyper/feihoa/yolo/agnes/stepfun/
+// llmgateway/devpass) keep their specialized branches above.
+const FLEET_DISPATCHABLE = new Set<string>(); // populated at boot from the fleet
+async function refreshFleetDispatchable(): Promise<void> {
+  const fleet = await getFleet().catch(() => new Map());
+  const hardcoded = new Set(["hyper", "feihoa", "yolo", "agnes", "stepfun", "llmgateway", "devpass"]);
+  FLEET_DISPATCHABLE.clear();
+  for (const id of fleet.keys()) if (!hardcoded.has(id)) FLEET_DISPATCHABLE.add(id);
+}
 import { applyTerseToSystem, terseEnabled } from "../lib/terse";
 import { setNudgeHeader } from "../lib/fair-use";
 import { sanitizeOpenAiResponse, sanitizeOpenAiChunk } from "../lib/sanitize";
@@ -148,11 +162,40 @@ app.post("/v1/chat/completions", async (c) => {
 
   const obj = (typeof body === "object" && body !== null ? body : {}) as Record<string, unknown>;
   const endpointModel = typeof obj.model === "string" ? obj.model : "";
-  if (!["glm-5.3", "qwen-3.8", "theta"].includes(endpointModel)) {
-    return c.json(
-      { error: { message: `model must be one of glm-5.3, qwen-3.8, theta (got '${endpointModel}')`, type: "invalid_request_error" } },
-      400,
-    );
+  const ENDPOINT_MODELS = new Set(["glm-5.3", "qwen-3.8", "theta"]);
+  if (!ENDPOINT_MODELS.has(endpointModel)) {
+    // DB-fleet aliases (admin panel) are callable too — route to the generic
+    // lane when the model matches a fleet alias/modelId.
+    const fleet = await getFleet().catch(() => new Map());
+    let fleetMatch: { providerId: string; modelId: string } | null = null;
+    for (const p of fleet.values()) {
+      for (const m of p.models) {
+        if (m.alias === endpointModel || m.modelId === endpointModel) {
+          fleetMatch = { providerId: p.id, modelId: m.modelId };
+          break;
+        }
+      }
+      if (fleetMatch) break;
+    }
+    if (!fleetMatch) {
+      return c.json(
+        { error: { message: `unknown model '${endpointModel}' (endpoint: glm-5.3, qwen-3.8, theta; or an admin-panel fleet model)`, type: "invalid_request_error" } },
+        400,
+      );
+    }
+    // Fleet model → generic dispatch directly (bypasses the smart router
+    // chains; fleet models are explicitly admin-configured).
+    const account = pickAccount(fleetMatch.providerId, fleet.get(fleetMatch.providerId)?.accounts ?? []);
+    if (!account) return c.json({ error: { message: "No healthy account for this model's provider", type: "api_error" } }, 502);
+    if (!accountSlotFreeFor(account)) return c.json({ error: { message: "Provider at capacity, retry shortly", type: "rate_limit_error" } }, 429);
+    const upstreamRes = await genericChat({
+      provider: fleet.get(fleetMatch.providerId)!,
+      account,
+      modelId: fleetMatch.modelId,
+      body: obj,
+      signal: c.req.raw.signal,
+    });
+    return upstreamRes;
   }
 
   const turnStartedAt = Date.now(); // true request-start clock (was captured post-dispatch → latency_ms ≈ 0)
@@ -556,7 +599,7 @@ app.post("/v1/chat/completions", async (c) => {
 // identity (model ids, build fingerprints, cost/remaining meters) never reaches
 // users; they see only the endpoint model + standard token accounting.
 
-function dispatchUpstream(
+async function dispatchUpstream(
   endpointModel: string,
   decision: RouterDecision,
   messages: ChatMessage[],
@@ -639,6 +682,21 @@ function dispatchUpstream(
     const apiKey = process.env.STEPFUN_API_KEY ?? "";
     return stepfunChat({ model: decision.upstreamModel, body: payload, apiKey, signal }).finally(clearTtft);
   }
+  // ── DB-fleet (admin-panel) providers: dynamic dispatch ──
+  if (FLEET_DISPATCHABLE.has(decision.provider)) {
+    // Providers registered via the admin panel (upstream_providers table)
+    // route through the generic dispatcher with account rotation.
+    const fleet = await getFleet();
+    const provider = fleet.get(decision.provider);
+    if (provider && provider.accounts.length > 0) {
+      const account = pickAccount(provider.id, provider.accounts);
+      if (account && accountSlotFreeFor(account)) {
+        return genericChat({ provider, account, modelId: decision.upstreamModel, body: payload, signal }).finally(clearTtft);
+      }
+    }
+    // No healthy account → fall through to 502 via empty response contract:
+    return new Response(JSON.stringify({ error: { message: "No healthy account for provider", type: "api_error" } }), { status: 502, headers: { "Content-Type": "application/json" } });
+  }
   const apiKey = process.env.DEVPASS_API_KEY ?? "";
   return devpassChat({ model: decision.upstreamModel, body: payload, apiKey, signal }).finally(clearTtft);
 }
@@ -673,5 +731,30 @@ async function decide(auth: AuthContext, sessionId: string, endpointModel: strin
 app.route("/", messagesApp);
 
 app.get("/health", (c) => c.json({ ok: true, providers: { agnes: agnesEnabled(), stepfun: stepfunEnabled(), devpass: devpassEnabled(), feihoa: feihoaEnabled(), yolo: yoloEnabled(), llmgateway: llmGatewayEnabled() }, backchannel: process.env.BHASKARA_BACKCHANNEL === "feihoa" && feihoaEnabled() ? "feihoa" : null }));
+
+// Client-facing model catalog. Endpoint models are always listed; public
+// models from the DB fleet (admin panel) extend the catalog — private ones
+// stay routable but hidden (OpenRouter private-model semantics).
+app.get("/v1/models", async (c) => {
+  const endpointModels = [
+    { id: "glm-5.3", object: "model", owned_by: "bhaskara" },
+    { id: "qwen-3.8", object: "model", owned_by: "bhaskara" },
+    { id: "theta", object: "model", owned_by: "bhaskara" },
+  ];
+  try {
+    const fleetModels = await getPublicModels();
+    const extra = fleetModels
+      .filter((m) => !endpointModels.some((e) => e.id === m.id))
+      .map((m) => ({ id: m.id, object: "model", owned_by: "bhaskara-fleet" }));
+    return c.json({ object: "list", data: [...endpointModels, ...extra] });
+  } catch {
+    return c.json({ object: "list", data: endpointModels });
+  }
+});
+
+// Boot + periodic refresh of DB-fleet dispatchability (admin panel additions
+// go live without restart; 60s cadence matches the fleet TTL generously).
+void refreshFleetDispatchable();
+setInterval(() => void refreshFleetDispatchable(), 60_000);
 
 export default app;

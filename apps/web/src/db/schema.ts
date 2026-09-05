@@ -203,3 +203,76 @@ export const routerSessions = pgTable(
   },
   (t) => [index("session_user_idx").on(t.userId)],
 );
+
+// ── Upstream provider fleet (admin-managed, DB-driven routing config) ──
+// LiteLLM-style three-table model (inspired by openrouter/litellm proxy
+// schemas, models.dev catalog): providers → accounts → models, with a
+// limits JSON per account and per model. The gateway reads this (with a
+// short in-process cache) so new accounts/models/limits go live without
+// deploys; env-based providers remain the bootstrap fallback.
+
+export const upstreamProviders = pgTable(
+  "upstream_providers",
+  {
+    id: text("id").primaryKey(), // slug: "feihoa", "yolo", "stepfun"...
+    name: text("name").notNull(), // display name
+    baseUrl: text("base_url").notNull(), // https://api.feihoa.com/v1
+    protocol: text("protocol").notNull().default("openai"), // openai | anthropic
+    authStyle: text("auth_style").notNull().default("bearer"), // bearer | x-api-key
+    // flat (plan, per-request COGS≈0) | metered (per-token) | credits (prepaid bundle)
+    billing: text("billing").notNull().default("flat"),
+    active: boolean("active").notNull().default(true),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+);
+
+export const upstreamAccounts = pgTable(
+  "upstream_accounts",
+  {
+    id: text("id").primaryKey(),
+    providerId: text("provider_id").notNull().references(() => upstreamProviders.id, { onDelete: "cascade" }),
+    label: text("label").notNull(), // "feihoa-main", "feihoa-backup"
+    apiKey: text("api_key").notNull(), // encrypted at rest recommended later
+    // Health: set by gateway on errors; admin can force-disable.
+    disabled: boolean("disabled").notNull().default(false),
+    // Cooldown when the account errors (self-healing, exponential).
+    cooldownUntil: timestamp("cooldown_until", { withTimezone: true }),
+    // Round-robin cursor lives in-memory; weight for weighted rotation.
+    weight: integer("weight").notNull().default(1),
+    // Per-account limits JSON (single flexible column, validated in app code):
+    //   { maxConcurrent, per5hRequests, per5hTokens, perWeekRequests,
+    //      perWeekTokens, dailyCostUsd }
+    limits: text("limits"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("upstream_account_provider_idx").on(t.providerId)],
+);
+
+export const upstreamModels = pgTable(
+  "upstream_models",
+  {
+    id: text("id").primaryKey(),
+    providerId: text("provider_id").notNull().references(() => upstreamProviders.id, { onDelete: "cascade" }),
+    modelId: text("model_id").notNull(), // upstream id: "qwen3.8-27b"
+    // What clients may call it as (endpoint alias): "qwen-3.8" etc.
+    alias: text("alias"),
+    // public → listed on /models; private → routable but hidden.
+    visibility: text("visibility").notNull().default("public"),
+    // Routing tier: full | flash | cheap — feeds the router chains.
+    tier: text("tier").notNull().default("flash"),
+    contextWindow: integer("context_window").notNull().default(128000),
+    maxOutput: integer("max_output").notNull().default(32768),
+    inputUsdPerM: numeric("input_usd_per_m", { precision: 10, scale: 4 }).notNull().default("0"),
+    outputUsdPerM: numeric("output_usd_per_m", { precision: 10, scale: 4 }).notNull().default("0"),
+    cacheReadUsdPerM: numeric("cache_read_usd_per_m", { precision: 10, scale: 4 }).notNull().default("0"),
+    reasoning: boolean("reasoning").notNull().default(false),
+    toolCall: boolean("tool_call").notNull().default(true),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("upstream_model_unique").on(t.providerId, t.modelId),
+    index("upstream_model_alias_idx").on(t.alias),
+  ],
+);
