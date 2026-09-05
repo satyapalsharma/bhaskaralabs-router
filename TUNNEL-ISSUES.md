@@ -2641,3 +2641,12 @@ paid-flash terminal fallback, 15s bootstrap probe that pre-marks wedge.
 
 ## check 2026-09-05 09:59 — turns=0 failovers=0 cache_hit=0% max_billed=0
 - no new issues
+
+## 2026-09-05 (stepfun 429 round 2 — flat-lane zombies, commit 74dd2f1)
+
+User: 4 new projects, stepfun 429s ('current: 9, limit: 8') with mirror=6.
+Root cause: client-disconnect propagation (my earlier money-saving fix for
+hyper) was aborting flat-lane fetches too — each abort freed OUR slot but
+left a server-side zombie (19 disconnects ≈ 3 concurrent zombies:
+6 mirror + 3 = 9). Fix: propagation only on paid lanes (hyper/llmgateway).
+Verified: disconnect 3s into generation → 6 parallel turns → 0 429s.
