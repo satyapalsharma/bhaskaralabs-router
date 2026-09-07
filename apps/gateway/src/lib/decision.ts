@@ -12,6 +12,7 @@ import type { AuthContext } from "./auth";
 import { estimateTokens, type ChatMessage } from "./prefix";
 import { getLock, setLock, touchSession } from "./session-lock";
 import { route, routeTheta, routeQwenSmart, classifyHardness, type RouterDecision, type BackchannelLane } from "../router";
+import { camelEnabled, camelSlotFree } from "../providers/camel";
 import { agnesEnabled, agnesSlotFree } from "../providers/agnes";
 import { stepfunEnabled, stepfunSlotFree } from "../providers/stepfun";
 import { devpassEnabled } from "../providers/devpass";
@@ -130,6 +131,8 @@ export async function decideTurn(
   if (endpointModel === "theta") {
     const prefixTokens = estimateTokens(messages);
     return routeTheta(lastUserText(messages), {
+      camel: camelEnabled(),
+      camelFree: camelSlotFree(),
       agnes: agnesEnabled(),
       agnesFree: agnesSlotFree(),
       stepfun: stepfunEnabled(),

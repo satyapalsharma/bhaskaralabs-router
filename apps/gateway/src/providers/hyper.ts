@@ -59,6 +59,8 @@ interface RawUsage {
   completion_tokens_details?: { reasoning_tokens?: number };
   cost?: { hypercredits?: number };
   remaining?: { hypercredits?: number };
+  // Camel Stream metered fields
+  cost_details?: { upstream_inference_cost?: number };
 }
 
 function toNumber(value: unknown, fallback = 0): number {
@@ -72,6 +74,7 @@ function readRawUsage(u: RawUsage) {
     cachedTokens: u.prompt_tokens_details?.cached_tokens,
     reasoningTokens: u.completion_tokens_details?.reasoning_tokens,
     hypercredits: u.cost?.hypercredits,
+    camelCostUsd: u.cost_details?.upstream_inference_cost,
     remaining: u.remaining?.hypercredits,
   };
 }
@@ -82,6 +85,7 @@ export interface HyperUsage {
   cachedTokens?: number;
   reasoningTokens?: number;
   hypercredits?: number;
+  camelCostUsd?: number; // Camel Stream: usage.cost_details.upstream_inference_cost
   remaining?: number;
 }
 

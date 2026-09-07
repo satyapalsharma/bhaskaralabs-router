@@ -23,6 +23,7 @@ export const SHADOW_HOLD_MS: Record<string, number> = {
   agnes: 5_000,    // fast lane (0.3-1.1s serves); brief hold suffices
   feihoa: 15_000,  // ~28-30 TPS; typical generations 3-15s
   yolo: 30_000,    // 4 slots; generations commonly 10-30s
+  camel: 20_000,   // gpt-5.6-luna class; ~2-10s typical, p90 ≈ 20s
 };
 
 /**
@@ -50,6 +51,8 @@ export function makeShadowRelease(
     if (released) return;
     console.log(`[shadow-release] ${lane}: holding slot ${Math.round(holdMs / 1000)}s for server-side zombie`);
     shadowTimer = setTimeout(doRelease, holdMs);
+    // Detached: the hold must never keep the process alive on its own.
+    shadowTimer.unref?.();
   };
   return [doRelease, shadowRelease];
 }

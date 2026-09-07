@@ -16,6 +16,7 @@ import { getQuotaState, quotaRejection } from "../lib/quotas";
 import { setQuotaHeaders, setRetryHeaders } from "../lib/quota-headers";
 import { writeLedger } from "../lib/ledger";
 import { pickKeyForSession, hyperChat, parseUsageNonStream, SseUsageAccumulator, type HyperUsage } from "../providers/hyper";
+import { camelChat, camelEnabled } from "../providers/camel";
 import { agnesChat, agnesEnabled, markAgnesDead } from "../providers/agnes";
 import { stepfunChat, stepfunEnabled, markStepfunThrottled } from "../providers/stepfun";
 import { devpassChat, devpassEnabled } from "../providers/devpass";
@@ -24,7 +25,7 @@ import { feihoaChat, feihoaEnabled, feihoaSlotFree, FEIHOA_MODEL, FEIHOA_MAX_OUT
 import { yoloChat, yoloEnabled, yoloSlotFree, YOLO_MODEL, YOLO_MAX_OUTPUT, YOLO_INPUT_BUDGET } from "../providers/yolo";
 import { fitUpstreamWindow } from "../lib/window-guard";
 import { recordYoloTurn } from "../lib/yolo-pressure";
-import { hyperBudgetAvailable } from "../lib/hyper-budget";
+import { hyperBudgetAvailable, reserveHyperBudget, releaseHyperBudget } from "../lib/hyper-budget";
 import { type RouterDecision, type BackchannelLane, FLASH_OF, backchannelNext, backchannelPrimary, failoverDecision } from "../router";
 import { decideTurn } from "../lib/decision";
 import { getFleet, pickAccount, getPublicModels, type UpstreamProviderConfig } from "../lib/upstream-config";
@@ -99,6 +100,8 @@ interface PendingTurn {
   rawIn: number; // est tokens of the client-sent history (pre-compaction) = true context pressure
   /** Streamed/completed content chars this turn — feeds the empty-output streak. */
   contentChars?: number;
+  /** Camel: exact metered cost from usage.cost_details.upstream_inference_cost. */
+  camelExactCostUsd?: number;
 }
 
 // Writes ledger after stream completes, using tapped usage.
@@ -141,6 +144,10 @@ function trackTurn(pending: PendingTurn, usage: HyperUsage | null, providerMeta?
       reasoningTokens: usage?.reasoningTokens,
       model: pending.decision.upstreamModel,
       provider: pending.decision.provider,
+      // Camel: exact metered cost from provider usage.cost_details.
+      ...(pending.decision.provider === "camel" && pending.camelExactCostUsd !== undefined
+        ? { actualCostOverrideUsd: pending.camelExactCostUsd }
+        : {}),
     },
     routedTo: pending.decision.tier,
     routerEffort: pending.decision.effort,
@@ -201,12 +208,16 @@ app.post("/v1/chat/completions", async (c) => {
     if (!account) return c.json({ error: { message: "No healthy account for this model's provider", type: "api_error" } }, 502);
     try {
       const startedAt = Date.now();
+      // Combined abort: client disconnect + 10-min ceiling. Without the
+      // ceiling a wedged fleet provider hangs the turn forever (the main
+      // paths get BACKCHANNEL_TTFT_CEILING_MS or the hyper 10-min ceiling).
+      const fleetSignal = AbortSignal.any([c.req.raw.signal, AbortSignal.timeout(10 * 60 * 1000)]);
       const upstreamRes = await genericChat({
         provider,
         account,
         modelId: fleetMatch.modelId,
         body: obj,
-        signal: c.req.raw.signal,
+        signal: fleetSignal,
       });
       if (!upstreamRes.ok) return upstreamRes;
       // Meter into the ledger + account windows (plan limits + spend reports
@@ -557,6 +568,7 @@ app.post("/v1/chat/completions", async (c) => {
     const json: unknown = await upstream.json();
     const usage = extractUsage(json);
     pending.contentChars = contentCharsOf(json);
+    pending.camelExactCostUsd = usage?.camelCostUsd;
     const hyperMeta = extractHyperMeta(json);
     trackTurn(pending, usage, { ...(compactionMeta ?? {}), ...(hyperMeta ?? {}) });
     return c.json(sanitizeOpenAiResponse(json, endpointModel));
@@ -626,6 +638,7 @@ app.post("/v1/chat/completions", async (c) => {
         }
       }
       pending.contentChars = acc.contentChars;
+      pending.camelExactCostUsd = acc.usage?.camelCostUsd;
       const hyperMeta = acc.usage ? extractHyperMeta({ usage: acc.usage }) : undefined;
       trackTurn(pending, acc.usage, { ...(compactionMeta ?? {}), ...(hyperMeta ?? {}) });
     } finally {
@@ -687,7 +700,18 @@ async function dispatchUpstream(
   };
   if (decision.provider === "hyper") {
     const key = pickKeyForSession(hyperKeys(), sessionId);
-    return hyperChat({ model: decision.upstreamModel, body: payload, apiKey: key.key, signal }).finally(clearTtft);
+    // TOCTOU guard: reserve a worst-case estimate so N concurrent turns can't
+    // each individually pass hyperBudgetAvailable() while collectively blowing
+    // past $12.5 (reserveHyperBudget was dead code — in-flight turns were
+    // invisible to the gate). Released on settle; exact cost lands via ledger.
+    const estTokens = estimateTokens(messages);
+    const estUsd = (estTokens * 3 + 8_000 * 8) / 1e6; // ~prompt at $3/M + 8K out at $8/M worst case
+    reserveHyperBudget(estUsd);
+    return hyperChat({ model: decision.upstreamModel, body: payload, apiKey: key.key, signal })
+      .finally(() => {
+        clearTtft();
+        releaseHyperBudget(estUsd);
+      });
   }
   if (decision.provider === "feihoa") {
     // Backchannel: unique Idempotency-Key per dispatch — feihoa replays are
@@ -716,6 +740,23 @@ async function dispatchUpstream(
     const apiKey = process.env.LLMGATEWAY_API_KEY ?? "";
     return llmGatewayChat({ model: decision.upstreamModel, body: payload, apiKey, signal }).finally(clearTtft);
   }
+  if (decision.provider === "camel") {
+    // Camel Stream — theta FIRST lane. Metered (usage.cost_details lands in
+    // ledger via providerMeta); concurrency 1 guarded inside camelChat.
+    // TTFT ceiling: metered lane aborts save money (no zombie risk — the
+    // server-side generation is billed only if completed and doesn't hold
+    // flat-plan slots), but "auto" routes to frontier-class models whose
+    // p90 TTFT can reach ~10s — use the wide ceiling, not the backchannel 25s.
+    ac.abort; // no-op reference guard — camel rides the standard 10-min ceiling below
+    const camelTtftMs = 10 * 60 * 1000;
+    clearTimeout(timer);
+    const camelTimer = setTimeout(() => ac.abort(new Error("camel ttft ceiling")), camelTtftMs);
+    const apiKey = process.env.CAMEL_API_KEY ?? "";
+    return camelChat({ model: decision.upstreamModel, body: payload as Record<string, unknown>, apiKey, signal }).finally(() => {
+      clearTimeout(camelTimer);
+      clearTtft();
+    });
+  }
   if (decision.provider === "agnes") {
     const apiKey = process.env.AGNES_API_KEY ?? "";
     return agnesChat({ model: decision.upstreamModel, body: payload, apiKey, signal }).finally(clearTtft);
@@ -724,7 +765,6 @@ async function dispatchUpstream(
     const apiKey = process.env.STEPFUN_API_KEY ?? "";
     return stepfunChat({ model: decision.upstreamModel, body: payload, apiKey, signal }).finally(clearTtft);
   }
-  // ── DB-fleet (admin-panel) providers: dynamic dispatch ──
   if (FLEET_DISPATCHABLE.has(decision.provider)) {
     // Providers registered via the admin panel (upstream_providers table)
     // route through the generic dispatcher with account rotation.
@@ -772,7 +812,7 @@ async function decide(auth: AuthContext, sessionId: string, endpointModel: strin
 // Anthropic-compat endpoint (Claude Code / Crush) — full router pipeline
 app.route("/", messagesApp);
 
-app.get("/health", (c) => c.json({ ok: true, providers: { agnes: agnesEnabled(), stepfun: stepfunEnabled(), devpass: devpassEnabled(), feihoa: feihoaEnabled(), yolo: yoloEnabled(), llmgateway: llmGatewayEnabled() }, backchannel: process.env.BHASKARA_BACKCHANNEL === "feihoa" && feihoaEnabled() ? "feihoa" : null }));
+app.get("/health", (c) => c.json({ ok: true, providers: { camel: camelEnabled(), agnes: agnesEnabled(), stepfun: stepfunEnabled(), devpass: devpassEnabled(), feihoa: feihoaEnabled(), yolo: yoloEnabled(), llmgateway: llmGatewayEnabled() }, backchannel: process.env.BHASKARA_BACKCHANNEL === "feihoa" && feihoaEnabled() ? "feihoa" : null }));
 
 // Client-facing model catalog. Endpoint models are always listed; public
 // models from the DB fleet (admin panel) extend the catalog — private ones

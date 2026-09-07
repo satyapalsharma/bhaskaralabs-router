@@ -120,7 +120,7 @@ export async function POST(req: Request) {
       const providerId = String(body.providerId ?? "");
       const catalogId = String(body.catalogId ?? providerId);
       if (!providerId) return NextResponse.json({ error: "providerId required" }, { status: 400 });
-      const res = await fetch("https://models.dev/api.json");
+      const res = await fetch("https://models.dev/api.json", { signal: AbortSignal.timeout(20_000) });
       if (!res.ok) return NextResponse.json({ error: `catalog fetch failed: ${res.status}` }, { status: 502 });
       const catalog = (await res.json()) as Record<string, { api?: string; models?: Record<string, Record<string, unknown>> }>;
       const entry = catalog[catalogId];

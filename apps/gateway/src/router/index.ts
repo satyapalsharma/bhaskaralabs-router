@@ -21,7 +21,7 @@ export interface RouterSignals {
 }
 
 export interface RouterDecision {
-  provider: "hyper" | "devpass" | "agnes" | "stepfun" | "feihoa" | "yolo" | "llmgateway";
+  provider: "hyper" | "devpass" | "agnes" | "stepfun" | "feihoa" | "yolo" | "llmgateway" | "camel";
   upstreamModel: string;
   tier: "full" | "flash";
   effort: EffortLevel;
@@ -135,8 +135,10 @@ export function route(signals: RouterSignals): RouterDecision {
 //   → glm-5.3-flash on Hyper (till $12.5/day) → glm-5.3-flash on llmgateway.
 // Concurrency semaphores + pressure/budget gates are caller-supplied booleans.
 export interface ThetaBackends {
+  camel: boolean;
+  camelFree: boolean;       // 1-slot semaphore (plan concurrency 1)
   agnes: boolean;
-  agnesFree: boolean;       // 4-slot semaphore
+  agnesFree: boolean;       // 10-slot semaphore
   stepfun: boolean;
   stepfunFree: boolean;     // 8-slot semaphore
   yolo: boolean;
@@ -149,16 +151,20 @@ export interface ThetaBackends {
 export function routeTheta(text: string, backends: ThetaBackends): RouterDecision {
   const hardness = classifyHardness(text);
   const hard = hardness === "debugging" || hardness === "planning";
-  // Chain order (user-specified): agnes → stepfun → yolo → hyper flash → llmgateway.
-  // step-3.7-flash reasons better than agnes-2.5-flash, so on HARD theta turns
-  // prefer stepfun first when both are free (both flat-cost; quality wins).
+  // Chain order: CAMEL FIRST (user plan purchase 2026-09-07, gpt-5.6-luna class
+  // via "auto", metered-but-tiny cost) → then flat lanes. step-3.7-flash
+  // reasons better than agnes-2.5-flash, so HARD turns prefer stepfun when
+  // both free. camel slot=1: busy → fall through to the flat lanes.
   type Lane = { id: RouterDecision["provider"]; model: string; ok: boolean; why: string };
+  const camelLane: Lane = { id: "camel", model: "auto", ok: backends.camel && backends.camelFree, why: `theta-${hard ? "hard" : "routine"}=camel` };
   const chain: Lane[] = hard
     ? [
+        camelLane,
         { id: "stepfun", model: "step-3.7-flash", ok: backends.stepfun && backends.stepfunFree, why: "theta-hard=stepfun" },
         { id: "agnes", model: "agnes-2.5-flash", ok: backends.agnes && backends.agnesFree, why: "theta-hard=agnes" },
       ]
     : [
+        camelLane,
         { id: "agnes", model: "agnes-2.5-flash", ok: backends.agnes && backends.agnesFree, why: "theta-routine=agnes" },
         { id: "stepfun", model: "step-3.7-flash", ok: backends.stepfun && backends.stepfunFree, why: "theta-routine=stepfun" },
       ];

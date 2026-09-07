@@ -43,7 +43,13 @@ export async function getQuotaState(userId: string, plan: string): Promise<Quota
       out: sql<number>`coalesce(sum(${usageLedger.completionTokens}), 0)`,
     })
     .from(usageLedger)
-    .where(and(eq(usageLedger.userId, userId), gte(usageLedger.createdAt, since)));
+    .where(
+      and(
+        eq(usageLedger.userId, userId),
+        sql`${usageLedger.endpointModel} in ('glm-5.3', 'qwen-3.8')`,
+        gte(usageLedger.createdAt, since)
+      )
+    );
 
   const thetaRows = await db
     .select({
