@@ -665,23 +665,21 @@ async function dispatchUpstream(
   clientSignal?: AbortSignal,
 ): Promise<Response> {
   const payload = { ...originalBody, messages: withIdentity(messages, endpointModel, terse), model: decision.upstreamModel, stream_options: { include_usage: true } };
-  // Backchannel lanes hang when their backend wedges (observed 2026-09-04:
   // yolo /models served fine but /chat/completions hung 60s+). A tight
   // TTFT-style ceiling caps the CONNECT+HEADERS phase so failover to the
-  // next lane fires in seconds, not minutes. Once headers arrive, the timer
-  // is cleared — the streaming body keeps its own generous ceiling below.
-  // Stepfun EXEMPT from the 25s ceiling: aborting a slow stepfun request
-  // creates a ZOMBIE server-side (StepFun keeps generating + holding one of
-  // its 8 concurrency slots; the response is never read). Zombies were the
-  // root cause of the 429 shower ("current: 9, limit: 8") — our mirror said
-  // 0 in flight while the server ran 8+. stepfun p90=24s sits right at the
-  // ceiling, so ~10% of turns aborted into zombies under load.
-  // llmgateway is also EXEMPT: it's pay-as-you-go metered (no server-side
-  // concurrency slots to zombie — unlike stepfun), and its p90 TTFT measured
-  // 41s under load. Aborting at 25s just failed 25 turns with 502s that
-  // would have completed. Only yolo/feihoa keep the tight wedge-guard
-  // ceiling (those lanes genuinely hang silently at pressure exhaustion).
-  const ttftMs = decision.provider === "hyper" || decision.provider === "stepfun" || decision.provider === "llmgateway" ? 10 * 60 * 1000 : BACKCHANNEL_TTFT_CEILING_MS;
+  // next lane fires in seconds, not minutes (yolo/feihoa only). Exemptions:
+  // Stepfun EXEMPT: aborting a slow stepfun request creates a ZOMBIE server-side
+  // (observed: "current: 9, limit: 8" 429 shower). p90=24s sits at the ceiling.
+  // Agnes EXEMPT (2026-09-07): real-traffic ledger shows p90=10.9s, p99=22.9s,
+  // worst=37.5s — under 6-project load its turns legitimately cross 25s, and
+  // the ceiling aborted 60 turns as "lane wedged", silently skipping a healthy
+  // free lane (300k calls/month!) and burning hyper flash instead. Agnes has
+  // never exhibited the silent-hang wedge that yolo/feihoa show; slot pressure
+  // resolves on its own. Wide ceiling for agnes too.
+  // Camel EXEMPT: metered lane (no zombie cost), "auto" models reach ~10s p90 TTFT.
+  // Only yolo/feihoa keep the tight wedge-guard ceiling (those lanes genuinely
+  // hang silently at pressure exhaustion).
+  const ttftMs = decision.provider === "hyper" || decision.provider === "stepfun" || decision.provider === "llmgateway" || decision.provider === "agnes" || decision.provider === "camel" ? 10 * 60 * 1000 : BACKCHANNEL_TTFT_CEILING_MS;
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(new Error("backchannel ttft ceiling")), ttftMs);
   // Client-disconnect propagation — ALL lanes. Paid lanes (hyper/llmgateway)
