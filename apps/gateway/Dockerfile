@@ -12,6 +12,9 @@ COPY packages/shared ./packages/shared
 COPY apps/gateway ./apps/gateway
 # Schema lives in apps/web (single source; proper fix = move to packages/shared).
 COPY apps/web/src/db ./apps/web/src/db
+# drizzle-orm resolves from the importing file upward; web/node_modules is not
+# installed in this image, so link the identical gateway copy (same ^0.45.2).
+RUN mkdir -p apps/web/node_modules && ln -sfn /app/apps/gateway/node_modules/drizzle-orm apps/web/node_modules/drizzle-orm
 RUN cd apps/gateway && bunx tsc --noEmit
 WORKDIR /app/apps/gateway
 ENV PORT=8793
