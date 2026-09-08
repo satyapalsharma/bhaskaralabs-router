@@ -1,6 +1,8 @@
 {
   "name": "task-tracker",
   "version": "1.0.0",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
   "type": "module",
   "scripts": {
     "cli": "bun src/cli.ts",

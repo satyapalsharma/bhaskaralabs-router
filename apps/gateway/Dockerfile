@@ -10,9 +10,7 @@ RUN bun install
 RUN cd apps/gateway && bun install
 COPY packages/shared ./packages/shared
 COPY apps/gateway ./apps/gateway
-RUN mkdir -p apps/gateway/node_modules/@bhaskara \
-  && ln -sfn /app/packages/shared apps/gateway/node_modules/@bhaskara/shared \
-  && cd apps/gateway && bunx tsc --noEmit
+RUN cd apps/gateway && bunx tsc --noEmit
 WORKDIR /app/apps/gateway
 ENV PORT=8793
 EXPOSE 8793
