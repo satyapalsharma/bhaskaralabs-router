@@ -5,8 +5,8 @@
 # Restore on VPS:  psql "$DATABASE_URL" < pg-small-YYYYMMDD.sql
 set -euo pipefail
 cd "$(dirname "$0")/.."
-DB="${DATABASE_URL:-postgres://localhost:5432/bhaskara}"
-OUT="pg-small-$(date +%Y%m%d).sql"
+OUT_DIR="${BACKUP_DIR:-/tmp}"
+OUT="$OUT_DIR/pg-small-$(date +%Y%m%d).sql"
 TABLES=(
   user session account verification
   api_keys subscriptions coupons coupon_redemptions
