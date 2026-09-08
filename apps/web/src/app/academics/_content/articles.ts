@@ -24,8 +24,16 @@ export type ArticleModule = {
   default: ComponentType;
 };
 
-// No lessons published yet — slugs register here as articles land.
-const loaders: Record<string, () => Promise<ArticleModule>> = {};
+// Module 1 published 2026-09-08 (foundations). Slugs register here as
+// articles land; generateStaticParams + index read through this table.
+const loaders: Record<string, () => Promise<ArticleModule>> = {
+  "tokens-tokenization": () => import("./tokens-tokenization"),
+  "how-transformers-read": () => import("./how-transformers-read"),
+  "training-at-a-glance": () => import("./training-at-a-glance"),
+  "inference-kv-cache": () => import("./inference-kv-cache"),
+  "prompt-caching-practice": () => import("./prompt-caching-practice"),
+  "evals-safety-limits": () => import("./evals-safety-limits"),
+};
 
 export function isKnownSlug(slug: string): boolean {
   return slug in loaders;
@@ -44,9 +52,6 @@ export async function listArticles(): Promise<ArticleMeta[]> {
   return entries.sort((a, b) => a.slug.localeCompare(b.slug));
 }
 
-// Modules planned for the series. Titles + one-line abstracts only —
-// no article stubs, no research claims. A module moves from here to
-// `loaders` (above) when its article is actually written.
 export type RoadmapModule = {
   title: string;
   abstract: string;
@@ -54,27 +59,19 @@ export type RoadmapModule = {
 
 export const ROADMAP: RoadmapModule[] = [
   {
-    title: "Tokens & tokenization",
-    abstract: "How raw text becomes token IDs, and why that shapes context limits and cost.",
+    title: "Prefill, decode & serving economics",
+    abstract: "Quantization, batching, and speculative decoding — where serving cost really goes.",
   },
   {
-    title: "How transformers read",
-    abstract: "Embeddings, attention, and the forward pass, explained without assuming an ML background.",
+    title: "Agents that act",
+    abstract: "Tool calling, RAG, and multi-agent patterns — plus supervising agents with real permissions.",
   },
   {
-    title: "Training at a glance",
-    abstract: "What pre-training and fine-tuning do — and what they can't fix.",
+    title: "Reasoning models & distillation",
+    abstract: "What test-time reasoning buys, and how small models inherit big ones' skills.",
   },
   {
-    title: "Inference & the KV cache",
-    abstract: "What happens per token at serving time, and why session shape matters.",
-  },
-  {
-    title: "Prompt caching in practice",
-    abstract: "Stable prefixes, append-only sessions, and reading hit-rate headers on our API.",
-  },
-  {
-    title: "Evals, safety & limits",
-    abstract: "How models are measured, where they fail, and how to use them responsibly.",
+    title: "Fine-tuning for your domain",
+    abstract: "When prompting stops being enough: SFT data, evals, and honest expectations.",
   },
 ];

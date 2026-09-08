@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getArticle, isKnownSlug } from "../_content/articles";
+import { getArticle, isKnownSlug, listArticles } from "../_content/articles";
 import { H1, Lead, Prose } from "@/components/academics/mdx-components";
 
 export async function generateStaticParams() {
-  // No lessons published yet — params populate as slugs register in loaders.
-  return [] as Array<{ slug: string }>;
+  const articles = await listArticles();
+  return articles.map((a) => ({ slug: a.slug }));
 }
 
 export async function generateMetadata({

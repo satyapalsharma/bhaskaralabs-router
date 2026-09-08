@@ -6088,3 +6088,27 @@ stabilized (00:00-07:00 window).
 - [2026-09-09 00:33] stream/dispatch-error (gw) — 4405/155","raw":12048,"cached":14080,"ms":1792,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn [prefix-lint] 9281b628-e6d2-4a7d-a6b4-c00c28aa6954:
 - [2026-09-09 00:33] stream/dispatch-error (gw) — ok":"7137/161","raw":5774,"cached":0,"ms":1596,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"8879334d",
 - [2026-09-09 00:33] stream/dispatch-error (gw) — 4030/527","raw":11849,"cached":22528,"ms":6354,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+
+## check 2026-09-09 00:45 — turns=1055 failovers=0 cache_hit=77% max_billed=81569
+- [2026-09-09 00:45] tunnel-524-timeout (gw) — hard=agnes","tok":"9919/139","raw":9085,"cached":7168,"ms":1524,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"qwen-3.8","to":"qwen3.8-flash","tier":"flash"
+- [2026-09-09 00:45] tunnel-524-timeout (gw) — ","tier":"flash","why":"dud-escalation(streak=12)","tok":"44524/454","raw":26672,"cached":43008,"ms":5247,"ttft":null} {"ev":"turn","user":"9281b628","session":"f5fc9712","ep":"the
+- [2026-09-09 00:45] tunnel-524-timeout (gw) — reak=12)","tok":"44524/454","raw":26672,"cached":43008,"ms":5247,"ttft":null} {"ev":"turn","user":"9281b628","session":"f5fc9712","ep":"theta","to":"glm-5.3-flash","tier":"flash","
+- [2026-09-09 00:45] tunnel-524-timeout (gw) — sh","tier":"flash","why":"theta-routine=agnes","tok":"17326/524","raw":11496,"cached":14080,"ms":3574,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"theta",
+- [2026-09-09 00:45] tunnel-524-timeout (gw) — outine=agnes","tok":"21258/69","raw":18863,"cached":0,"ms":1524,"ttft":null} {"ev":"turn","user":"9281b628","session":"a5fbbdf5","ep":"theta","to":"agnes-2.5-flash","tier":"flash",
+- [2026-09-09 00:45] tunnel-524-timeout (gw) — .5-flash","tier":"flash","why":"theta-routine=agnes","tok":"52428/252","raw":39364,"cached":38400,"ms":2969,"ttft":null} {"ev":"turn","user":"9281b628","session":"2d4ae555","ep":"t
+- [2026-09-09 00:45] stream/dispatch-error (gw) — …" {"ev":"dud-escalation","session":"46c3f433","streak":11} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"75318ee0",
+- [2026-09-09 00:45] stream/dispatch-error (gw) — 11030/118","raw":5801,"cached":10240,"ms":2989,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn [prefix-lint] 9281b628-e6d2-4a7d-a6b4-c00c28aa6954:
+- [2026-09-09 00:45] stream/dispatch-error (gw) — w-release] stepfun: holding slot 25s for server-side zombie [dispatch stepfun] attempt 1 failed (The socket connection was closed unexpectedly. For more info), retrying {"ev":"turn
+- [2026-09-09 00:45] stream/dispatch-error (gw) — 2592/366","raw":23766,"cached":41472,"ms":2620,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"8879334d",
+
+## check 2026-09-09 00:57 — turns=774 failovers=0 cache_hit=75% max_billed=74591
+- [2026-09-09 00:57] upstream-error (gw) — :"4585/263","raw":3130,"cached":3328,"ms":2382,"ttft":null} [upstream hyper] 429: {"error":{"message":"Please try again in a few minutes.","type":"rate_limit_error","code":null}}
+- [2026-09-09 00:57] upstream-error (gw) — 2727/141","raw":12669,"cached":22528,"ms":1635,"ttft":null} [upstream hyper] 429: {"error":{"message":"You've hit your hourly rate limit. Please try again in 2s.","type":"rate_limi
+- [2026-09-09 00:57] upstream-error (gw) — \":{\"message\":\"You've hit your hourly rate limit. Plea"} [upstream hyper] 429: {"error":{"message":"You've hit your hourly rate limit. Please try again in 9s.","type":"rate_limi
+- [2026-09-09 00:57] upstream-error (gw) — l} {"ev":"dud-escalation","session":"38098557","streak":10} [upstream hyper] 429: {"error":{"message":"You've hit your hourly rate limit. Please try again in 5s.","type":"rate_limi
+- [2026-09-09 00:57] upstream-error (gw) — 5736/354","raw":12875,"cached":13824,"ms":2882,"ttft":null} [upstream hyper] 429: {"error":{"message":"You've hit your hourly rate limit. Please try again in 31s.","type":"rate_lim
+- [2026-09-09 00:57] tunnel-524-timeout (gw) — reak=14)","tok":"44826/61","raw":20143,"cached":40960,"ms":2524,"ttft":null} [prefix-lint] 9281b628-e6d2-4a7d-a6b4-c00c28aa6954: volatile:iso-timestamp in tool[43]: "… 'ok', 'error
+- [2026-09-09 00:57] tunnel-524-timeout (gw) — . Plea)","tok":"54680/511","raw":30085,"cached":52224,"ms":15240,"ttft":null} {"ev":"turn","user":"9281b628","session":"2d4ae555","ep":"theta","to":"auto","tier":"flash","why":"the
+- [2026-09-09 00:57] tunnel-524-timeout (gw) — :"flash","why":"theta-routine=agnes","tok":"8398/705","raw":5249,"cached":5376,"ms":4303,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"theta","to":"auto","
+- [2026-09-09 00:57] tunnel-524-timeout (gw) — reak=13)","tok":"52148/264","raw":23379,"cached":49152,"ms":5244,"ttft":null} {"ev":"dud-escalation","session":"236fcf29","streak":1} {"ev":"turn","user":"9281b628","session":"f5fc
+- [2026-09-09 00:57] stream/dispatch-error (gw) — 42047/68","raw":26450,"cached":40960,"ms":2075,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
