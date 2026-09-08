@@ -8,15 +8,18 @@ import { usageLedger } from "../db/schema";
 import { and, eq, gte, sql } from "drizzle-orm";
 import { authenticate, type AuthContext } from "../lib/auth";
 import { estimateTokens, deriveSessionId, type ChatMessage } from "../lib/prefix";
-import { getQuotaState, quotaRejection } from "../lib/quotas";
+import { getQuotaState, quotaRejection, checkTrialVelocity } from "../lib/quotas";
 import { writeLedger } from "../lib/ledger";
 import { checkPlanLimits } from "../lib/plan-limits";
 import { setQuotaHeaders, setRetryHeaders } from "../lib/quota-headers";
 import { decideTurn } from "../lib/decision";
-import { recordContentChars, contentCharsOf } from "../lib/escalation";
-import { applyTerseToSystem, terseEnabled } from "../lib/terse";
+import { recordContentChars, contentCharsOf, recordDudTurn } from "../lib/escalation";
+import { applyTerseToSystem, terseArmOf, type TerseArm } from "../lib/terse";
 import { setNudgeHeader } from "../lib/fair-use";
-import { resolveFlags, compressLiveZone, maybeCompact } from "../lib/compaction";
+import { resolveFlags, compressLiveZone, maybeCompact, auditPairs } from "../lib/compaction";
+import { getPacks, selectPacks, extractTerms, renderPacks, historyTextOf } from "../lib/docs";
+import { archiveTurn } from "../lib/archive";
+import { persistEnabled, applyPersistToSystem } from "../lib/persist";
 import { pickKeyForSession, hyperMessages } from "../providers/hyper";
 import { llmGatewayMessages, llmGatewayEnabled } from "../providers/llmgateway";
 import { type RouterDecision } from "../router";
@@ -80,16 +83,19 @@ function toChatMessages(body: Record<string, unknown>): ChatMessage[] {
 }
 
 /** Rebuild Anthropic request body with routed model + identity system block. */
-function buildAnthropicPayload(body: Record<string, unknown>, decision: RouterDecision, messages: ChatMessage[], terse = false): Record<string, unknown> {
+function buildAnthropicPayload(body: Record<string, unknown>, decision: RouterDecision, messages: ChatMessage[], terseArm: TerseArm = "off", docsText = "", persist = false): Record<string, unknown> {
   const hasSystem = typeof body.system === "string" && (body.system as string).length > 0;
+  const ladder = terseArm === "ladder";
   const systemText = hasSystem
-    ? terse
-      ? applyTerseToSystem(`${body.system as string}\n\n${IDENTITY_LINE}`)
+    ? terseArm !== "off"
+      ? applyTerseToSystem(`${body.system as string}\n\n${IDENTITY_LINE}`, ladder)
       : `${body.system as string}\n\n${IDENTITY_LINE}`
-    : terse
-      ? applyTerseToSystem(IDENTITY_LINE)
+    : terseArm !== "off"
+      ? applyTerseToSystem(IDENTITY_LINE, ladder)
       : IDENTITY_LINE;
-  const payload: Record<string, unknown> = { ...body, model: decision.upstreamModel, system: systemText };
+  const fullSystem = docsText ? `${systemText}\n\n${docsText}` : systemText;
+  const finalSystem = persist ? applyPersistToSystem(fullSystem) : fullSystem;
+  const payload: Record<string, unknown> = { ...body, model: decision.upstreamModel, system: finalSystem };
   // Convert internal ChatMessage[] back to Anthropic messages shape
   payload.messages = messages
     .filter((m) => m.role !== "system")
@@ -135,6 +141,10 @@ app.post("/v1/messages", async (c) => {
       console.log(JSON.stringify({ ev: "plan-limit", route: "messages", user: auth.userId, model: endpointModel, reason: gate.reason }));
       return c.json({ type: "error", error: { type: "rate_limit_error", message: gate.reason ?? "Plan limit reached" } }, 429);
     }
+    const velocity = await checkTrialVelocity(auth.apiKeyId, auth.plan);
+    if (velocity) {
+      return c.json({ type: "error", error: { type: "rate_limit_error", message: velocity } }, 429);
+    }
   }
   const sessionId = deriveSessionId(auth.apiKeyId, c.req.raw.headers);
   let messages = toChatMessages(obj);
@@ -160,6 +170,24 @@ app.post("/v1/messages", async (c) => {
       console.log(JSON.stringify({ ev: "livezone", session: sessionId.slice(0, 8), ...lz }));
     }
   }
+  // Shadow mode: measure-only twin of the chat route (original forwarded).
+  let shadowMeta: Record<string, unknown> | undefined;
+  if (flags.shadow && !flags.compress) {
+    const dry = compressLiveZone(messages, { dryRun: true });
+    if (dry.stats.blocksCompressed > 0) {
+      const keep = auditPairs(dry.pairs ?? []);
+      shadowMeta = {
+        shadow: {
+          mode: "measure", before: dry.stats.bytesBefore, after: dry.stats.bytesAfter,
+          via: dry.stats.transformers.join(","),
+          errKept: keep.errKept, errTotal: keep.errTotal,
+          refKept: keep.refKept, refTotal: keep.refTotal,
+          violations: keep.violations.length,
+        },
+      };
+      console.log(JSON.stringify({ ev: "shadow", session: sessionId.slice(0, 8), ...dry.stats, err: `${keep.errKept}/${keep.errTotal}`, refs: `${keep.refKept}/${keep.refTotal}`, violations: keep.violations.slice(0, 3) }));
+    }
+  }
   const quota = await getQuotaState(auth.userId, auth.plan);
   const reject = quotaRejection(quota, endpointModel);
   if (reject) {
@@ -178,7 +206,22 @@ app.post("/v1/messages", async (c) => {
     );
   }
   setNudgeHeader(c, decision);
-  const payload = buildAnthropicPayload(obj, decision, messages, terseEnabled(c.req.header("x-bhaskara-terse")));
+  // Docs registry (opt-in): curated packs appended to the system text (the
+  // stable-prefix slot; messages[] carries no system entries on this route).
+  let docsText = "";
+  let docsMeta: Record<string, unknown> | undefined;
+  if (flags.docs) {
+    const packs = selectPacks(extractTerms(historyTextOf(messages)), await getPacks());
+    if (packs.length > 0) {
+      docsText = renderPacks(packs);
+      const ids = packs.map((p) => p.id);
+      docsMeta = { docs: { packs: ids, bytes: docsText.length } };
+      console.log(JSON.stringify({ ev: "docs", session: sessionId.slice(0, 8), packs: ids, bytes: docsText.length }));
+    }
+  }
+  const terseArm = terseArmOf(c.req.header("x-bhaskara-terse"));
+  const persist = persistEnabled(c.req.header("x-bhaskara-persist"));
+  const payload = buildAnthropicPayload(obj, decision, messages, terseArm, docsText, persist);
   const keys = (process.env.HYPER_API_KEYS ?? process.env.HYPER_API_KEY ?? "")
     .split(",")
     .map((s) => s.trim())
@@ -251,6 +294,7 @@ app.post("/v1/messages", async (c) => {
     const json: unknown = await upstream.json();
     recordContentChars(sessionId, contentCharsOf(json));
     const usage = extractAnthropicUsage(json);
+    recordDudTurn(sessionId, usage?.inputTokens ?? 0, usage?.outputTokens ?? 0, Array.isArray((obj as { tools?: unknown }).tools));
     if (usage) {
       console.log(JSON.stringify({
         ev: "turn", user: auth.userId.slice(0, 8), session: sessionId.slice(0, 8), ep: endpointModel,
@@ -267,7 +311,9 @@ app.post("/v1/messages", async (c) => {
         routedTo: decision.tier,
         routerEffort: decision.effort,
         latencyMs: Date.now() - turnStartedAt,
+        providerMeta: { terseArm, persistArm: persist ? "on" : "off", ...(shadowMeta ?? {}), ...(docsMeta ?? {}) },
       }).catch((err) => console.error("[ledger] write failed", err));
+      void archiveTurn({ userId: auth.userId, apiKeyId: auth.apiKeyId, sessionId, endpointModel, provider: decision.provider, upstreamModel: decision.upstreamModel, routedTo: decision.tier, promptTokens: usage.inputTokens, completionTokens: usage.outputTokens, messages, tools: (obj as { tools?: unknown }).tools }).catch(() => {});
     }
     return c.json(sanitizeAnthropicResponse(json, endpointModel));
   }
@@ -360,6 +406,7 @@ app.post("/v1/messages", async (c) => {
     }
     if (usageBox.value !== null) {
       recordContentChars(sessionId, contentChars);
+      recordDudTurn(sessionId, usageBox.value.inputTokens, usageBox.value.outputTokens, Array.isArray((obj as { tools?: unknown }).tools));
       void writeLedger({
         userId: auth.userId,
         apiKeyId: auth.apiKeyId,
@@ -370,7 +417,9 @@ app.post("/v1/messages", async (c) => {
         routerEffort: decision.effort,
         latencyMs: Date.now() - turnStartedAt,
         ttftMs: streamStarted.ttft || undefined,
+        providerMeta: { terseArm, persistArm: persist ? "on" : "off", ...(shadowMeta ?? {}), ...(docsMeta ?? {}) },
       }).catch((err) => console.error("[ledger] write failed", err));
+      void archiveTurn({ userId: auth.userId, apiKeyId: auth.apiKeyId, sessionId, endpointModel, provider: decision.provider, upstreamModel: decision.upstreamModel, routedTo: decision.tier, promptTokens: usageBox.value.inputTokens, completionTokens: usageBox.value.outputTokens, messages, tools: (obj as { tools?: unknown }).tools }).catch(() => {});
     }
     await writer.close();
   })().catch((err) => console.error("[messages stream] error:", (err as Error).message));

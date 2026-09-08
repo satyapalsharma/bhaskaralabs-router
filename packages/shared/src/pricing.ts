@@ -36,6 +36,11 @@ export const FEIHOA: Record<string, RateCard> = {
 export const DEVPASS: Record<string, RateCard> = {
   "deepseek-v4-flash-0731": { input: 0.08, output: 0.15 },
 };
+
+// General Compute [PAYG metered] — verified from docs.generalcompute.com 2026-09-08
+export const GENERALCOMPUTE: Record<string, RateCard> = {
+  "minimax-m2.7": { input: 0.28, output: 1.2 },
+};
 // StepFun [BOOTSTRAP] — PAYG equivalents; actual = plan fee amortized
 export const STEPFUN = {
   planTiers: [

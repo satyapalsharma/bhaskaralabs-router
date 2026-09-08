@@ -1,6 +1,6 @@
 // Shared metering types + pure pricing math. No imports from apps.
 
-import { FRONTIER_DISPLAY, THETA_DISPLAY, HYPER, DEVPASS } from "./pricing";
+import { FRONTIER_DISPLAY, THETA_DISPLAY, HYPER, DEVPASS, GENERALCOMPUTE } from "./pricing";
 
 export interface Usage {
   promptTokens: number;
@@ -65,6 +65,11 @@ export function valueActualCost(u: Usage): number {
   }
   if (u.provider === "devpass") {
     const r = DEVPASS[u.model];
+    if (!r) return 0;
+    return (u.promptTokens * r.input + u.completionTokens * r.output) / 1e6;
+  }
+  if (u.provider === "generalcompute") {
+    const r = GENERALCOMPUTE[u.model];
     if (!r) return 0;
     return (u.promptTokens * r.input + u.completionTokens * r.output) / 1e6;
   }

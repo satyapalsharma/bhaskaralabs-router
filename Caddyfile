@@ -1,0 +1,9 @@
+# Caddy reverse proxy. Auto-TLS for both names. No buffering directives:
+# Caddy streams SSE responses by default (gateway holds streams open minutes).
+api.bhaskaralabs.com {
+	reverse_proxy gateway:8793
+}
+
+bhaskaralabs.com, www.bhaskaralabs.com {
+	reverse_proxy web:3000
+}

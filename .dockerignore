@@ -1,0 +1,10 @@
+node_modules
+.git
+.next
+*.log
+.env
+.env.*
+!.env.deploy.example
+dist
+build
+.DS_Store

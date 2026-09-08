@@ -5645,3 +5645,365 @@ stabilized (00:00-07:00 window).
 
 ## check 2026-09-07 23:49 — turns=0 failovers=0 cache_hit=0% max_billed=0
 - no new issues
+
+## check 2026-09-08 00:01 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-08 00:13 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-08 00:25 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-08 00:37 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-08 00:49 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-08 01:01 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-08 01:13 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-08 01:25 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-08 01:37 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-08 01:49 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-08 02:01 — turns=90 failovers=0 cache_hit=80% max_billed=33604
+- [2026-09-08 02:01] tunnel-524-timeout (gw) — heta-routine=agnes","tok":"285/5","raw":1,"cached":256,"ms":524,"ttft":null} {"ev":"turn","user":"fb3a0797","session":"gitforge","ep":"theta","to":"agnes-2.5-flash","tier":"flash",
+- [2026-09-08 02:01] tunnel-524-timeout (gw) — "flash","why":"theta-routine=agnes","tok":"15777/758","raw":5246,"cached":14080,"ms":6150,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"theta","to":"agnes-
+
+## check 2026-09-08 02:13 — turns=148 failovers=0 cache_hit=86% max_billed=125291
+- [2026-09-08 02:13] tunnel-524-timeout (gw) — flash","why":"theta-routine=agnes","tok":"17952/146","raw":9524,"cached":16128,"ms":1683,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"theta","to":"agnes-2
+
+## check 2026-09-08 02:25 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-08 02:37 — turns=71 failovers=0 cache_hit=74% max_billed=80676
+- no new issues
+
+## check 2026-09-08 02:49 — turns=269 failovers=0 cache_hit=83% max_billed=69364
+- [2026-09-08 02:49] tunnel-524-timeout (gw) — theta-routine=agnes","tok":"53691/345","raw":37014,"cached":52480,"ms":2688,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"theta","to":"agnes-2.5-flash","ti
+- [2026-09-08 02:49] stream/dispatch-error (gw) — 2361/600","raw":31240,"cached":37120,"ms":5214,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn [dispatch hyper] client disconnected mid-generation
+- [2026-09-08 02:49] stream/dispatch-error (gw) — h hyper] client disconnected mid-generation — aborting turn [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+- [2026-09-08 02:49] stream/dispatch-error (gw) — 18842/76","raw":13027,"cached":18176,"ms":1052,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+- [2026-09-08 02:49] stream/dispatch-error (gw) — 4445/107","raw":20461,"cached":33280,"ms":1592,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+
+## check 2026-09-08 03:01 — turns=243 failovers=0 cache_hit=81% max_billed=98356
+- [2026-09-08 03:01] tunnel-524-timeout (gw) — e=agnes","tok":"82119/833","raw":58973,"cached":70400,"ms":6524,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"qwen-3.8","to":"qwen3.8-flash","tier":"flash"
+- [2026-09-08 03:01] tunnel-524-timeout (gw) — :"session-sticky (reeval-blocked: full-share-cap)","tok":"10524/78","raw":9320,"cached":8320,"ms":8343,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"qwen-3
+- [2026-09-08 03:01] tunnel-524-timeout (gw) — heta-routine=agnes","tok":"87090/998","raw":61266,"cached":85248,"ms":6834,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"theta","to":"agnes-2.5-flash","tie
+- [2026-09-08 03:01] tunnel-524-timeout (gw) — (reeval-blocked: full-share-cap)","tok":"11074/120","raw":9524,"cached":10240,"ms":4250,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"theta","to":"agnes-2
+- [2026-09-08 03:01] tunnel-524-timeout (gw) — tier":"flash","why":"session-sticky","tok":"6295/263","raw":5242,"cached":6144,"ms":4580,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"theta","to":"agnes-2
+- [2026-09-08 03:01] tunnel-524-timeout (gw) — cky (reeval-blocked: full-share-cap)","tok":"6023/81","raw":5242,"cached":4096,"ms":2970,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"theta","to":"agnes-2
+
+## check 2026-09-08 03:13 — turns=302 failovers=0 cache_hit=73% max_billed=62702
+- [2026-09-08 03:13] tunnel-524-timeout (gw) — ky (reeval-blocked: full-share-cap)","tok":"6017/119","raw":5241,"cached":4096,"ms":3547,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"theta","to":"agnes-2
+- [2026-09-08 03:13] tunnel-524-timeout (gw) — (reeval-blocked: full-share-cap)","tok":"8282/1335","raw":7524,"cached":7168,"ms":16343,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"theta","to":"agnes-2
+
+## check 2026-09-08 03:25 — turns=247 failovers=0 cache_hit=77% max_billed=70575
+- [2026-09-08 03:25] tunnel-524-timeout (gw) — s-2.5-flash","tier":"flash","why":"theta-hard=agnes","tok":"52407/1601","raw":41004,"cached":50176,"ms":10919,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":
+- [2026-09-08 03:25] tunnel-524-timeout (gw) — .5-flash","tier":"flash","why":"theta-routine=agnes","tok":"52433/105","raw":35411,"cached":0,"ms":3301,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"theta
+- [2026-09-08 03:25] stream/dispatch-error (gw) — 4106/143","raw":11375,"cached":13824,"ms":1418,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+
+## check 2026-09-08 03:37 — turns=258 failovers=0 cache_hit=78% max_billed=95500
+- [2026-09-08 03:37] stream/dispatch-error (gw) — tok":"2062/58","raw":2144,"cached":0,"ms":1696,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+
+## check 2026-09-08 03:49 — turns=239 failovers=0 cache_hit=84% max_billed=82912
+- [2026-09-08 03:49] tunnel-524-timeout (gw) — flash","tier":"flash","why":"theta-hard=agnes","tok":"41797/524","raw":35991,"cached":38400,"ms":3558,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"theta",
+
+## check 2026-09-08 04:01 — turns=52 failovers=0 cache_hit=71% max_billed=87801
+- [2026-09-08 04:01] tunnel-524-timeout (gw) — heta-routine=agnes","tok":"285/1","raw":1,"cached":256,"ms":524,"ttft":null}
+- [2026-09-08 04:01] stream/dispatch-error (gw) — [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+- [2026-09-08 04:01] stream/dispatch-error (gw) — 80/21539","raw":7531,"cached":8448,"ms":132222,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+- [2026-09-08 04:01] stream/dispatch-error (gw) — s","tok":"285/1","raw":1,"cached":256,"ms":675,"ttft":null} [dispatch agnes] client disconnected mid-generation — aborting turn [dispatch agnes] client disconnected mid-generation
+- [2026-09-08 04:01] stream/dispatch-error (gw) — h agnes] client disconnected mid-generation — aborting turn [dispatch agnes] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+
+## check 2026-09-08 04:13 — turns=80 failovers=0 cache_hit=69% max_billed=112120
+- [2026-09-08 04:13] tunnel-524-timeout (gw) — ":"flash","why":"theta-hard=agnes","tok":"17290/128","raw":15249,"cached":0,"ms":9686,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"theta","to":"agnes-2.5-
+- [2026-09-08 04:13] tunnel-524-timeout (gw) — cky (reeval-blocked: full-share-cap)","tok":"6018/78","raw":5241,"cached":4096,"ms":2744,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"qwen-3.8","to":"qwen
+- [2026-09-08 04:13] tunnel-524-timeout (gw) — "session-sticky (reeval-blocked: penalty-too-high)","tok":"15240/66","raw":13030,"cached":14976,"ms":3125,"ttft":null} [prefix-lint] 9281b628-e6d2-4a7d-a6b4-c00c28aa6954: volatile:
+- [2026-09-08 04:13] tunnel-524-timeout (gw) — theta-routine=agnes","tok":"59272/312","raw":46269,"cached":52480,"ms":3248,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"theta","to":"agnes-2.5-flash","ti
+- [2026-09-08 04:13] stream/dispatch-error (gw) — 2120/75","raw":77844,"cached":110592,"ms":2843,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"dud-escalation","session":"ca02a929","streak"
+
+## check 2026-09-08 04:25 — turns=67 failovers=0 cache_hit=67% max_billed=96458
+- [2026-09-08 04:25] stream/dispatch-error (gw) — 32/1722","raw":37600,"cached":44032,"ms":11830,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+
+## check 2026-09-08 04:37 — turns=31 failovers=0 cache_hit=73% max_billed=79200
+- no new issues
+
+## check 2026-09-08 04:49 — turns=57 failovers=0 cache_hit=65% max_billed=73493
+- no new issues
+
+## check 2026-09-08 05:01 — turns=84 failovers=0 cache_hit=80% max_billed=62534
+- no new issues
+
+## check 2026-09-08 05:13 — turns=51 failovers=0 cache_hit=77% max_billed=78484
+- no new issues
+
+## check 2026-09-08 05:25 — turns=45 failovers=0 cache_hit=81% max_billed=48779
+- [2026-09-08 05:25] tunnel-524-timeout (gw) — tier":"flash","why":"dud-escalation(streak=3)","tok":"44596/524","raw":35820,"cached":43008,"ms":5988,"ttft":null} {"ev":"dud-escalation","session":"ca02a929","streak":1} {"ev":"tu
+
+## check 2026-09-08 05:37 — turns=12 failovers=0 cache_hit=82% max_billed=285
+- no new issues
+
+## check 2026-09-08 05:49 — turns=12 failovers=0 cache_hit=60% max_billed=285
+- no new issues
+
+## check 2026-09-08 06:01 — turns=12 failovers=0 cache_hit=60% max_billed=285
+- no new issues
+
+## check 2026-09-08 06:13 — turns=11 failovers=0 cache_hit=82% max_billed=285
+- no new issues
+
+## check 2026-09-08 06:25 — turns=12 failovers=0 cache_hit=30% max_billed=285
+- no new issues
+
+## check 2026-09-08 06:37 — turns=12 failovers=0 cache_hit=37% max_billed=285
+- no new issues
+
+## check 2026-09-08 06:49 — turns=12 failovers=0 cache_hit=67% max_billed=285
+- no new issues
+
+## check 2026-09-08 07:01 — turns=12 failovers=0 cache_hit=67% max_billed=285
+- no new issues
+
+## check 2026-09-08 07:13 — turns=11 failovers=0 cache_hit=49% max_billed=285
+- no new issues
+
+## check 2026-09-08 07:25 — turns=12 failovers=0 cache_hit=60% max_billed=285
+- no new issues
+
+## check 2026-09-08 07:37 — turns=11 failovers=0 cache_hit=57% max_billed=285
+- [2026-09-08 07:37] stream/dispatch-error (gw) — es","tok":"285/1","raw":1,"cached":0,"ms":1475,"ttft":null} [dispatch agnes] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+
+## check 2026-09-08 07:49 — turns=12 failovers=0 cache_hit=37% max_billed=285
+- no new issues
+
+## check 2026-09-08 08:01 — turns=11 failovers=0 cache_hit=73% max_billed=285
+- no new issues
+
+## check 2026-09-08 08:13 — turns=12 failovers=0 cache_hit=37% max_billed=285
+- no new issues
+
+## check 2026-09-08 08:25 — turns=12 failovers=0 cache_hit=37% max_billed=285
+- no new issues
+
+## check 2026-09-08 08:37 — turns=12 failovers=0 cache_hit=67% max_billed=285
+- no new issues
+
+## check 2026-09-08 08:49 — turns=11 failovers=0 cache_hit=57% max_billed=285
+- no new issues
+
+## check 2026-09-08 09:01 — turns=12 failovers=0 cache_hit=30% max_billed=285
+- no new issues
+
+## check 2026-09-08 09:13 — turns=12 failovers=0 cache_hit=67% max_billed=285
+- no new issues
+
+## check 2026-09-08 09:25 — turns=12 failovers=0 cache_hit=60% max_billed=285
+- no new issues
+
+## check 2026-09-08 09:37 — turns=12 failovers=0 cache_hit=52% max_billed=285
+- no new issues
+
+## check 2026-09-08 09:49 — turns=12 failovers=0 cache_hit=30% max_billed=285
+- no new issues
+
+## check 2026-09-08 10:01 — turns=11 failovers=0 cache_hit=41% max_billed=285
+- no new issues
+
+## check 2026-09-08 10:13 — turns=12 failovers=0 cache_hit=75% max_billed=285
+- no new issues
+
+## check 2026-09-08 10:25 — turns=12 failovers=0 cache_hit=30% max_billed=285
+- no new issues
+
+## check 2026-09-08 10:37 — turns=10 failovers=0 cache_hit=45% max_billed=285
+- [2026-09-08 10:37] stream/dispatch-error (gw) — [dispatch agnes] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+
+## check 2026-09-08 10:49 — turns=12 failovers=0 cache_hit=60% max_billed=285
+- no new issues
+
+## check 2026-09-08 11:01 — turns=12 failovers=0 cache_hit=22% max_billed=285
+- no new issues
+
+## check 2026-09-08 11:13 — turns=12 failovers=0 cache_hit=45% max_billed=285
+- no new issues
+
+## check 2026-09-08 11:25 — turns=10 failovers=0 cache_hit=36% max_billed=285
+- [2026-09-08 11:25] stream/dispatch-error (gw) — nes","tok":"285/1","raw":1,"cached":0,"ms":674,"ttft":null} [dispatch agnes] client disconnected mid-generation — aborting turn
+
+## check 2026-09-08 11:37 — turns=136 failovers=0 cache_hit=77% max_billed=27556
+- [2026-09-08 11:37] stream/dispatch-error (gw) — :"8091/133","raw":5978,"cached":7168,"ms":4904,"ttft":null} [dispatch agnes] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+
+## check 2026-09-08 11:49 — turns=283 failovers=0 cache_hit=78% max_billed=51771
+- [2026-09-08 11:49] tunnel-524-timeout (gw) — cky (reeval-blocked: full-share-cap)","tok":"6280/97","raw":5241,"cached":5120,"ms":2904,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"qwen-3.8","to":"qwen
+- [2026-09-08 11:49] tunnel-524-timeout (gw) — lash","why":"theta-routine=agnes","tok":"31323/426","raw":24524,"cached":23808,"ms":3606,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"theta","to":"agnes-2
+- [2026-09-08 11:49] tunnel-524-timeout (gw) — -flash","tier":"flash","why":"theta-routine=agnes","tok":"42524/381","raw":28388,"cached":39424,"ms":3684,"ttft":null} {"ev":"dud-escalation","session":"45166e09","streak":1} {"ev"
+- [2026-09-08 11:49] tunnel-524-timeout (gw) — ine=agnes","tok":"21250/3932","raw":12787,"cached":0,"ms":25524,"ttft":null} {"ev":"turn","user":"9281b628","session":"45166e09","ep":"theta","to":"glm-5.3-flash","tier":"flash","w
+- [2026-09-08 11:49] conn-reset (gw) — /drizzle-orm/postgres-js/session.js:37:33)  Error:   code: "ECONNREFUSED"        at new NodeAggregateError (internal:shared:56:10)       at internalConnectMultiple (node:net:1082:4
+- [2026-09-08 11:49] conn-reset (gw) — ules/drizzle-orm/pg-core/session.js:41:15)  Error:   code: "ECONNREFUSED"        at new NodeAggregateError (internal:shared:56:10)       at internalConnectMultiple (node:net:1082:4
+- [2026-09-08 11:49] ledger-write-fail (gw) — 0/3380","raw":13025,"cached":21248,"ms":22027,"ttft":null} [ledger] write failed 36 |   async queryWithCache(queryString, params, query) { 37 |     if (this.cache === void 0 || is(
+- [2026-09-08 11:49] stream/dispatch-error (gw) — ok":"7864/171","raw":6759,"cached":0,"ms":1939,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+- [2026-09-08 11:49] stream/dispatch-error (gw) — 1435/988","raw":16561,"cached":19456,"ms":6081,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"45166e09",
+- [2026-09-08 11:49] stream/dispatch-error (gw) — 8242/981","raw":15905,"cached":15360,"ms":7042,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"4b057008",
+
+## check 2026-09-08 12:01 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-08 12:58 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-08 13:21 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-08 13:33 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-08 14:45 — turns=33 failovers=0 cache_hit=67% max_billed=22430
+- [2026-09-08 14:45] stream/dispatch-error (gw) — 2430/297","raw":19065,"cached":21632,"ms":8266,"ttft":null} [dispatch agnes] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"agnes
+- [2026-09-08 14:45] stream/dispatch-error (gw) — s-2.5-flash","cause":"connection:backchannel ttft ceiling"} [dispatch hyper] ttft ceiling — lane wedged, failing over (no same-lane retry) {"ev":"llmgateway-failover","from":"hyper
+- [2026-09-08 14:45] stream/dispatch-error (gw) — en3.8-flash","cause":"connection:backchannel ttft ceiling"} [dispatch agnes] connection failure: backchannel ttft ceiling [dispatch hyper] connection failure: backchannel ttft ceil
+- [2026-09-08 14:45] stream/dispatch-error (gw) — ispatch agnes] connection failure: backchannel ttft ceiling [dispatch hyper] connection failure: backchannel ttft ceiling [dispatch agnes] attempt 1 failed (The socket connection w
+- [2026-09-08 14:45] stream/dispatch-error (gw) — ispatch hyper] connection failure: backchannel ttft ceiling [dispatch agnes] attempt 1 failed (The socket connection was closed unexpectedly. For more info), retrying {"ev":"turn",
+- [2026-09-08 14:45] stream/dispatch-error (gw) — ","tok":"285/1","raw":1,"cached":256,"ms":1620,"ttft":null} [dispatch agnes] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+
+## check 2026-09-08 14:57 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-08 15:09 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-08 15:21 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-08 15:33 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-08 15:45 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-08 15:57 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-08 16:09 — turns=114 failovers=0 cache_hit=68% max_billed=31729
+- [2026-09-08 16:09] stream/dispatch-error (gw) — 729/1021","raw":28155,"cached":30976,"ms":7508,"ttft":null} [dispatch agnes] client disconnected mid-generation — aborting turn {"ev":"turn","user":"fb3a0797","session":"gitforge",
+- [2026-09-08 16:09] stream/dispatch-error (gw) — le', updatedAt: '2024-08-14T09:30:00.000Z' }], createdAt:…" [dispatch agnes] client disconnected mid-generation — aborting turn {"ev":"turn","user":"fb3a0797","session":"cf0f9ad9",
+- [2026-09-08 16:09] stream/dispatch-error (gw) — le', updatedAt: '2024-08-14T09:30:00.000Z' }], createdAt:…" [dispatch camel] client disconnected mid-generation — aborting turn [dispatch agnes] client disconnected mid-generation
+- [2026-09-08 16:09] stream/dispatch-error (gw) — h camel] client disconnected mid-generation — aborting turn [dispatch agnes] client disconnected mid-generation — aborting turn {"ev":"turn","user":"fb3a0797","session":"cf0f9ad9",
+- [2026-09-08 16:09] stream/dispatch-error (gw) — :"6551/238","raw":5123,"cached":6144,"ms":8459,"ttft":null} [dispatch camel] client disconnected mid-generation — aborting turn {"ev":"turn","user":"fb3a0797","session":"cf0f9ad9",
+
+## check 2026-09-08 16:21 — turns=94 failovers=0 cache_hit=71% max_billed=28674
+- no new issues
+
+## check 2026-09-08 16:33 — turns=42 failovers=0 cache_hit=91% max_billed=23022
+- [2026-09-08 16:33] tunnel-524-timeout (gw) — ine=camel","tok":"19944/76","raw":16803,"cached":19581,"ms":5243,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"theta","to":"agnes-2.5-flash","tier":"flash"
+- [2026-09-08 16:33] stream/dispatch-error (gw) — amel","tok":"7/5","raw":1,"cached":0,"ms":2408,"ttft":null} [dispatch camel] client disconnected mid-generation — aborting turn [camel] cooling 60s after 5xx {"ev":"theta-failover"
+
+## check 2026-09-08 16:45 — turns=191 failovers=0 cache_hit=75% max_billed=38741
+- [2026-09-08 16:45] tunnel-524-timeout (gw) — er":"flash","why":"theta-hard=agnes","tok":"5950/101","raw":5248,"cached":4096,"ms":1840,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"theta","to":"agnes-2
+
+## check 2026-09-08 16:57 — turns=122 failovers=0 cache_hit=69% max_billed=32930
+- [2026-09-08 16:57] stream/dispatch-error (gw) — s","tok":"285/1","raw":1,"cached":256,"ms":707,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+
+## check 2026-09-08 17:09 — turns=98 failovers=0 cache_hit=69% max_billed=41169
+- no new issues
+
+## check 2026-09-08 17:21 — turns=60 failovers=0 cache_hit=80% max_billed=22600
+- no new issues
+
+## check 2026-09-08 17:33 — turns=22 failovers=0 cache_hit=83% max_billed=285
+- no new issues
+
+## check 2026-09-08 17:45 — turns=22 failovers=0 cache_hit=59% max_billed=285
+- [2026-09-08 17:45] tunnel-524-timeout (gw) — :"theta-routine=camel","tok":"7/5","raw":1,"cached":0,"ms":2524,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"theta","to":"auto","tier":"flash","why":"thet
+
+## check 2026-09-08 17:57 — turns=19 failovers=0 cache_hit=79% max_billed=285
+- [2026-09-08 17:57] stream/dispatch-error (gw) — [dispatch camel] client disconnected mid-generation — aborting turn [camel] cooling 60s after 5xx {"ev":"theta-failover"
+- [2026-09-08 17:57] stream/dispatch-error (gw) — amel","tok":"7/5","raw":1,"cached":0,"ms":2359,"ttft":null} [dispatch camel] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+
+## check 2026-09-08 18:09 — turns=20 failovers=0 cache_hit=61% max_billed=285
+- [2026-09-08 18:09] stream/dispatch-error (gw) — amel","tok":"7/5","raw":1,"cached":0,"ms":3846,"ttft":null} [dispatch camel] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+
+## check 2026-09-08 18:21 — turns=22 failovers=0 cache_hit=0% max_billed=7
+- no new issues
+
+## check 2026-09-08 18:33 — turns=20 failovers=0 cache_hit=85% max_billed=285
+- [2026-09-08 18:33] tunnel-524-timeout (gw) — ":"theta-routine=camel","tok":"7/5","raw":1,"cached":0,"ms":5243,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"theta","to":"auto","tier":"flash","why":"the
+- [2026-09-08 18:33] stream/dispatch-error (gw) — s","tok":"285/1","raw":1,"cached":256,"ms":531,"ttft":null} [dispatch camel] client disconnected mid-generation — aborting turn [camel] cooling 60s after 5xx {"ev":"theta-failover"
+
+## check 2026-09-08 18:45 — turns=21 failovers=0 cache_hit=81% max_billed=285
+- [2026-09-08 18:45] stream/dispatch-error (gw) — amel","tok":"7/5","raw":1,"cached":0,"ms":2296,"ttft":null} [dispatch camel] client disconnected mid-generation — aborting turn [camel] cooling 60s after 5xx {"ev":"theta-failover"
+
+## check 2026-09-08 18:57 — turns=21 failovers=0 cache_hit=73% max_billed=285
+- [2026-09-08 18:57] stream/dispatch-error (gw) — [dispatch camel] client disconnected mid-generation — aborting turn [camel] cooling 60s after 5xx {"ev":"theta-failover"
+
+## check 2026-09-08 19:09 — turns=20 failovers=0 cache_hit=57% max_billed=285
+- [2026-09-08 19:09] stream/dispatch-error (gw) — amel","tok":"7/5","raw":1,"cached":0,"ms":4053,"ttft":null} [dispatch camel] client disconnected mid-generation — aborting turn [camel] cooling 60s after 5xx {"ev":"theta-failover"
+
+## check 2026-09-08 19:21 — turns=241 failovers=0 cache_hit=69% max_billed=42902
+- [2026-09-08 19:21] tunnel-524-timeout (gw) — -flash","tier":"flash","why":"theta-routine=agnes","tok":"35524/176","raw":18179,"cached":34560,"ms":2175,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"the
+- [2026-09-08 19:21] stream/dispatch-error (gw) — k":"2280/137","raw":1772,"cached":0,"ms":34676,"ttft":null} [dispatch camel] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"b9368387",
+
+## check 2026-09-08 19:33 — turns=1 failovers=0 cache_hit=0% max_billed=18671
+- no new issues
+
+## check 2026-09-08 19:45 — turns=343 failovers=0 cache_hit=79% max_billed=57523
+- [2026-09-08 19:45] stream/dispatch-error (gw) — 409/1175","raw":15989,"cached":19200,"ms":9549,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn [prefix-lint] 9281b628-e6d2-4a7d-a6b4-c00c28aa6954:
+- [2026-09-08 19:45] stream/dispatch-error (gw) — 3469/108","raw":18901,"cached":33083,"ms":3364,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn [prefix-lint] 9281b628-e6d2-4a7d-a6b4-c00c28aa6954:
+- [2026-09-08 19:45] stream/dispatch-error (gw) — k":"32156/84","raw":29717,"cached":0,"ms":5756,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+
+## check 2026-09-08 19:57 — turns=427 failovers=0 cache_hit=78% max_billed=91240
+- [2026-09-08 19:57] tunnel-524-timeout (gw) — ","why":"dud-escalation(streak=1)","tok":"57619/1655","raw":52458,"cached":53248,"ms":27418,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"qwen-3.8","to":"q
+- [2026-09-08 19:57] tunnel-524-timeout (gw) — :"flash","why":"theta-routine=agnes","tok":"66191/96","raw":52492,"cached":62464,"ms":1721,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"theta","to":"agnes
+- [2026-09-08 19:57] tunnel-524-timeout (gw) — ","why":"dud-escalation(streak=3)","tok":"41216/141","raw":35240,"cached":40960,"ms":5925,"ttft":null} {"ev":"dud-escalation","session":"b9368387","streak":4} {"ev":"turn","user":"
+- [2026-09-08 19:57] stream/dispatch-error (gw) — :"6547/167","raw":6181,"cached":3328,"ms":7261,"ttft":null} [dispatch hyper] attempt 1 failed (The socket connection was closed unexpectedly. For more info), retrying {"ev":"turn",
+- [2026-09-08 19:57] stream/dispatch-error (gw) — 9338/1219","raw":15272,"cached":8448,"ms":8677,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"7a93a2dd",
+
+## check 2026-09-08 20:09 — turns=226 failovers=0 cache_hit=83% max_billed=69536
+- [2026-09-08 20:09] tunnel-524-timeout (gw) — sh","tier":"flash","why":"dud-escalation(streak=15)","tok":"52436/37","raw":39307,"cached":51200,"ms":3934,"ttft":null} [prefix-lint] 9281b628-e6d2-4a7d-a6b4-c00c28aa6954: volatile
+- [2026-09-08 20:09] tunnel-524-timeout (gw) — reak=16)","tok":"46893/82","raw":37534,"cached":45056,"ms":2524,"ttft":null} {"ev":"turn","user":"9281b628","session":"3609d84b","ep":"theta","to":"glm-5.3-flash","tier":"flash","w
+- [2026-09-08 20:09] tunnel-524-timeout (gw) — ash","tier":"flash","why":"dud-escalation(streak=3)","tok":"52456/430","raw":30583,"cached":51200,"ms":10486,"ttft":null} {"ev":"turn","user":"9281b628","session":"bc954963","ep":"
+- [2026-09-08 20:09] tunnel-524-timeout (gw) — "why":"dud-escalation(streak=3)","tok":"56222/1964","raw":31524,"cached":55296,"ms":20047,"ttft":null} [prefix-lint] 9281b628-e6d2-4a7d-a6b4-c00c28aa6954: volatile:iso-timestamp in
+- [2026-09-08 20:09] stream/dispatch-error (gw) — 43629/75","raw":34583,"cached":42752,"ms":1417,"ttft":null} [dispatch camel] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"b9368387",
+- [2026-09-08 20:09] stream/dispatch-error (gw) — 65/5323","raw":27793,"cached":37376,"ms":34496,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"dud-escalation","session":"7a93a2dd","streak"
+
+## check 2026-09-08 20:21 — turns=164 failovers=0 cache_hit=79% max_billed=111287
+- no new issues
+
+## check 2026-09-08 20:33 — turns=133 failovers=0 cache_hit=89% max_billed=72151
+- [2026-09-08 20:33] tunnel-524-timeout (gw) — outine=agnes","tok":"11903/99","raw":11085,"cached":0,"ms":1524,"ttft":null} [prefix-lint] 9281b628-e6d2-4a7d-a6b4-c00c28aa6954: volatile:iso-timestamp in tool[7]: "…ult = parser.p
+
+## check 2026-09-08 20:45 — turns=124 failovers=0 cache_hit=86% max_billed=70834
+- [2026-09-08 20:45] tunnel-524-timeout (gw) — :"auto","tier":"flash","why":"theta-routine=camel","tok":"18524/665","raw":16640,"cached":17794,"ms":10582,"ttft":null} [prefix-lint] 9281b628-e6d2-4a7d-a6b4-c00c28aa6954: volatile
+- [2026-09-08 20:45] tunnel-524-timeout (gw) — ash","tier":"flash","why":"dud-escalation(streak=8)","tok":"52467/269","raw":51880,"cached":51200,"ms":4879,"ttft":null} {"ev":"dud-escalation","session":"7a93a2dd","streak":9} {"e
+
+## check 2026-09-08 20:57 — turns=129 failovers=0 cache_hit=86% max_billed=59709
+- [2026-09-08 20:57] tunnel-524-timeout (gw) — reak=3)","tok":"41759/552","raw":37759,"cached":38912,"ms":9524,"ttft":null} [dispatch camel] client disconnected mid-generation — aborting turn
+- [2026-09-08 20:57] stream/dispatch-error (gw) — 1759/552","raw":37759,"cached":38912,"ms":9524,"ttft":null} [dispatch camel] client disconnected mid-generation — aborting turn
+
+## check 2026-09-08 21:09 — turns=87 failovers=0 cache_hit=83% max_billed=94318
+- no new issues
+
+## check 2026-09-08 21:21 — turns=69 failovers=0 cache_hit=89% max_billed=40791
+- no new issues
+
+## check 2026-09-08 21:33 — turns=79 failovers=0 cache_hit=88% max_billed=52904
+- no new issues
+
+## check 2026-09-08 21:45 — turns=82 failovers=0 cache_hit=89% max_billed=62403
+- no new issues
+
+## check 2026-09-08 21:57 — turns=82 failovers=0 cache_hit=92% max_billed=81420
+- [2026-09-08 21:57] tunnel-524-timeout (gw) — lash","why":"theta-routine=camel","tok":"29355/184","raw":25524,"cached":29277,"ms":15763,"ttft":null} [prefix-lint] 9281b628-e6d2-4a7d-a6b4-c00c28aa6954: volatile:iso-timestamp in
+
+## check 2026-09-08 22:09 — turns=79 failovers=0 cache_hit=86% max_billed=25405
+- no new issues

@@ -2,7 +2,7 @@
 // Backed by usage_ledger aggregation — simple and correct; rate_windows table optimizes later.
 
 import { db } from "../db";
-import { usageLedger, rateWindows } from "../db/schema";
+import { usageLedger, rateWindows, apiKeys } from "../db/schema";
 import { and, eq, gte, sql } from "drizzle-orm";
 import { PLANS } from "@bhaskara/shared/pricing";
 
@@ -92,6 +92,36 @@ export async function getQuotaState(userId: string, plan: string): Promise<Quota
   };
 }
 
+// ── Trial velocity gate (farm friction): FREE-plan keys younger than
+// TRIAL_AGE_H hours may not burn more than TRIAL_HOURLY_TOKENS per rolling
+// hour. Paid plans are NEVER gated here (quotas + rate windows + abuse
+// alerts own whales; a fresh key ≠ a farm — observed 2026-09-08: advanced
+// user, 1-day-old key, 16M theta tokens/2h on flat lanes). Env-tuned,
+// fail-open on DB error.
+const TRIAL_AGE_H = Number(process.env.TRIAL_AGE_H ?? 24);
+const TRIAL_HOURLY_TOKENS = Number(process.env.TRIAL_HOURLY_TOKENS ?? 300_000);
+
+export async function checkTrialVelocity(apiKeyId: string, plan: string): Promise<string | null> {
+  if (plan !== "free") return null;
+  try {
+    const keys = await db.select({ createdAt: apiKeys.createdAt }).from(apiKeys).where(eq(apiKeys.id, apiKeyId)).limit(1);
+    const born = keys[0]?.createdAt;
+    if (!born || Date.now() - born.getTime() > TRIAL_AGE_H * 3600 * 1000) return null;
+    const rows = await db
+      .select({ tok: sql<number>`coalesce(sum(${usageLedger.promptTokens} + ${usageLedger.completionTokens}), 0)` })
+      .from(usageLedger)
+      .where(and(eq(usageLedger.apiKeyId, apiKeyId), gte(usageLedger.createdAt, new Date(Date.now() - 3600 * 1000))));
+    const used = Number(rows[0]?.tok ?? 0);
+    if (used > TRIAL_HOURLY_TOKENS) {
+      console.log(JSON.stringify({ ev: "trial-velocity", key: apiKeyId.slice(0, 8), hourly: used, cap: TRIAL_HOURLY_TOKENS }));
+      return `Trial key velocity exceeded (${(used / 1000).toFixed(0)}k tokens in the last hour). Contact support to raise limits.`;
+    }
+    return null;
+  } catch (err) {
+    console.error("[trial-velocity] check failed (fail-open):", (err as Error).message);
+    return null;
+  }
+}
 export function quotaRejection(state: QuotaState, endpointModel: string): string | null {
   if (state.overFrontierIn && endpointModel !== "theta")
     return "Monthly frontier input quota exhausted. Upgrade at https://bhaskaralabs.com/dashboard";

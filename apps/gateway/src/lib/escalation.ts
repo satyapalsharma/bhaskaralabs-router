@@ -16,6 +16,10 @@ import type { ChatMessage } from "./prefix";
 export interface EscalationSignals {
   /** Live-zone blocks with a concrete failure signature (tests, compile, exit codes). */
   testFailBlocks: number;
+  /** Trailing run length of identical assistant tool calls (loop = stuck agent). */
+  toolLoopRepeats: number;
+  /** Truncated first signature of the looping call (for logs/reasons). */
+  toolLoopTool: string;
 }
 
 /** Regexes with concrete failure shapes — high precision, low recall. */
@@ -40,8 +44,52 @@ const FAIL_PATTERNS: RegExp[] = [
   /\bRC=([1-9]\d*)\b/,
 ];
 
+/** Trailing run of identical assistant tool-call signatures (Parsec
+ * PreToolUse-break concept, server-side: we can't deny the call, but we can
+ * route a stuck agent to the full model). Tool/user-result messages
+ * interleave between calls; a fresh user message or a text reply (no
+ * tool_calls) breaks the run. Stateless pure function of history. */
+function toolSig(m: ChatMessage): string | null {
+  const tc = (m as { tool_calls?: unknown }).tool_calls;
+  if (m.role !== "assistant" || !Array.isArray(tc) || tc.length === 0) return null;
+  return tc
+    .map((c) => {
+      const o = c as { function?: { name?: string; arguments?: string }; name?: string };
+      return o.function ? `${o.function.name ?? "?"}:${o.function.arguments ?? ""}` : (o.name ?? "?");
+    })
+    .join("|");
+}
+
+export function detectToolLoop(messages: ChatMessage[]): { repeats: number; tool: string } {
+  let sig: string | null = null;
+  let run = 0;
+  let tool = "";
+  let checked = 0;
+  for (let i = messages.length - 1; i >= 0 && checked < 24; i--) {
+    const m = messages[i];
+    if (m.role === "user") break;
+    if (m.role !== "assistant") continue;
+    checked++;
+    const s = toolSig(m);
+    if (!s) break;
+    if (sig === null) {
+      sig = s;
+      run = 1;
+      tool = s.slice(0, 80);
+    } else if (s === sig) {
+      run++;
+    } else {
+      break;
+    }
+  }
+  return { repeats: run, tool };
+}
+
+/** Trailing identical calls at/above this escalate (2 = one retry, 3 = loop). */
+export const TOOL_LOOP_ESCALATE_AT = 3;
+
 export function scanFailureSignals(messages: ChatMessage[]): EscalationSignals {
-  if (!ROUTER.escalation.enabled) return { testFailBlocks: 0 };
+  if (!ROUTER.escalation.enabled) return { testFailBlocks: 0, toolLoopRepeats: 0, toolLoopTool: "" };
 
   // Live zone = everything after the last assistant message: fresh tool results
   // + the current user prompt. History is cached prefix — never re-examined.
@@ -62,7 +110,8 @@ export function scanFailureSignals(messages: ChatMessage[]): EscalationSignals {
       if (FAIL_PATTERNS.some((re) => re.test(text))) testFailBlocks++;
     }
   }
-  return { testFailBlocks };
+  const loop = detectToolLoop(messages);
+  return { testFailBlocks, toolLoopRepeats: loop.repeats, toolLoopTool: loop.tool };
 }
 
 // ── Empty-output streak tracking ──
@@ -96,6 +145,30 @@ export function recordContentChars(sessionId: string, contentChars: number): voi
 export function emptyOutputStreak(sessionId: string): number {
   return emptyStreaks.get(sessionId) ?? 0;
 }
+// ── Dud-turn streak tracking ──
+// A dud = huge prompt + tiny completion WITH tools present (model gave up
+// into chat-mode instead of calling tools). 60K-in/300-out turns are ~100%
+// waste (quota + time; on metered lanes, cash). Consecutive duds escalate
+// the session to hyper-flash (56% working vs 8% on agnes, measured 2026-09-08).
+// Any non-dud turn resets. In-process like emptyStreaks; restart only delays.
+const dudStreaks = new Map<string, number>();
+
+export const DUD_MIN_PROMPT = Number(process.env.DUD_MIN_PROMPT ?? 40_000);
+export const DUD_MAX_OUT = Number(process.env.DUD_MAX_OUT ?? 1_000);
+
+/** Record a completed turn; toolsPresent = request carried tool schemas/calls. */
+export function recordDudTurn(sessionId: string, promptTokens: number, completionTokens: number, toolsPresent: boolean): void {
+  sweep(Date.now());
+  const dud = toolsPresent && promptTokens >= DUD_MIN_PROMPT && completionTokens < DUD_MAX_OUT;
+  if (dud) dudStreaks.set(sessionId, (dudStreaks.get(sessionId) ?? 0) + 1);
+  else dudStreaks.delete(sessionId);
+}
+
+/** Current consecutive-dud streak (0 = healthy). */
+export function dudStreak(sessionId: string): number {
+  return dudStreaks.get(sessionId) ?? 0;
+}
+
 
 /** Content chars of a completed response JSON — OpenAI choices[].message.content
  * or Anthropic content[] text blocks. 0 when absent/empty. */

@@ -167,7 +167,12 @@ export default function AdminClient() {
                 key={al.id}
                 className={`rounded-xl border p-4 ${al.severity === "red" ? "border-red-500/40 bg-red-500/5" : "border-amber-500/40 bg-amber-500/5"}`}
               >
-                <p className={`text-sm font-semibold ${al.severity === "red" ? "text-red-400" : "text-amber-400"}`}>{al.title}</p>
+                <p className={`flex items-center gap-2 text-sm font-semibold ${al.severity === "red" ? "text-red-400" : "text-amber-400"}`}>
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${al.severity === "red" ? "bg-red-500/20 text-red-300" : "bg-amber-500/20 text-amber-300"}`}>
+                    {al.severity}
+                  </span>
+                  {al.title}
+                </p>
                 <p className="mt-1 text-sm text-zinc-400">{al.detail}</p>
               </div>
             ))}

@@ -30,8 +30,16 @@ function camelRelease(): void {
  *  → 2h cap, reset instantly on any 2xx. */
 let deadUntil = 0;
 let deadStreak = 0;
+/** Short cool for transient 5xx storms (does NOT touch the dead-streak backoff). */
+let coolUntil = 0;
 export function camelEnabled(): boolean {
-  return !!process.env.CAMEL_API_KEY && Date.now() >= deadUntil;
+  return !!process.env.CAMEL_API_KEY && Date.now() >= deadUntil && Date.now() >= coolUntil;
+}
+/** Cool the lane briefly after 5xx so turns skip it promptly during an
+ *  upstream outage instead of burning a failed attempt every turn. */
+export function markCamelCool(seconds = 60): void {
+  coolUntil = Math.max(coolUntil, Date.now() + seconds * 1000);
+  console.log(`[camel] cooling ${seconds}s after 5xx`);
 }
 export function markCamelDead(): void {
   deadStreak++;

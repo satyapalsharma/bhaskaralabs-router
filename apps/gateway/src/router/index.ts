@@ -6,6 +6,7 @@
 import { ROUTER, HYPER } from "@bhaskara/shared/pricing";
 import { FEIHOA_MODEL } from "../providers/feihoa";
 import { YOLO_MODEL } from "../providers/yolo";
+import { GENERALCOMPUTE_MODEL } from "../providers/generalcompute";
 
 export type EffortLevel = "low" | "high" | "max";
 
@@ -21,7 +22,7 @@ export interface RouterSignals {
 }
 
 export interface RouterDecision {
-  provider: "hyper" | "devpass" | "agnes" | "stepfun" | "feihoa" | "yolo" | "llmgateway" | "camel";
+  provider: "hyper" | "devpass" | "agnes" | "stepfun" | "feihoa" | "yolo" | "llmgateway" | "camel" | "generalcompute";
   upstreamModel: string;
   tier: "full" | "flash";
   effort: EffortLevel;
@@ -144,27 +145,32 @@ export interface ThetaBackends {
   yolo: boolean;
   yoloFree: boolean;
   yoloPressureOk: boolean;
+  generalcompute: boolean;
+  generalcomputeFree: boolean; // 429-cooldown gate (no concurrency mirror v1)
   hyperBudgetOk: boolean;
   llmGatewayOn: boolean;
 }
 
-export function routeTheta(text: string, backends: ThetaBackends): RouterDecision {
+export function routeTheta(text: string, backends: ThetaBackends, exclude: Set<string> = new Set()): RouterDecision {
   const hardness = classifyHardness(text);
   const hard = hardness === "debugging" || hardness === "planning";
-  // Chain order (founder-spec 2026-09-07, uniform for hard+routine):
-  //   camel → agnes → stepfun → yolo → hyper-flash → llmgateway-flash
+  // Chain order (founder-spec 2026-09-07, uniform for hard+routine, +generalcompute 2026-09-08):
+  //   camel → agnes → stepfun → yolo → generalcompute → hyper-flash → llmgateway-flash
   // camel: metered gpt-5.6-luna class, slot=1 — busy → fall through.
   // feihoa intentionally NOT in theta (backchannel/frontier-only lane).
+  // `exclude` skips lanes that just failed this turn, so failover walks the
+  // chain instead of re-picking the failed lane and jumping to paid hyper.
   type Lane = { id: RouterDecision["provider"]; model: string; ok: boolean; why: string };
   const chain: Lane[] = [
     { id: "camel", model: "auto", ok: backends.camel && backends.camelFree, why: `theta-${hard ? "hard" : "routine"}=camel` },
     { id: "agnes", model: "agnes-2.5-flash", ok: backends.agnes && backends.agnesFree, why: `theta-${hard ? "hard" : "routine"}=agnes` },
     { id: "stepfun", model: "step-3.7-flash", ok: backends.stepfun && backends.stepfunFree, why: `theta-${hard ? "hard" : "routine"}=stepfun` },
     { id: "yolo", model: YOLO_MODEL, ok: backends.yolo && backends.yoloFree && backends.yoloPressureOk, why: `theta-${hard ? "hard" : "routine"}=yolo` },
+    { id: "generalcompute", model: GENERALCOMPUTE_MODEL, ok: backends.generalcompute && backends.generalcomputeFree, why: `theta-${hard ? "hard" : "routine"}=generalcompute` },
     { id: "hyper", model: "glm-5.3-flash", ok: backends.hyperBudgetOk, why: `theta-${hard ? "hard" : "routine"}=hyper-flash` },
     { id: "llmgateway", model: "glm-5.3-flash", ok: backends.llmGatewayOn, why: `theta-${hard ? "hard" : "routine"}=llmgateway-flash` },
   ];
-  const pick = chain.find((lane) => lane.ok);
+  const pick = chain.filter((lane) => !exclude.has(lane.id)).find((lane) => lane.ok);
   if (!pick) {
     return { provider: "hyper", upstreamModel: "glm-5.3-flash", tier: "flash", effort: "low", reason: "theta-no-backend(last-resort-hyper)", hardCapped: false };
   }

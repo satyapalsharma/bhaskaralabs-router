@@ -10,16 +10,17 @@ import { and, eq, gte, sql } from "drizzle-orm";
 import { ROUTER, HYPER } from "@bhaskara/shared/pricing";
 import type { AuthContext } from "./auth";
 import { estimateTokens, type ChatMessage } from "./prefix";
-import { getLock, setLock, touchSession } from "./session-lock";
-import { route, routeTheta, routeQwenSmart, classifyHardness, type RouterDecision, type BackchannelLane } from "../router";
+import { getLock, setLock, touchSession, SWITCH_COOLDOWN_MS, DOWN_STREAK } from "./session-lock";
+import { route, routeTheta, routeQwenSmart, classifyHardness, FLASH_OF, type RouterDecision, type BackchannelLane } from "../router";
 import { camelEnabled, camelSlotFree } from "../providers/camel";
 import { agnesEnabled, agnesSlotFree } from "../providers/agnes";
 import { stepfunEnabled, stepfunSlotFree } from "../providers/stepfun";
+import { generalcomputeEnabled, generalcomputeSlotFree } from "../providers/generalcompute";
 import { devpassEnabled } from "../providers/devpass";
 import { llmGatewayEnabled } from "../providers/llmgateway";
 import { feihoaEnabled, FEIHOA_MODEL, FEIHOA_INPUT_BUDGET, feihoaSlotFree } from "../providers/feihoa";
 import { yoloEnabled, YOLO_MODEL, YOLO_INPUT_BUDGET, yoloSlotFree } from "../providers/yolo";
-import { scanFailureSignals, emptyOutputStreak } from "./escalation";
+import { scanFailureSignals, emptyOutputStreak, TOOL_LOOP_ESCALATE_AT, dudStreak } from "./escalation";
 import { yoloWouldOverflow, recordYoloTurn, yoloPressureState } from "./yolo-pressure";
 import { hyperBudgetAvailable } from "./hyper-budget";
 import { detectStage } from "./stage-router";
@@ -74,6 +75,7 @@ export async function decideTurn(
   endpointModel: string,
   messages: ChatMessage[],
   lane?: BackchannelLane,
+  excludeProviders: Set<string> = new Set(),
 ): Promise<RouterDecision> {
   // Backchannel mode: env switch routes ALL frontier turns to a Qwen
   // backchannel lane (context engine must fit upstream).
@@ -83,7 +85,7 @@ export async function decideTurn(
   // the context outgrows the lane (unavoidable miss) or on failure. This
   // maximizes prefix-cache reuse across turns.
   if (process.env.BHASKARA_BACKCHANNEL === "feihoa" && (feihoaEnabled() || yoloEnabled())) {
-    const lock = await getLock(sessionId, auth.userId);
+    const lock = await getLock(sessionId, auth.userId, endpointModel);
     const ctx = estimateTokens(messages);
     if (lock.lockedModel && !lock.stale) {
       const lockedLane: BackchannelLane | null =
@@ -92,7 +94,7 @@ export async function decideTurn(
         lockedLane === "feihoa" ? ctx <= FEIHOA_INPUT_BUDGET : lockedLane === "yolo" ? ctx <= YOLO_INPUT_BUDGET : false;
       const free = lockedLane === "feihoa" ? feihoaSlotFree() : lockedLane === "yolo" ? yoloSlotFree() : true;
       if (lockedLane && fits && free) {
-        await touchSession(sessionId, auth.userId);
+        await touchSession(sessionId, auth.userId, endpointModel, false);
         return {
           provider: lockedLane,
           upstreamModel: lock.lockedModel,
@@ -104,12 +106,12 @@ export async function decideTurn(
       }
       // feihoa-locked but busy → temporary hop to yolo (lock preserved).
       if (lockedLane === "feihoa" && yoloEnabled() && yoloSlotFree() && ctx <= YOLO_INPUT_BUDGET) {
-        await touchSession(sessionId, auth.userId);
+        await touchSession(sessionId, auth.userId, endpointModel, false);
         return { provider: "yolo", upstreamModel: YOLO_MODEL, tier: "flash", effort: "low", reason: "backchannel-sticky-hop(feihoa-busy)", hardCapped: false };
       }
       // yolo-locked but all 4 slots busy → temporary hop to hyper flash.
       if (lockedLane === "yolo" && !yoloSlotFree()) {
-        await touchSession(sessionId, auth.userId);
+        await touchSession(sessionId, auth.userId, endpointModel, false);
         return { provider: "hyper", upstreamModel: "qwen3.8-flash", tier: "flash", effort: "low", reason: "backchannel-sticky-hop(yolo-busy)", hardCapped: false };
       }
     }
@@ -117,7 +119,7 @@ export async function decideTurn(
     const chosen: BackchannelLane =
       lane ?? (feihoaSlotFree() ? "feihoa" : yoloEnabled() && yoloSlotFree() ? "yolo" : "feihoa");
     const model = chosen === "yolo" ? YOLO_MODEL : FEIHOA_MODEL;
-    await setLock(sessionId, auth.userId, model);
+    await setLock(sessionId, auth.userId, endpointModel, model);
     return {
       provider: chosen,
       upstreamModel: model,
@@ -129,6 +131,13 @@ export async function decideTurn(
   }
 
   if (endpointModel === "theta") {
+    // Dud-escalation: consecutive chat-mode duds on huge tool prompts skip
+    // the weak lanes straight to hyper-flash (measured 56% working vs 8%).
+    const dud = ROUTER.escalation.enabled ? dudStreak(sessionId) : 0;
+    if (dud >= 1) {
+      console.log(JSON.stringify({ ev: "dud-escalation", session: sessionId.slice(0, 8), streak: dud }));
+      return { provider: "hyper", upstreamModel: "glm-5.3-flash", tier: "flash", effort: "low", reason: `dud-escalation(streak=${dud})`, hardCapped: false };
+    }
     const prefixTokens = estimateTokens(messages);
     return routeTheta(lastUserText(messages), {
       camel: camelEnabled(),
@@ -141,11 +150,13 @@ export async function decideTurn(
       yoloFree: yoloSlotFree(),
       yoloPressureOk: yoloEnabled() && !yoloWouldOverflow(prefixTokens),
       hyperBudgetOk: await hyperBudgetAvailable(),
+      generalcompute: generalcomputeEnabled(),
+      generalcomputeFree: generalcomputeSlotFree(),
       llmGatewayOn: llmGatewayEnabled(),
-    });
+    }, excludeProviders);
   }
   if (endpointModel === "qwen-3.8" && process.env.BHASKARA_QWEN_SMART === "1") {
-    const lock = await getLock(sessionId, auth.userId);
+    const lock = await getLock(sessionId, auth.userId, endpointModel);
     if (lock.lockedModel && !lock.stale) {
       // Hard/fix turn on a 27B-locked session → escalate this turn to the
       // frontier model (qwen3.8-max) — 27B models are weak at precise TS
@@ -171,14 +182,14 @@ export async function decideTurn(
           );
         const sessionEscHour = Number(escRows[0]?.n ?? 0);
         if (share < ROUTER.fullShareCapPerUserPerWeek && sessionEscHour < SESSION_MAX_ESCALATIONS_PER_HOUR) {
-          await touchSession(sessionId, auth.userId);
+          await touchSession(sessionId, auth.userId, endpointModel, false);
           return { provider: "hyper", upstreamModel: "qwen3.8-max", tier: "full", effort: "max", reason: sessionEscHour >= SESSION_MAX_ESCALATIONS_PER_HOUR - 5 ? `sticky-escalate(${hardness}) near-session-limit` : `sticky-escalate(${hardness})`, hardCapped: false };
         }
       }
       // feihoa-locked but its single slot is busy → temporary hop to yolo for
       // this turn only (lock preserved; next free turn returns to feihoa).
       if (lock.lockedModel === FEIHOA_MODEL && !feihoaSlotFree() && yoloEnabled() && yoloSlotFree() && estimateTokens(messages) <= YOLO_INPUT_BUDGET) {
-        await touchSession(sessionId, auth.userId);
+        await touchSession(sessionId, auth.userId, endpointModel, hardness === "routine");
         return { provider: "yolo", upstreamModel: YOLO_MODEL, tier: "flash", effort: "low", reason: "session-sticky-hop(feihoa-busy)", hardCapped: false };
       }
       // yolo-locked but all 4 slots busy OR the pressure tracker says the
@@ -188,7 +199,7 @@ export async function decideTurn(
       // before failing over (observed live 2026-09-04/05).
       const yoloUsable = yoloSlotFree() && !yoloWouldOverflow(estimateTokens(messages));
       if (lock.lockedModel === YOLO_MODEL && !yoloUsable) {
-        await touchSession(sessionId, auth.userId);
+        await touchSession(sessionId, auth.userId, endpointModel, hardness === "routine");
         if (feihoaEnabled() && feihoaSlotFree() && estimateTokens(messages) <= FEIHOA_INPUT_BUDGET) {
           return { provider: "feihoa", upstreamModel: FEIHOA_MODEL, tier: "flash", effort: "low", reason: "session-sticky-hop(yolo-busy)", hardCapped: false };
         }
@@ -199,8 +210,16 @@ export async function decideTurn(
           return { provider: "llmgateway", upstreamModel: "qwen3.8-flash", tier: "flash", effort: "low", reason: "session-sticky-hop(yolo-busy,hyper-budget-out)", hardCapped: false };
         }
       }
-      await touchSession(sessionId, auth.userId);
+      await touchSession(sessionId, auth.userId, endpointModel, hardness === "routine");
       const tier = lock.lockedModel.includes("flash") || lock.lockedModel.includes("feihoa") || lock.lockedModel.includes("yolo") || lock.lockedModel.includes("27b") || lock.lockedModel.includes("27B") ? "flash" : "full";
+      // v2 de-escalation: calm streak on a max lock → flash (mirrors frontier).
+      const qFlash = FLASH_OF[lock.lockedModel];
+      const qCool = !lock.lastSwitchAt || Date.now() - new Date(lock.lastSwitchAt).getTime() > SWITCH_COOLDOWN_MS;
+      if (tier === "full" && hardness === "routine" && lock.routineStreak + 1 >= DOWN_STREAK && qFlash && lock.switchCount < ROUTER.reeval.maxSwitchesPerSession && qCool) {
+        await setLock(sessionId, auth.userId, endpointModel, qFlash, { bumpSwitch: true, routine: true });
+        console.log(JSON.stringify({ ev: "de-escalation", session: sessionId.slice(0, 8), from: lock.lockedModel, to: qFlash, streak: lock.routineStreak + 1 }));
+        return { provider: "hyper", upstreamModel: qFlash, tier: "flash", effort: "low", reason: `de-escalation(routine-streak=${lock.routineStreak + 1})`, hardCapped: false };
+      }
       const provider = lock.lockedModel === FEIHOA_MODEL ? "feihoa" : lock.lockedModel === YOLO_MODEL ? "yolo" : "hyper";
       return { provider, upstreamModel: lock.lockedModel, tier, effort: tier === "full" ? "max" : "low", reason: "session-sticky", hardCapped: false };
     }
@@ -235,10 +254,10 @@ export async function decideTurn(
       hyperBudgetOk: await hyperBudgetAvailable(),
       llmGatewayOn: llmGatewayEnabled(),
     });
-    await setLock(sessionId, auth.userId, d.upstreamModel);
+    await setLock(sessionId, auth.userId, endpointModel, d.upstreamModel, { routine: hardness === "routine" });
     return d;
   }
-  const lock = await getLock(sessionId, auth.userId);
+  const lock = await getLock(sessionId, auth.userId, endpointModel);
 
   if (lock.lockedModel && !lock.stale) {
     const tier = lock.lockedModel.includes("flash") ? "flash" : "full";
@@ -258,6 +277,7 @@ export async function decideTurn(
         const failSignals = scanFailureSignals(messages);
         const escalateForFailure =
           failSignals.testFailBlocks > 0 ||
+          failSignals.toolLoopRepeats >= TOOL_LOOP_ESCALATE_AT ||
           emptyOutputStreak(sessionId) >= ROUTER.escalation.maxEmptyOutputStreak;
         if (hardness !== "routine" || escalateForFailure) {
           const prefixTokens = estimateTokens(messages);
@@ -268,7 +288,7 @@ export async function decideTurn(
           const withinCap = share < ROUTER.fullShareCapPerUserPerWeek;
 
           if (withinPrefix && withinPenalty && withinCap) {
-            await setLock(sessionId, auth.userId, fullModel, { bumpSwitch: true });
+            await setLock(sessionId, auth.userId, endpointModel, fullModel, { bumpSwitch: true, routine: false });
             console.log(
               JSON.stringify({
                 ev: "reeval-upgrade",
@@ -277,6 +297,8 @@ export async function decideTurn(
                 to: fullModel,
                 hardness,
                 failBlocks: failSignals.testFailBlocks,
+                loopRepeats: failSignals.toolLoopRepeats,
+                loopTool: failSignals.toolLoopTool,
                 emptyStreak: emptyOutputStreak(sessionId),
                 prefix: prefixTokens,
                 penaltyUsd: Number(penalty.toFixed(5)),
@@ -289,7 +311,7 @@ export async function decideTurn(
               effort: "max",
               reason: hardness !== "routine"
                 ? `cache-reeval=${hardness} penalty$${penalty.toFixed(4)}`
-                : `failure-escalation(failBlocks=${failSignals.testFailBlocks},empty=${emptyOutputStreak(sessionId)}) penalty$${penalty.toFixed(4)}`,
+              : `failure-escalation(failBlocks=${failSignals.testFailBlocks},loop=${failSignals.toolLoopRepeats},empty=${emptyOutputStreak(sessionId)}) penalty$${penalty.toFixed(4)}`,
               hardCapped: false,
               fairUse,
               fairUseShare: share,
@@ -297,7 +319,7 @@ export async function decideTurn(
           }
           // Blocked: report why in the decision reason (visible in access log).
           const why = !withinPrefix ? "prefix-too-large" : !withinPenalty ? "penalty-too-high" : "full-share-cap";
-          await touchSession(sessionId, auth.userId);
+          await touchSession(sessionId, auth.userId, endpointModel, classifyHardness(lastUserText(messages)) === "routine");
           return {
             provider: "hyper",
             upstreamModel: lock.lockedModel,
@@ -311,7 +333,7 @@ export async function decideTurn(
         }
       }
 
-      await touchSession(sessionId, auth.userId);
+      await touchSession(sessionId, auth.userId, endpointModel, classifyHardness(lastUserText(messages)) === "routine");
       return {
         provider: "hyper",
         upstreamModel: lock.lockedModel,
@@ -324,8 +346,18 @@ export async function decideTurn(
       };
     }
 
-    // Full-tier lock: sticky (downgrades never happen mid-session).
-    await touchSession(sessionId, auth.userId);
+    // Full-tier lock: de-escalate after a calm streak, else sticky. Downgrade
+    // pays the same switch discipline as upgrades (count cap + cooldown).
+    const deHard = classifyHardness(lastUserText(messages));
+    const deFlash = FLASH_OF[lock.lockedModel];
+    const deCool = !lock.lastSwitchAt || Date.now() - new Date(lock.lastSwitchAt).getTime() > SWITCH_COOLDOWN_MS;
+    if (ROUTER.reeval.enabled && deHard === "routine" && lock.routineStreak + 1 >= DOWN_STREAK && deFlash && lock.switchCount < ROUTER.reeval.maxSwitchesPerSession && deCool) {
+      const deShare = await weeklyFullShare(auth.userId);
+      await setLock(sessionId, auth.userId, endpointModel, deFlash, { bumpSwitch: true, routine: true });
+      console.log(JSON.stringify({ ev: "de-escalation", session: sessionId.slice(0, 8), from: lock.lockedModel, to: deFlash, streak: lock.routineStreak + 1 }));
+      return { provider: "hyper", upstreamModel: deFlash, tier: "flash", effort: "low", reason: `de-escalation(routine-streak=${lock.routineStreak + 1})`, hardCapped: false, fairUse: fairUseState(deShare), fairUseShare: deShare };
+    }
+    await touchSession(sessionId, auth.userId, endpointModel, deHard === "routine");
     return { provider: "hyper", upstreamModel: lock.lockedModel, tier, effort: "low", reason: "session-sticky", hardCapped: false };
   }
 
@@ -337,13 +369,13 @@ export async function decideTurn(
     isNewSession: true,
     fullShareThisWeek: share,
     hardness: classifyHardness(lastUserText(messages)),
-    failureSignal: scanFailureSignals(messages).testFailBlocks > 0,
+    failureSignal: scanFailureSignals(messages).testFailBlocks > 0 || scanFailureSignals(messages).toolLoopRepeats >= TOOL_LOOP_ESCALATE_AT,
   });
   // $12.5/day hyper budget gate: budget out → same-model hop to llmgateway.
   if (decision.provider === "hyper" && !(await hyperBudgetAvailable()) && llmGatewayEnabled()) {
     return { ...decision, provider: "llmgateway", reason: `${decision.reason} → hyper-budget-out` };
   }
-  await setLock(sessionId, auth.userId, decision.upstreamModel);
+  await setLock(sessionId, auth.userId, endpointModel, decision.upstreamModel, { routine: classifyHardness(lastUserText(messages)) === "routine" });
   return decision;
 }
 

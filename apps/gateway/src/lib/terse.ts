@@ -14,8 +14,41 @@
 //   terse  arm: 325 output tokens → 532 usable chars
 //   → 2.5× cheaper, 2.6× faster, MORE usable output.
 //
-// ACTIVATION: request header `x-bhaskara-terse: 1` (per-request; agents that
+// ACTIVATION: request header `x-bhaskara-terse` (per-request; agents that
 // set it once per session keep the prefix stable across all turns).
+//   "1"/"true"/"on" → terse arm (control: output discipline only)
+//   "ladder"        → ladder arm (treatment: terse + YAGNI decision ladder)
+// A/B readout (provider_meta is text-as-JSON):
+//   SELECT provider_meta::json->>'terseArm' AS arm, count(*),
+//     avg(completion_tokens)::int AS avg_out, avg(prompt_tokens)::int AS avg_in
+//   FROM usage_ledger WHERE created_at > now() - interval '7 days' GROUP BY 1;
+//
+// NO EFFORT GATING (deliberate): switching system bytes by effort lane would
+// wipe the prefix cache on every escalation. The ladder says "silently" to
+// keep thinking-token deliberation off the bill instead.
+
+export type TerseArm = "off" | "terse" | "ladder";
+
+export function terseArmOf(headerValue: string | undefined | null): TerseArm {
+  const v = (headerValue ?? "").trim().toLowerCase();
+  if (v === "ladder" || v === "yagni") return "ladder";
+  if (v === "1" || v === "true" || v === "on") return "terse";
+  return "off";
+}
+
+/** YAGNI decision ladder (Ponytail-concept, our own words — keep it short:
+ *  every word here is input tokens on every request of the session). */
+export const LADDER_BLOCK = `
+Minimal-code discipline (active): write only what the task needs.
+Before writing code, stop at the first rung that holds — silently, no deliberation in the reply:
+1. Does this need to exist? If no, skip it.
+2. Already in this codebase? Reuse it, don't rewrite.
+3. Stdlib does it? Use stdlib.
+4. Native platform feature? Use it.
+5. Installed dependency? Use it.
+6. One line? One line. 7. Else the minimum that works.
+Lazy about the solution, never about reading: read the touched code and trace the real flow first.
+Never cut: trust-boundary validation, error handling, data-loss guards, security, accessibility.`.trim();
 
 export const TERSE_BLOCK = `
 Output discipline (active): answer in compressed engineer-speak.
@@ -33,7 +66,7 @@ export function terseEnabled(headerValue: string | undefined | null): boolean {
   return v === "1" || v === "true" || v === "on";
 }
 
-/** Merge the terse block into a system-prompt string (identity block already there). */
-export function applyTerseToSystem(systemText: string): string {
-  return `${systemText}\n\n${TERSE_BLOCK}`;
+/** Merge the terse block (+ ladder for the treatment arm) into a system-prompt string. */
+export function applyTerseToSystem(systemText: string, ladder = false): string {
+  return ladder ? `${systemText}\n\n${TERSE_BLOCK}\n\n${LADDER_BLOCK}` : `${systemText}\n\n${TERSE_BLOCK}`;
 }

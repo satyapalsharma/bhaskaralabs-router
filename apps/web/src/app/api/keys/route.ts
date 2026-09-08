@@ -33,7 +33,7 @@ export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const rows = await db
-    .select({ id: apiKeys.id, keyPrefix: apiKeys.keyPrefix, active: apiKeys.active, createdAt: apiKeys.createdAt })
+    .select({ id: apiKeys.id, keyPrefix: apiKeys.keyPrefix, active: apiKeys.active, flags: apiKeys.flags, createdAt: apiKeys.createdAt })
     .from(apiKeys)
     .where(eq(apiKeys.userId, session.user.id))
     .orderBy(desc(apiKeys.createdAt));

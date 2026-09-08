@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import type { QuotaSnapshot, DayUsage } from "@/lib/quota-snapshot";
@@ -9,8 +9,25 @@ interface KeyRow {
   id: string;
   keyPrefix: string;
   active: boolean;
+  flags?: string | null;
   createdAt: string;
 }
+
+const KEY_FLAGS = [
+  { name: "compress", hint: "live-zone compression" },
+  { name: "compact", hint: "200K compact" },
+  { name: "shadow", hint: "shadow audit" },
+  { name: "docs", hint: "docs lookup" },
+] as const;
+
+const parseFlags = (csv: string | null | undefined): Record<string, true> => {
+  const out: Record<string, true> = {};
+  for (const s of (csv ?? "").split(",")) {
+    const f = s.trim().toLowerCase();
+    if (f) out[f] = true;
+  }
+  return out;
+};
 
 interface Props {
   user: { name: string; email: string; image: string | null };
@@ -57,6 +74,35 @@ export default function DashboardClient({ user, initialSnapshot, initialUsage, i
   const [issuing, setIssuing] = useState(false);
   const [optOut, setOptOut] = useState(initialOptOut);
   const [optBusy, setOptBusy] = useState(false);
+  const [flagBusy, setFlagBusy] = useState("");
+
+  // Hydrate per-key flags (server-rendered rows predate the flags column).
+  useEffect(() => {
+    if (initialKeys.some((k) => k.flags !== undefined)) return;
+    fetch("/api/keys").then((r) => r.json()).then((d: { keys?: KeyRow[] }) => {
+      if (d.keys) setKeys(d.keys);
+    }).catch(() => {});
+  }, [initialKeys]);
+
+  const toggleFlag = async (id: string, name: string) => {
+    const key = keys.find((k) => k.id === id);
+    if (!key || !key.active) return;
+    const on = parseFlags(key.flags);
+    const next = KEY_FLAGS.map((f) => f.name).filter((f) => (f === name ? !on[f] : on[f])).join(",");
+    setFlagBusy(`${id}:${name}`);
+    try {
+      const res = await fetch(`/api/keys/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ flags: next }),
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as { flags: string | null };
+      setKeys((ks) => ks.map((k) => (k.id === id ? { ...k, flags: data.flags } : k)));
+    } finally {
+      setFlagBusy("");
+    }
+  };
 
   const issueKey = async () => {
     setIssuing(true);
@@ -263,6 +309,38 @@ export default function DashboardClient({ user, initialSnapshot, initialUsage, i
           </div>
         </div>
       </section>
+
+      {/* Per-key context-engine flags (api_keys.flags CSV; header overrides apply per request) */}
+      {keys.filter((k) => k.active).length > 0 && (
+        <section className="mt-6 rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
+          <h2 className="font-semibold">Context-engine flags</h2>
+          <p className="mt-1 text-xs text-zinc-500">Per-key defaults — request headers (<code className="text-zinc-400">x-bhaskara-compress</code>, <code className="text-zinc-400">x-bhaskara-compact</code>, <code className="text-zinc-400">x-bhaskara-shadow</code>) override per call.</p>
+          <ul className="mt-4 space-y-3">
+            {keys.filter((k) => k.active).map((k) => {
+              const on = parseFlags(k.flags);
+              return (
+                <li key={k.id} className="rounded-lg border border-zinc-800 px-3 py-2.5">
+                  <p className="font-mono text-sm text-zinc-300">{k.keyPrefix}…</p>
+                  <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2">
+                    {KEY_FLAGS.map((f) => (
+                      <label key={f.name} className="flex cursor-pointer items-center gap-2 text-sm text-zinc-300">
+                        <input
+                          type="checkbox"
+                          checked={!!on[f.name]}
+                          disabled={flagBusy === `${k.id}:${f.name}`}
+                          onChange={() => toggleFlag(k.id, f.name)}
+                          className="h-4 w-4 accent-amber-500"
+                        />
+                        <span>{f.name} <span className="text-xs text-zinc-600">· {f.hint}</span></span>
+                      </label>
+                    ))}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
 
       {snapshot && (
         <p className="mt-8 text-xs text-zinc-600">

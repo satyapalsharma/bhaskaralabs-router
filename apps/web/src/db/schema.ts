@@ -2,7 +2,7 @@
 // Better-auth tables: user, session, account, verification.
 // Bhaskara domain: apiKeys, subscriptions, usageLedger, rateWindows, coupons,
 //                  couponRedemptions, waitlist, settings, providerMonthly, sessions (router lock).
-import { pgTable, text, integer, bigint, numeric, timestamp, boolean, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, bigint, numeric, timestamp, boolean, index, uniqueIndex, primaryKey } from "drizzle-orm/pg-core";
 
 // ── better-auth ──
 export const user = pgTable("user", {
@@ -108,6 +108,67 @@ export const usageLedger = pgTable(
     index("usage_provider_idx").on(t.provider, t.createdAt),
   ],
 );
+// ── Docs registry: curated, pre-compressed reference packs injected into the
+// stable prefix (system → tools → DOCS → session → tail). Packs byte-stable
+// per (id, version); fts column serves admin curation search (hot path uses
+// the boot-loaded in-memory keyword index — see gateway lib/docs.ts).
+export const docPacks = pgTable(
+  "doc_packs",
+  {
+    id: text("id").primaryKey(), // stable slug, e.g. "git", "rg", "bun"
+    title: text("title").notNull(),
+    source: text("source").notNull().default("curated"),
+    keywords: text("keywords").notNull().default(""), // space-joined match terms
+    content: text("content").notNull(), // pre-compressed cheat-sheet, stable per version
+    version: integer("version").notNull().default(1),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("doc_packs_updated_idx").on(t.updatedAt)],
+);
+// ── Request archival: truncated full traces (router training + disputes).
+// Rows are heavy by design; writers truncate + env kill-switch (ARCHIVE_TURNS=0).
+export const requestArchives = pgTable(
+  "request_archives",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    apiKeyId: text("api_key_id"),
+    sessionId: text("session_id").notNull(),
+    endpointModel: text("endpoint_model").notNull(),
+    provider: text("provider").notNull(),
+    upstreamModel: text("upstream_model").notNull(),
+    routedTo: text("routed_to").notNull(),
+    promptTokens: bigint("prompt_tokens", { mode: "number" }).notNull().default(0),
+    completionTokens: bigint("completion_tokens", { mode: "number" }).notNull().default(0),
+    requestJson: text("request_json").notNull(), // messages+tools, truncated 100KB
+    truncated: boolean("truncated").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("archives_session_idx").on(t.sessionId, t.createdAt),
+    index("archives_user_created_idx").on(t.userId, t.createdAt),
+  ],
+);
+
+// ── Learned lessons (headroom-learn analog v1): mined candidates from ledger
+// patterns, admin-reviewed. Approved lessons ship as injections in a later phase.
+export const learnedLessons = pgTable(
+  "learned_lessons",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id"), // null = global pattern
+    sessionId: text("session_id"),
+    kind: text("kind").notNull(), // loop-recovery | escalation-recovery | struggle
+    evidence: text("evidence").notNull(), // JSON: turn counts, models, tokens
+    correction: text("correction").notNull(), // template-drafted, admin-edited
+    status: text("status").notNull().default("candidate"), // candidate|approved|rejected
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("lessons_status_idx").on(t.status, t.createdAt),
+    index("lessons_user_idx").on(t.userId),
+  ],
+);
 
 // ── Checkout: pending → paid flow for plan subscriptions (stub or real PSP) ──
 export const checkoutSessions = pgTable("checkout_sessions", {
@@ -189,19 +250,24 @@ export const providerMonthly = pgTable(
   (t) => [uniqueIndex("provider_month_unique").on(t.provider, t.month)],
 );
 
-// Session-sticky model lock (router cache commandment #5).
-// switchCount: per-turn re-evaluation churn guard — flash→full upgrades bump it.
-export const routerSessions = pgTable(
-  "sessions",
+// (Lock v1 `sessions` table dropped 2026-09-08 — see sessionLocks below.)
+// Lock v2 (2026-09-08): per-(session, endpoint) rows. routine_streak feeds
+// de-escalation (N calm turns → flash downgrade); last_switch_at enforces the
+// both-directions switch cooldown. Replaces `sessions` usage in gateway.
+export const sessionLocks = pgTable(
+  "session_locks",
   {
-    id: text("id").primaryKey(),
+    sessionId: text("session_id").notNull(),
+    endpointModel: text("endpoint_model").notNull(),
     userId: text("user_id").notNull(),
     lockedModel: text("locked_model"),
     switchCount: integer("switch_count").notNull().default(0),
+    routineStreak: integer("routine_streak").notNull().default(0),
     lockedAt: timestamp("locked_at", { withTimezone: true }),
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
+    lastSwitchAt: timestamp("last_switch_at", { withTimezone: true }),
   },
-  (t) => [index("session_user_idx").on(t.userId)],
+  (t) => [primaryKey({ columns: [t.sessionId, t.endpointModel] }), index("locks_user_idx").on(t.userId)],
 );
 
 // ── Upstream provider fleet (admin-managed, DB-driven routing config) ──

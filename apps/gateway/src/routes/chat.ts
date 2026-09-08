@@ -10,15 +10,21 @@ import { usageLedger } from "../db/schema";
 import { and, eq, gte, sql } from "drizzle-orm";
 import { authenticate, type AuthContext } from "../lib/auth";
 import { assemble, estimateTokens, deriveSessionId, type ChatMessage } from "../lib/prefix";
-import { resolveFlags, compressLiveZone, maybeCompact, compactThreshold, compactSpan } from "../lib/compaction";
-import { recordContentChars, contentCharsOf } from "../lib/escalation";
-import { getQuotaState, quotaRejection } from "../lib/quotas";
+import { resolveFlags, compressLiveZone, maybeCompact, compactThreshold, compactSpan, auditPairs } from "../lib/compaction";
+import { getPacks, selectPacks, extractTerms, renderPacks, withDocPacks, historyTextOf } from "../lib/docs";
+import { persistEnabled, applyPersistToSystem } from "../lib/persist";
+import { parseEffortRequested, expandEnabled, applyEffortToBody, type EffortRequest } from "../lib/dials";
+import { EXPAND_MIN_BLOCK, expandCompletion, firstContent, setExpandedContent } from "../lib/expand";
+import { archiveTurn } from "../lib/archive";
+import { recordContentChars, contentCharsOf, recordDudTurn } from "../lib/escalation";
+import { getQuotaState, quotaRejection, checkTrialVelocity } from "../lib/quotas";
 import { setQuotaHeaders, setRetryHeaders } from "../lib/quota-headers";
 import { writeLedger } from "../lib/ledger";
 import { pickKeyForSession, hyperChat, parseUsageNonStream, SseUsageAccumulator, type HyperUsage } from "../providers/hyper";
-import { camelChat, camelEnabled } from "../providers/camel";
+import { camelChat, camelEnabled, markCamelCool } from "../providers/camel";
 import { agnesChat, agnesEnabled, markAgnesDead } from "../providers/agnes";
 import { stepfunChat, stepfunEnabled, markStepfunThrottled } from "../providers/stepfun";
+import { generalcomputeChat, generalcomputeEnabled, markGeneralcomputeThrottled } from "../providers/generalcompute";
 import { devpassChat, devpassEnabled } from "../providers/devpass";
 import { llmGatewayChat, llmGatewayEnabled } from "../providers/llmgateway";
 import { feihoaChat, feihoaEnabled, feihoaSlotFree, FEIHOA_MODEL, FEIHOA_MAX_OUTPUT, FEIHOA_INPUT_BUDGET } from "../providers/feihoa";
@@ -46,7 +52,7 @@ async function refreshFleetDispatchable(): Promise<void> {
   FLEET_DISPATCHABLE.clear();
   for (const id of fleet.keys()) if (!hardcoded.has(id)) FLEET_DISPATCHABLE.add(id);
 }
-import { applyTerseToSystem, terseEnabled } from "../lib/terse";
+import { applyTerseToSystem, terseArmOf, type TerseArm } from "../lib/terse";
 import { setNudgeHeader } from "../lib/fair-use";
 import { sanitizeOpenAiResponse, sanitizeOpenAiChunk } from "../lib/sanitize";
 
@@ -67,10 +73,12 @@ const IDENTITY_LINE =
   "You are served by Bhaskara Labs' smart-routed endpoint. When asked which model you are, state that you are the Bhaskara Labs endpoint for this model family — a smart-routed system.";
 const DISCLOSE_MODELS = new Set(["glm-5.3", "qwen-3.8"]);
 
-function withIdentity(messages: ChatMessage[], endpointModel: string, terse = false): ChatMessage[] {
+function withIdentity(messages: ChatMessage[], endpointModel: string, terseArm: TerseArm = "off", persist = false, expandForm = false): ChatMessage[] {
   if (!DISCLOSE_MODELS.has(endpointModel)) return messages;
   let line = IDENTITY_LINE;
-  if (terse) line = applyTerseToSystem(line);
+  if (terseArm !== "off") line = applyTerseToSystem(line, terseArm === "ladder");
+  if (persist) line = applyPersistToSystem(line);
+  if (expandForm) line = `${line}\n\n${EXPAND_MIN_BLOCK}`;
   const first = messages[0];
   if (first?.role === "system" && typeof first.content === "string") {
     if (first.content.includes("Bhaskara Labs")) return messages;
@@ -100,8 +108,13 @@ interface PendingTurn {
   rawIn: number; // est tokens of the client-sent history (pre-compaction) = true context pressure
   /** Streamed/completed content chars this turn — feeds the empty-output streak. */
   contentChars?: number;
+  /** True when the request carried tool schemas (dud detection needs it). */
+  toolsPresent: boolean;
   /** Camel: exact metered cost from usage.cost_details.upstream_inference_cost. */
   camelExactCostUsd?: number;
+  terseArm: TerseArm;
+  /** Persistence A/B arm ("on"|"off") — ledger-tagged for readout. */
+  persistArm: "on" | "off";
 }
 
 // Writes ledger after stream completes, using tapped usage.
@@ -132,6 +145,7 @@ function trackTurn(pending: PendingTurn, usage: HyperUsage | null, providerMeta?
   // fall back to completion-token presence so missing capture can't fake an empty streak.
   const chars = pending.contentChars ?? (u.completionTokens > 0 ? 1 : 0);
   recordContentChars(pending.sessionId, chars);
+  recordDudTurn(pending.sessionId, u.promptTokens, u.completionTokens, pending.toolsPresent);
   void writeLedger({
     userId: pending.userId,
     apiKeyId: pending.apiKeyId,
@@ -249,6 +263,10 @@ app.post("/v1/chat/completions", async (c) => {
       console.log(JSON.stringify({ ev: "plan-limit", user: auth.userId, model: endpointModel, reason: gate.reason }));
       return c.json({ error: { message: gate.reason ?? "Plan limit reached", type: "rate_limit_error" } }, 429);
     }
+    const velocity = await checkTrialVelocity(auth.apiKeyId, auth.plan);
+    if (velocity) {
+      return c.json({ error: { message: velocity, type: "rate_limit_error" } }, 429);
+    }
   }
 
   const turnStartedAt = Date.now(); // true request-start clock (was captured post-dispatch → latency_ms ≈ 0)
@@ -271,6 +289,19 @@ app.post("/v1/chat/completions", async (c) => {
   const laneCompact = lane === "yolo" ? { threshold: 96_000, span: 64_000 } : { threshold: compactThreshold(), span: compactSpan() };
   let messages = assembled.messages;
   let compactionMeta: Record<string, unknown> | undefined;
+  // ── Docs registry (opt-in): curated packs splice into the stable prefix
+  // (after leading systems, before history). Selection is a pure function of
+  // full history → session-monotonic, id-ordered, capped. Ledger-tagged.
+  if (flags.docs) {
+    const packs = selectPacks(extractTerms(historyTextOf(assembled.messages)), await getPacks());
+    if (packs.length > 0) {
+      const rendered = renderPacks(packs);
+      messages = withDocPacks(messages, rendered);
+      const ids = packs.map((p) => p.id);
+      compactionMeta = { ...(compactionMeta ?? {}), docs: { packs: ids, bytes: rendered.length } };
+      console.log(JSON.stringify({ ev: "docs", session: deriveSessionId(auth.apiKeyId, c.req.raw.headers).slice(0, 8), packs: ids, bytes: rendered.length }));
+    }
+  }
   if (doCompact) {
     const { messages: compacted, stats } = await maybeCompact(messages, {
       alreadyCompacted: messages.some((m) => typeof m.content === "string" && m.content.includes("[COMPACTED HISTORY")),
@@ -291,6 +322,27 @@ app.post("/v1/chat/completions", async (c) => {
       messages = compressed;
       compactionMeta = { ...(compactionMeta ?? {}), livezone: { bytes: `${lzStats.bytesBefore}→${lzStats.bytesAfter}`, via: lzStats.transformers.join(",") } };
       console.log(JSON.stringify({ ev: "livezone", session: deriveSessionId(auth.apiKeyId, c.req.raw.headers).slice(0, 8), ...lzStats }));
+    }
+  }
+  // Shadow mode (measure-before-enable): run the pipeline on a copy, forward
+  // the ORIGINAL upstream, and ledger-tag the would-be savings + keep-audit.
+  // Zero traffic risk — forwarded bytes are untouched. Skipped when live
+  // compression already ran (its livezone stats are the measurement).
+  if (flags.shadow && !doCompress) {
+    const dry = compressLiveZone(messages, { dryRun: true });
+    if (dry.stats.blocksCompressed > 0) {
+      const keep = auditPairs(dry.pairs ?? []);
+      compactionMeta = {
+        ...(compactionMeta ?? {}),
+        shadow: {
+          mode: "measure", before: dry.stats.bytesBefore, after: dry.stats.bytesAfter,
+          via: dry.stats.transformers.join(","),
+          errKept: keep.errKept, errTotal: keep.errTotal,
+          refKept: keep.refKept, refTotal: keep.refTotal,
+          violations: keep.violations.length,
+        },
+      };
+      console.log(JSON.stringify({ ev: "shadow", session: deriveSessionId(auth.apiKeyId, c.req.raw.headers).slice(0, 8), ...dry.stats, err: `${keep.errKept}/${keep.errTotal}`, refs: `${keep.refKept}/${keep.refTotal}`, violations: keep.violations.slice(0, 3) }));
     }
   }
   // ── Backchannel window guard: hard-fit the payload to the primary lane's
@@ -320,8 +372,11 @@ app.post("/v1/chat/completions", async (c) => {
   // 1 retry pre-stream (no client bytes yet), then full→flash degrade for full-tier turns.
   let upstream: Response;
   let usedDecision = decision;
-  const terse = terseEnabled(c.req.header("x-bhaskara-terse"));
-  const attempt = (d: RouterDecision) => dispatchUpstream(endpointModel, d, messages, obj, auth, sessionId, terse, c.req.raw.signal);
+  const terseArm = terseArmOf(c.req.header("x-bhaskara-terse"));
+  const persistArm = persistEnabled(c.req.header("x-bhaskara-persist")) ? "on" : "off";
+  const effortRequested = parseEffortRequested(c.req.header("x-bhaskara-effort"));
+  const expand = expandEnabled(c.req.header("x-bhaskara-expand"));
+  const attempt = (d: RouterDecision) => dispatchUpstream(endpointModel, d, messages, obj, auth, sessionId, terseArm, persistArm === "on", effortRequested, expand, c.req.raw.signal);
   // Backchannel failover (smart routing): the router owns the chain policy
   // (backchannelNext / failoverDecision); this handler only executes a hop.
   // Bidirectional now that yolo is a full lane: feihoa→yolo always (128K
@@ -488,23 +543,55 @@ app.post("/v1/chat/completions", async (c) => {
       // re-decide naturally skips it, then hop down the theta chain.
       if (usedDecision.provider === "agnes" && (upstream.status === 401 || upstream.status === 402)) markAgnesDead();
       if (usedDecision.provider === "stepfun" && upstream.status === 429) markStepfunThrottled(20);
-      // re-decide with the failed provider's lane marked unavailable, which
-      // naturally lands on yolo → hyper-flash → llmgateway.
+      if (usedDecision.provider === "camel" && upstream.status >= 500) markCamelCool(60);
+      if (usedDecision.provider === "generalcompute" && upstream.status === 429) markGeneralcomputeThrottled(20);
+      // Re-decide EXCLUDING the lane that just failed. Without exclusion, a
+      // lane that errors without a dead-mark (e.g. camel 500s — only
+      // 401/402/403 mark dead) is picked again, and the "same provider"
+      // branch below jumps straight to paid hyper, skipping the rest of the
+      // free chain (observed live 2026-09-08: 73 straight hyper turns with
+      // stepfun=2/yolo=0 during a camel 500 storm).
       console.log(JSON.stringify({ ev: "theta-failover", from: usedDecision.provider, status: upstream.status, cause: errText.slice(0, 60) }));
-      const retry = await decideTurn(auth, sessionId, endpointModel, messages, lane);
+      const paidFlashFallback = async (cause: string): Promise<boolean> => {
+        if (!(await hyperBudgetAvailable())) return false;
+        const degraded: RouterDecision = {
+          ...usedDecision,
+          provider: "hyper",
+          upstreamModel: FLASH_OF[usedDecision.upstreamModel] ?? (endpointModel === "theta" ? "glm-5.3-flash" : "qwen3.8-flash"),
+          tier: "flash",
+          effort: "low",
+          reason: `${usedDecision.reason} → paid-flash(${cause})`,
+          hardCapped: true,
+        };
+        try {
+          const res = await attempt(degraded);
+          if (res.ok) {
+            usedDecision = degraded;
+            upstream = res;
+            console.log(JSON.stringify({ ev: "paid-flash-fallback", from: usedDecision.reason.slice(0, 30), to: degraded.upstreamModel }));
+            return true;
+          }
+        } catch { /* fall through to 502 below */ }
+        return false;
+      };
+      const excluded = new Set<string>([usedDecision.provider]);
+      const retry = await decideTurn(auth, sessionId, endpointModel, messages, lane, excluded);
       if (retry.provider !== usedDecision.provider) {
         try {
           const res = await attempt(retry);
           if (res.ok) {
             usedDecision = retry;
             upstream = res;
-          } else {
-            console.error(`[upstream ${usedDecision.provider}] ${upstream.status}: ${errText.slice(0, 500)}`);
-            return c.json({ error: { message: `Upstream error ${upstream.status}`, type: "api_error" } }, 502);
+          } else if (!(await paidFlashFallback(`retry-${retry.provider}-failed`))) {
+            const retryText = await res.text().catch(() => "");
+            console.error(`[upstream ${retry.provider}] ${res.status}: ${retryText.slice(0, 500)}`);
+            return c.json({ error: { message: `Upstream error ${res.status}`, type: "api_error" } }, 502);
           }
         } catch {
-          console.error(`[upstream ${usedDecision.provider}] ${upstream.status}: ${errText.slice(0, 500)}`);
-          return c.json({ error: { message: `Upstream error ${upstream.status}`, type: "api_error" } }, 502);
+          if (!(await paidFlashFallback(`retry-${retry.provider}-threw`))) {
+            console.error(`[upstream ${retry.provider}] retry threw`);
+            return c.json({ error: { message: "Upstream provider temporarily unreachable", type: "api_error" } }, 502);
+          }
         }
       } else {
         // Re-decide returned the SAME provider (e.g. feihoa still busy,
@@ -558,8 +645,11 @@ app.post("/v1/chat/completions", async (c) => {
     userId: auth.userId,
     apiKeyId: auth.apiKeyId,
     sessionId,
+    toolsPresent: Array.isArray((obj as { tools?: unknown }).tools) && ((obj as { tools?: unknown }).tools as unknown[]).length > 0,
     endpointModel,
     decision: usedDecision,
+    terseArm,
+    persistArm,
     startedAt: turnStartedAt,
     rawIn: rawInTokens,
   };
@@ -570,7 +660,18 @@ app.post("/v1/chat/completions", async (c) => {
     pending.contentChars = contentCharsOf(json);
     pending.camelExactCostUsd = usage?.camelCostUsd;
     const hyperMeta = extractHyperMeta(json);
-    trackTurn(pending, usage, { ...(compactionMeta ?? {}), ...(hyperMeta ?? {}) });
+    let effUsage = usage;
+    const effMeta: Record<string, unknown> = { ...(compactionMeta ?? {}), ...(hyperMeta ?? {}), terseArm: pending.terseArm, persistArm: pending.persistArm, effortRequested: effortRequested ?? undefined, expand: expand || undefined };
+    if (expand) {
+      const minimal = firstContent(json);
+      const ex = minimal ? await expandCompletion(minimal, typeof obj.max_tokens === "number" ? obj.max_tokens : undefined).catch(() => null) : null;
+      if (ex && setExpandedContent(json, ex.text)) {
+        effUsage = { ...(usage ?? { promptTokens: 0, completionTokens: 0 }), promptTokens: (usage?.promptTokens ?? 0) + ex.usage.promptTokens, completionTokens: (usage?.completionTokens ?? 0) + ex.usage.completionTokens } as typeof usage;
+        effMeta.expand = { pass2out: ex.usage.completionTokens };
+      }
+    }
+    trackTurn(pending, effUsage, effMeta);
+    void archiveTurn({ userId: pending.userId, apiKeyId: pending.apiKeyId, sessionId: pending.sessionId, endpointModel: pending.endpointModel, provider: pending.decision.provider, upstreamModel: pending.decision.upstreamModel, routedTo: pending.decision.tier, promptTokens: effUsage?.promptTokens ?? 0, completionTokens: effUsage?.completionTokens ?? 0, messages, tools: (obj as { tools?: unknown }).tools }).catch(() => {});
     return c.json(sanitizeOpenAiResponse(json, endpointModel));
   }
 
@@ -640,7 +741,8 @@ app.post("/v1/chat/completions", async (c) => {
       pending.contentChars = acc.contentChars;
       pending.camelExactCostUsd = acc.usage?.camelCostUsd;
       const hyperMeta = acc.usage ? extractHyperMeta({ usage: acc.usage }) : undefined;
-      trackTurn(pending, acc.usage, { ...(compactionMeta ?? {}), ...(hyperMeta ?? {}) });
+      trackTurn(pending, acc.usage, { ...(compactionMeta ?? {}), ...(hyperMeta ?? {}), terseArm: pending.terseArm, persistArm: pending.persistArm, effortRequested: effortRequested ?? undefined });
+      void archiveTurn({ userId: pending.userId, apiKeyId: pending.apiKeyId, sessionId: pending.sessionId, endpointModel: pending.endpointModel, provider: pending.decision.provider, upstreamModel: pending.decision.upstreamModel, routedTo: pending.decision.tier, promptTokens: acc.usage?.promptTokens ?? 0, completionTokens: acc.usage?.completionTokens ?? 0, messages, tools: (obj as { tools?: unknown }).tools }).catch(() => {});
     } finally {
       // release the upstream reader on ANY exit path (normal, error, abort)
       // — this fires wrapRelease.cancel() which releases the lane slot.
@@ -661,10 +763,14 @@ async function dispatchUpstream(
   originalBody: Record<string, unknown>,
   auth: AuthContext,
   sessionId: string,
-  terse = false,
+  terseArm: TerseArm = "off",
+  persist = false,
+  effort: EffortRequest | null = null,
+  expandForm = false,
   clientSignal?: AbortSignal,
 ): Promise<Response> {
-  const payload = { ...originalBody, messages: withIdentity(messages, endpointModel, terse), model: decision.upstreamModel, stream_options: { include_usage: true } };
+  const rawPayload = { ...originalBody, messages: withIdentity(messages, endpointModel, terseArm, persist, expandForm), model: decision.upstreamModel, stream_options: { include_usage: true } };
+  const payload = applyEffortToBody(rawPayload, decision.upstreamModel, effort);
   // yolo /models served fine but /chat/completions hung 60s+). A tight
   // TTFT-style ceiling caps the CONNECT+HEADERS phase so failover to the
   // next lane fires in seconds, not minutes (yolo/feihoa only). Exemptions:
@@ -679,7 +785,7 @@ async function dispatchUpstream(
   // Camel EXEMPT: metered lane (no zombie cost), "auto" models reach ~10s p90 TTFT.
   // Only yolo/feihoa keep the tight wedge-guard ceiling (those lanes genuinely
   // hang silently at pressure exhaustion).
-  const ttftMs = decision.provider === "hyper" || decision.provider === "stepfun" || decision.provider === "llmgateway" || decision.provider === "agnes" || decision.provider === "camel" ? 10 * 60 * 1000 : BACKCHANNEL_TTFT_CEILING_MS;
+  const ttftMs = decision.provider === "hyper" || decision.provider === "stepfun" || decision.provider === "llmgateway" || decision.provider === "agnes" || decision.provider === "camel" || decision.provider === "generalcompute" ? 10 * 60 * 1000 : BACKCHANNEL_TTFT_CEILING_MS;
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(new Error("backchannel ttft ceiling")), ttftMs);
   // Client-disconnect propagation — ALL lanes. Paid lanes (hyper/llmgateway)
@@ -763,6 +869,11 @@ async function dispatchUpstream(
     const apiKey = process.env.STEPFUN_API_KEY ?? "";
     return stepfunChat({ model: decision.upstreamModel, body: payload, apiKey, signal }).finally(clearTtft);
   }
+  if (decision.provider === "generalcompute") {
+    // Theta lane before hyper: minimax-2.7, OpenAI-compat passthrough.
+    const apiKey = process.env.GENERALCOMPUTE_API_KEY ?? "";
+    return generalcomputeChat({ model: decision.upstreamModel, body: payload, apiKey, signal }).finally(clearTtft);
+  }
   if (FLEET_DISPATCHABLE.has(decision.provider)) {
     // Providers registered via the admin panel (upstream_providers table)
     // route through the generic dispatcher with account rotation.
@@ -810,7 +921,7 @@ async function decide(auth: AuthContext, sessionId: string, endpointModel: strin
 // Anthropic-compat endpoint (Claude Code / Crush) — full router pipeline
 app.route("/", messagesApp);
 
-app.get("/health", (c) => c.json({ ok: true, providers: { camel: camelEnabled(), agnes: agnesEnabled(), stepfun: stepfunEnabled(), devpass: devpassEnabled(), feihoa: feihoaEnabled(), yolo: yoloEnabled(), llmgateway: llmGatewayEnabled() }, backchannel: process.env.BHASKARA_BACKCHANNEL === "feihoa" && feihoaEnabled() ? "feihoa" : null }));
+app.get("/health", (c) => c.json({ ok: true, providers: { camel: camelEnabled(), agnes: agnesEnabled(), stepfun: stepfunEnabled(), generalcompute: generalcomputeEnabled(), devpass: devpassEnabled(), feihoa: feihoaEnabled(), yolo: yoloEnabled(), llmgateway: llmGatewayEnabled() }, backchannel: process.env.BHASKARA_BACKCHANNEL === "feihoa" && feihoaEnabled() ? "feihoa" : null }));
 
 // Client-facing model catalog. Endpoint models are always listed; public
 // models from the DB fleet (admin panel) extend the catalog — private ones
