@@ -1,0 +1,435 @@
+// POST /v1/messages — Anthropic-compatible endpoint for Claude Code / Crush.
+// Same pipeline as chat.ts: auth → quota → route → dispatch → stream/non-stream
+// → sanitize (Anthropic shape: usage.{input,output}_tokens only) → ledger.
+
+import { Hono } from "hono";
+import { db } from "../db";
+import { usageLedger } from "../db/schema";
+import { and, eq, gte, sql } from "drizzle-orm";
+import { authenticate, type AuthContext } from "../lib/auth";
+import { estimateTokens, deriveSessionId, type ChatMessage } from "../lib/prefix";
+import { getQuotaState, quotaRejection, checkTrialVelocity } from "../lib/quotas";
+import { writeLedger } from "../lib/ledger";
+import { checkPlanLimits } from "../lib/plan-limits";
+import { setQuotaHeaders, setRetryHeaders } from "../lib/quota-headers";
+import { decideTurn } from "../lib/decision";
+import { recordContentChars, contentCharsOf, recordDudTurn } from "../lib/escalation";
+import { applyTerseToSystem, terseArmOf, type TerseArm } from "../lib/terse";
+import { setNudgeHeader } from "../lib/fair-use";
+import { resolveFlags, compressLiveZone, maybeCompact, auditPairs } from "../lib/compaction";
+import { getPacks, selectPacks, extractTerms, renderPacks, historyTextOf } from "../lib/docs";
+import { archiveTurn } from "../lib/archive";
+import { persistEnabled, applyPersistToSystem } from "../lib/persist";
+import { pickKeyForSession, hyperMessages } from "../providers/hyper";
+import { llmGatewayMessages, llmGatewayEnabled } from "../providers/llmgateway";
+import { type RouterDecision } from "../router";
+
+const app = new Hono();
+
+const IDENTITY_LINE =
+  "You are served by Bhaskara Labs' smart-routed endpoint. When asked which model you are, state that you are the Bhaskara Labs endpoint for this model family — a smart-routed system.";
+
+/** One upstream SSE read result (done + optional byte chunk). */
+interface UpstreamChunk {
+  done: boolean;
+  value?: Uint8Array;
+}
+
+interface AnthropicUsage {
+  inputTokens: number;
+  outputTokens: number;
+  cachedTokens?: number;
+}
+
+function extractAnthropicUsage(json: unknown): AnthropicUsage | null {
+  if (typeof json !== "object" || json === null || !("usage" in json)) return null;
+  const usage = (json as { usage: unknown }).usage;
+  if (typeof usage !== "object" || usage === null) return null;
+  const u = usage as Record<string, unknown>;
+  return {
+    inputTokens: typeof u.input_tokens === "number" ? u.input_tokens : 0,
+    outputTokens: typeof u.output_tokens === "number" ? u.output_tokens : 0,
+    cachedTokens: typeof u.cache_read_input_tokens === "number" ? u.cache_read_input_tokens : undefined,
+  };
+}
+// Whitelist sanitization lives in lib/sanitize.ts (upstream identity never leaks).
+import { sanitizeAnthropicResponse } from "../lib/sanitize";
+/** Convert Anthropic messages shape to internal ChatMessage[]. */
+function toChatMessages(body: Record<string, unknown>): ChatMessage[] {
+  const messages: ChatMessage[] = [];
+  const system = body.system;
+  if (typeof system === "string" && system.length > 0) {
+    messages.push({ role: "system", content: system });
+  } else if (Array.isArray(system)) {
+    const text = system
+      .map((block) => (typeof block === "object" && block !== null && "text" in block ? String((block as { text: unknown }).text) : ""))
+      .join("\n")
+      .trim();
+    if (text) messages.push({ role: "system", content: text });
+  }
+  for (const m of Array.isArray(body.messages) ? body.messages : []) {
+    if (typeof m !== "object" || m === null) continue;
+    const msg = m as Record<string, unknown>;
+    const role = msg.role === "assistant" ? "assistant" : "user";
+    let content: unknown = msg.content;
+    if (Array.isArray(content)) {
+      content = content
+        .map((b) => (typeof b === "object" && b !== null && "text" in b ? (b as { text: unknown }).text : ""))
+        .join("");
+    }
+    messages.push({ role, content });
+  }
+  return messages;
+}
+
+/** Rebuild Anthropic request body with routed model + identity system block. */
+function buildAnthropicPayload(body: Record<string, unknown>, decision: RouterDecision, messages: ChatMessage[], terseArm: TerseArm = "off", docsText = "", persist = false): Record<string, unknown> {
+  const hasSystem = typeof body.system === "string" && (body.system as string).length > 0;
+  const ladder = terseArm === "ladder";
+  const systemText = hasSystem
+    ? terseArm !== "off"
+      ? applyTerseToSystem(`${body.system as string}\n\n${IDENTITY_LINE}`, ladder)
+      : `${body.system as string}\n\n${IDENTITY_LINE}`
+    : terseArm !== "off"
+      ? applyTerseToSystem(IDENTITY_LINE, ladder)
+      : IDENTITY_LINE;
+  const fullSystem = docsText ? `${systemText}\n\n${docsText}` : systemText;
+  const finalSystem = persist ? applyPersistToSystem(fullSystem) : fullSystem;
+  const payload: Record<string, unknown> = { ...body, model: decision.upstreamModel, system: finalSystem };
+  // Convert internal ChatMessage[] back to Anthropic messages shape
+  payload.messages = messages
+    .filter((m) => m.role !== "system")
+    .map((m) => ({ role: m.role, content: m.content }));
+  return payload;
+}
+
+
+async function weeklyFullShare(userId: string): Promise<number> {
+  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const rows = await db
+    .select({ total: sql`count(*)`, full: sql`count(*) filter (where routed_to = 'full')` })
+    .from(usageLedger)
+    .where(and(eq(usageLedger.userId, userId), gte(usageLedger.createdAt, since)));
+  const total = Number(rows[0]?.total ?? 0);
+  if (total === 0) return 0;
+  return Number(rows[0]?.full ?? 0) / total;
+}
+
+app.post("/v1/messages", async (c) => {
+  const turnStartedAt = Date.now();
+  const authz = c.req.header("x-api-key") ?? c.req.header("Authorization")?.replace(/^Bearer\s+/i, "") ?? "";
+  const auth = await authenticate(authz.trim() || null);
+  if (!auth) return c.json({ type: "error", error: { type: "authentication_error", message: "Invalid API key" } }, 401);
+
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ type: "error", error: { type: "invalid_request_error", message: "Invalid JSON body" } }, 400);
+  }
+  const obj = (typeof body === "object" && body !== null ? body : {}) as Record<string, unknown>;
+  const endpointModel = typeof obj.model === "string" ? obj.model : "";
+  if (!["glm-5.3", "qwen-3.8", "theta"].includes(endpointModel)) {
+    return c.json(
+      { type: "error", error: { type: "invalid_request_error", message: `model must be one of glm-5.3, qwen-3.8, theta (got '${endpointModel}')` } },
+      400,
+    );
+  }
+  {
+    const gate = await checkPlanLimits(auth.userId, auth.plan, endpointModel);
+    if (!gate.allowed) {
+      console.log(JSON.stringify({ ev: "plan-limit", route: "messages", user: auth.userId, model: endpointModel, reason: gate.reason }));
+      return c.json({ type: "error", error: { type: "rate_limit_error", message: gate.reason ?? "Plan limit reached" } }, 429);
+    }
+    const velocity = await checkTrialVelocity(auth.apiKeyId, auth.plan);
+    if (velocity) {
+      return c.json({ type: "error", error: { type: "rate_limit_error", message: velocity } }, 429);
+    }
+  }
+  const sessionId = deriveSessionId(auth.apiKeyId, c.req.raw.headers);
+  let messages = toChatMessages(obj);
+  const toolTokens = Array.isArray(obj.tools) ? Math.ceil(JSON.stringify(obj.tools).length / 4) : 0;
+  const rawInTokens = estimateTokens(messages) + toolTokens;
+  // ── Context engine (opt-in) — same as chat route ──
+  const flags = resolveFlags(c.req.raw.headers, auth.flags);
+  if (flags.compact) {
+    const { messages: compacted, stats } = await maybeCompact(messages, {
+      alreadyCompacted: messages.some((m) => typeof m.content === "string" && m.content.includes("[COMPACTED HISTORY")),
+      logSkip: flags.compactDebug,
+      extraTokens: toolTokens,
+    });
+    if (stats.triggered) {
+      messages = compacted;
+      console.log(JSON.stringify({ ev: "compact", session: sessionId.slice(0, 8), ...stats }));
+    }
+  }
+  if (flags.compress) {
+    const { messages: compressed, stats: lz } = compressLiveZone(messages);
+    if (lz.blocksCompressed > 0) {
+      messages = compressed;
+      console.log(JSON.stringify({ ev: "livezone", session: sessionId.slice(0, 8), ...lz }));
+    }
+  }
+  // Shadow mode: measure-only twin of the chat route (original forwarded).
+  let shadowMeta: Record<string, unknown> | undefined;
+  if (flags.shadow && !flags.compress) {
+    const dry = compressLiveZone(messages, { dryRun: true });
+    if (dry.stats.blocksCompressed > 0) {
+      const keep = auditPairs(dry.pairs ?? []);
+      shadowMeta = {
+        shadow: {
+          mode: "measure", before: dry.stats.bytesBefore, after: dry.stats.bytesAfter,
+          via: dry.stats.transformers.join(","),
+          errKept: keep.errKept, errTotal: keep.errTotal,
+          refKept: keep.refKept, refTotal: keep.refTotal,
+          violations: keep.violations.length,
+        },
+      };
+      console.log(JSON.stringify({ ev: "shadow", session: sessionId.slice(0, 8), ...dry.stats, err: `${keep.errKept}/${keep.errTotal}`, refs: `${keep.refKept}/${keep.refTotal}`, violations: keep.violations.slice(0, 3) }));
+    }
+  }
+  const quota = await getQuotaState(auth.userId, auth.plan);
+  const reject = quotaRejection(quota, endpointModel);
+  if (reject) {
+    setRetryHeaders(c, quota, endpointModel, reject);
+    return c.json({ type: "error", error: { type: "quota_exceeded", message: reject } }, 429);
+  }
+  setQuotaHeaders(c, quota, endpointModel, auth.plan);
+
+  // Session id honors x-bhaskara-session (same as chat route) + shared sticky/reeval decision
+  const decision: RouterDecision = await decideTurn(auth, sessionId, endpointModel, messages);
+  if (decision.provider === "feihoa" || decision.provider === "yolo") {
+    // Backchannel lanes are OpenAI-compat only; Anthropic-format clients stay on Hyper.
+    return c.json(
+      { type: "error", error: { type: "api_error", message: "Backchannel mode supports /v1/chat/completions only" } },
+      503,
+    );
+  }
+  setNudgeHeader(c, decision);
+  // Docs registry (opt-in): curated packs appended to the system text (the
+  // stable-prefix slot; messages[] carries no system entries on this route).
+  let docsText = "";
+  let docsMeta: Record<string, unknown> | undefined;
+  if (flags.docs) {
+    const packs = selectPacks(extractTerms(historyTextOf(messages)), await getPacks());
+    if (packs.length > 0) {
+      docsText = renderPacks(packs);
+      const ids = packs.map((p) => p.id);
+      docsMeta = { docs: { packs: ids, bytes: docsText.length } };
+      console.log(JSON.stringify({ ev: "docs", session: sessionId.slice(0, 8), packs: ids, bytes: docsText.length }));
+    }
+  }
+  const terseArm = terseArmOf(c.req.header("x-bhaskara-terse"));
+  const persist = persistEnabled(c.req.header("x-bhaskara-persist"));
+  const payload = buildAnthropicPayload(obj, decision, messages, terseArm, docsText, persist);
+  const keys = (process.env.HYPER_API_KEYS ?? process.env.HYPER_API_KEY ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((key, i) => ({ id: `hyper-${i}`, key }));
+  if (keys.length === 0) {
+    return c.json({ type: "error", error: { type: "api_error", message: `Upstream not configured` } }, 502);
+  }
+  const key = pickKeyForSession(keys, auth.apiKeyId);
+  let upstream: Response;
+  // Client-disconnect propagation + 10-min ceiling, combined. A cancelled
+  // client must not leave a 12-min generation running on Hyper.
+  const dispatchSignal = AbortSignal.any([c.req.raw.signal, AbortSignal.timeout(10 * 60 * 1000)]);
+  const gwDispatch = () =>
+    llmGatewayMessages({
+      model: decision.upstreamModel,
+      body: payload,
+      apiKey: process.env.LLMGATEWAY_API_KEY ?? "",
+      signal: dispatchSignal,
+    });
+  try {
+    // Pre-stream retry on connection errors: no client bytes sent yet, safe to retry once.
+    upstream = await hyperMessages({ model: decision.upstreamModel, body: payload, apiKey: key.key, signal: dispatchSignal });
+  } catch (err) {
+    console.warn(`[messages dispatch] attempt 1 failed (${(err as Error).message.slice(0, 60)}), retrying`);
+    try {
+      upstream = await hyperMessages({ model: decision.upstreamModel, body: payload, apiKey: key.key, signal: dispatchSignal });
+    } catch (err2) {
+      // Hyper unreachable twice → llmgateway same-model hop (Anthropic-compat).
+      if (llmGatewayEnabled()) {
+        console.log(JSON.stringify({ ev: "llmgateway-failover", from: "hyper", to: decision.upstreamModel, route: "messages" }));
+        try {
+          upstream = await gwDispatch();
+        } catch {
+          return c.json({ type: "error", error: { type: "api_error", message: `Provider unreachable` } }, 502);
+        }
+      } else {
+        console.error(`[messages dispatch] connection failure:`, (err2 as Error).message);
+        return c.json({ type: "error", error: { type: "api_error", message: `Provider unreachable` } }, 502);
+      }
+    }
+  }
+
+  if (!upstream.ok) {
+    const errText = await upstream.text().catch(() => "");
+    // Hyper error status (402 credits / 429 / 5xx) → llmgateway same-model hop.
+    if (llmGatewayEnabled()) {
+      console.log(JSON.stringify({ ev: "llmgateway-failover", from: "hyper", to: decision.upstreamModel, status: upstream.status, route: "messages" }));
+      try {
+        const gw = await gwDispatch();
+        if (gw.ok) {
+          upstream = gw;
+        } else {
+          console.error(`[messages upstream] ${upstream.status}: ${errText.slice(0, 300)}`);
+          return c.json({ type: "error", error: { type: "api_error", message: `Upstream error ${upstream.status}` } }, 502);
+        }
+      } catch {
+        console.error(`[messages upstream] ${upstream.status}: ${errText.slice(0, 300)}`);
+        return c.json({ type: "error", error: { type: "api_error", message: `Upstream error ${upstream.status}` } }, 502);
+      }
+    } else {
+      console.error(`[messages upstream] ${upstream.status}: ${errText.slice(0, 300)}`);
+      return c.json({ type: "error", error: { type: "api_error", message: `Upstream error ${upstream.status}` } }, 502);
+    }
+  }
+
+  const isStream = obj.stream === true;
+
+  if (!isStream) {
+    const json: unknown = await upstream.json();
+    recordContentChars(sessionId, contentCharsOf(json));
+    const usage = extractAnthropicUsage(json);
+    recordDudTurn(sessionId, usage?.inputTokens ?? 0, usage?.outputTokens ?? 0, Array.isArray((obj as { tools?: unknown }).tools));
+    if (usage) {
+      console.log(JSON.stringify({
+        ev: "turn", user: auth.userId.slice(0, 8), session: sessionId.slice(0, 8), ep: endpointModel,
+        to: decision.upstreamModel, tier: decision.tier, why: decision.reason,
+        tok: `${usage.inputTokens}/${usage.outputTokens}`, raw: rawInTokens, cached: usage.cachedTokens ?? 0,
+        ms: Date.now() - turnStartedAt, ttft: null,
+      }));
+      void writeLedger({
+        userId: auth.userId,
+        apiKeyId: auth.apiKeyId,
+        sessionId,
+        endpointModel,
+        usage: { promptTokens: usage.inputTokens, completionTokens: usage.outputTokens, cachedTokens: usage.cachedTokens, model: decision.upstreamModel, provider: decision.provider },
+        routedTo: decision.tier,
+        routerEffort: decision.effort,
+        latencyMs: Date.now() - turnStartedAt,
+        providerMeta: { terseArm, persistArm: persist ? "on" : "off", ...(shadowMeta ?? {}), ...(docsMeta ?? {}) },
+      }).catch((err) => console.error("[ledger] write failed", err));
+      void archiveTurn({ userId: auth.userId, apiKeyId: auth.apiKeyId, sessionId, endpointModel, provider: decision.provider, upstreamModel: decision.upstreamModel, routedTo: decision.tier, promptTokens: usage.inputTokens, completionTokens: usage.outputTokens, messages, tools: (obj as { tools?: unknown }).tools }).catch(() => {});
+    }
+    return c.json(sanitizeAnthropicResponse(json, endpointModel));
+  }
+
+  // Streaming pass-through with model rewrite: user must never see the upstream model.
+  // We tap each SSE line for usage accounting AND rewrite model fields before forwarding.
+  const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
+  const writer = writable.getWriter();
+  const streamStarted = { ttft: 0 };
+  void (async () => {
+    const reader = upstream.body?.getReader();
+    if (!reader) {
+      await writer.close();
+      return;
+    }
+    const decoder = new TextDecoder();
+    const encoder = new TextEncoder();
+    let buffer = "";
+    const usageBox: { value: AnthropicUsage | null } = { value: null };
+    let contentChars = 0;
+    const flushLine = async (line: string) => {
+      if (!line.startsWith("data: ")) {
+        await writer.write(encoder.encode(line + "\n"));
+        return;
+      }
+      const data = line.slice(6).trim();
+      if (!data) {
+        await writer.write(encoder.encode(line + "\n"));
+        return;
+      }
+      try {
+        const parsed: unknown = JSON.parse(data);
+        if (typeof parsed === "object" && parsed !== null) {
+          const p = parsed as Record<string, unknown>;
+          const u = extractAnthropicUsage(parsed);
+          if (u) usageBox.value = u;
+          // Anthropic stream content tap: text deltas feed the empty-output streak.
+          if (p.type === "content_block_delta" && p.delta && typeof p.delta === "object") {
+            const t = (p.delta as { text?: unknown }).text;
+            if (typeof t === "string") contentChars += t.length;
+          }
+          if (p.message && typeof p.message === "object") {
+            const msg = { ...(p.message as Record<string, unknown>) };
+            if (typeof msg.model === "string") msg.model = endpointModel;
+            p.message = msg;
+          }
+          if (typeof p.model === "string") p.model = endpointModel;
+          await writer.write(encoder.encode(`data: ${JSON.stringify(p)}\n\n`));
+          return;
+        }
+      } catch {
+        // non-JSON — forward as-is
+      }
+      await writer.write(encoder.encode(`data: ${data}\n\n`));
+    };
+    // SSE keep-alive (cloudflared ~90-100s idle timeout): `:` comment every
+    // 25s keeps the tunnel alive; SSE clients ignore comment lines.
+    const KEEPALIVE_MS = 25_000;
+    let lastWrite = Date.now();
+    let pendingRead: Promise<UpstreamChunk> | null = null;
+    try {
+      while (true) {
+        if (!pendingRead) pendingRead = reader.read();
+        const wait = Math.max(500, KEEPALIVE_MS - (Date.now() - lastWrite));
+        const outcome = await Promise.race([
+          pendingRead.then((r) => ({ t: "read" as const, r })),
+          new Promise<{ t: "keep" }>((res) => setTimeout(() => res({ t: "keep" }), wait)),
+        ]);
+        if (outcome.t === "keep") {
+          await writer.write(encoder.encode(": keepalive\n\n"));
+          lastWrite = Date.now();
+          continue;
+        }
+        pendingRead = null;
+        const { done, value } = outcome.r;
+        if (done) break;
+        if (!streamStarted.ttft) streamStarted.ttft = Date.now() - turnStartedAt;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        for (const line of lines) {
+          await flushLine(line);
+          lastWrite = Date.now();
+        }
+      }
+    } finally {
+      // release the upstream reader on ANY exit path — fires wrapRelease
+      // cancel() which releases the lane semaphore slot (leak fix).
+      pendingRead = null;
+      await reader.cancel().catch(() => {});
+    }
+    if (usageBox.value !== null) {
+      recordContentChars(sessionId, contentChars);
+      recordDudTurn(sessionId, usageBox.value.inputTokens, usageBox.value.outputTokens, Array.isArray((obj as { tools?: unknown }).tools));
+      void writeLedger({
+        userId: auth.userId,
+        apiKeyId: auth.apiKeyId,
+        sessionId,
+        endpointModel,
+        usage: { promptTokens: usageBox.value.inputTokens, completionTokens: usageBox.value.outputTokens, cachedTokens: usageBox.value.cachedTokens, model: decision.upstreamModel, provider: decision.provider },
+        routedTo: decision.tier,
+        routerEffort: decision.effort,
+        latencyMs: Date.now() - turnStartedAt,
+        ttftMs: streamStarted.ttft || undefined,
+        providerMeta: { terseArm, persistArm: persist ? "on" : "off", ...(shadowMeta ?? {}), ...(docsMeta ?? {}) },
+      }).catch((err) => console.error("[ledger] write failed", err));
+      void archiveTurn({ userId: auth.userId, apiKeyId: auth.apiKeyId, sessionId, endpointModel, provider: decision.provider, upstreamModel: decision.upstreamModel, routedTo: decision.tier, promptTokens: usageBox.value.inputTokens, completionTokens: usageBox.value.outputTokens, messages, tools: (obj as { tools?: unknown }).tools }).catch(() => {});
+    }
+    await writer.close();
+  })().catch((err) => console.error("[messages stream] error:", (err as Error).message));
+
+  return new Response(readable, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+    },
+  });
+});
+
+export default app;
