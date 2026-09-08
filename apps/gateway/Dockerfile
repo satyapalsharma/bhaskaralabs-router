@@ -7,6 +7,7 @@ COPY packages/shared/package.json ./packages/shared/
 COPY apps/gateway/package.json ./apps/gateway/
 # Not --frozen-lockfile: root manifest/lock drift; correctness over speed.
 RUN bun install
+RUN cd apps/gateway && bun install
 COPY packages/shared ./packages/shared
 COPY apps/gateway ./apps/gateway
 RUN mkdir -p apps/gateway/node_modules/@bhaskara \

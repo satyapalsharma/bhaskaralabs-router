@@ -6,6 +6,8 @@ COPY packages/shared/package.json ./packages/shared/
 COPY apps/web/package.json ./apps/web/
 RUN bun install
 COPY packages/shared ./packages/shared
+RUN bun install
+RUN cd apps/web && bun install
 COPY apps/web ./apps/web
 RUN mkdir -p apps/web/node_modules/@bhaskara \
   && ln -sfn /app/packages/shared apps/web/node_modules/@bhaskara/shared
