@@ -10,6 +10,8 @@ RUN bun install
 RUN cd apps/gateway && bun install
 COPY packages/shared ./packages/shared
 COPY apps/gateway ./apps/gateway
+# Schema lives in apps/web (single source; proper fix = move to packages/shared).
+COPY apps/web/src/db ./apps/web/src/db
 RUN cd apps/gateway && bunx tsc --noEmit
 WORKDIR /app/apps/gateway
 ENV PORT=8793
