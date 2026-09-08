@@ -6019,3 +6019,72 @@ stabilized (00:00-07:00 window).
 
 ## check 2026-09-08 22:57 — turns=359 failovers=0 cache_hit=69% max_billed=49050
 - no new issues
+
+## check 2026-09-08 23:09 — turns=631 failovers=0 cache_hit=81% max_billed=98694
+- [2026-09-08 23:09] tunnel-524-timeout (gw) — sh","tier":"flash","why":"dud-escalation(streak=24)","tok":"52495/154","raw":34966,"cached":49152,"ms":6681,"ttft":null} [prefix-lint] 9281b628-e6d2-4a7d-a6b4-c00c28aa6954: volatil
+- [2026-09-08 23:09] tunnel-524-timeout (gw) — ,"why":"dud-escalation(streak=1)","tok":"18518/4033","raw":25244,"cached":14336,"ms":36355,"ttft":null} {"ev":"dud-escalation","session":"ad7af688","streak":8} [prefix-lint] 9281b6
+- [2026-09-08 23:09] tunnel-524-timeout (gw) — ash","tier":"flash","why":"dud-escalation(streak=1)","tok":"52402/23","raw":39915,"cached":49152,"ms":1764,"ttft":null} {"ev":"dud-escalation","session":"ad7af688","streak":2} {"ev
+- [2026-09-08 23:09] tunnel-524-timeout (gw) — ":"auto","tier":"flash","why":"theta-routine=camel","tok":"7524/189","raw":8339,"cached":1151,"ms":8720,"ttft":null} {"ev":"dud-escalation","session":"ca02a929","streak":1} {"ev":"
+- [2026-09-08 23:09] tunnel-524-timeout (gw) — flash","tier":"flash","why":"theta-hard=agnes","tok":"24288/524","raw":21244,"cached":14080,"ms":3916,"ttft":null} {"ev":"turn","user":"9281b628","session":"8879334d","ep":"theta",
+- [2026-09-08 23:09] tunnel-524-timeout (gw) — ne=agnes","tok":"43593/748","raw":21462,"cached":42240,"ms":5246,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"theta","to":"agnes-2.5-flash","tier":"flash"
+- [2026-09-08 23:09] stream/dispatch-error (gw) — 6]: "…Exercise ID: fdb925ee-79fb-4e14-9f05-be7fc601c2c5 F…" [dispatch agnes] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ad7af688",
+- [2026-09-08 23:09] stream/dispatch-error (gw) — 5505/433","raw":22769,"cached":31744,"ms":3129,"ttft":null} [dispatch agnes] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+- [2026-09-08 23:09] stream/dispatch-error (gw) — 11307/158","raw":9804,"cached":11150,"ms":9091,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ad7af688",
+- [2026-09-08 23:09] stream/dispatch-error (gw) — 3905/329","raw":11567,"cached":32768,"ms":5860,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+- [2026-09-08 23:09] stream/dispatch-error (gw) — 70/1578","raw":32961,"cached":34560,"ms":10895,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+
+## check 2026-09-08 23:21 — turns=517 failovers=0 cache_hit=77% max_billed=68391
+- [2026-09-08 23:21] tunnel-524-timeout (gw) — sh","tier":"flash","why":"theta-routine=agnes","tok":"36533/524","raw":25768,"cached":32256,"ms":4869,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"qwen-3.
+- [2026-09-08 23:21] tunnel-524-timeout (gw) — "why":"dud-escalation(streak=3)","tok":"59175/1047","raw":32524,"cached":57344,"ms":7621,"ttft":null} [prefix-lint] 9281b628-e6d2-4a7d-a6b4-c00c28aa6954: volatile:iso-timestamp in
+- [2026-09-08 23:21] tunnel-524-timeout (gw) — heta-routine=agnes","tok":"285/1","raw":1,"cached":256,"ms":524,"ttft":null} [prefix-lint] 9281b628-e6d2-4a7d-a6b4-c00c28aa6954: volatile:iso-timestamp in tool[10]: "…f1', joinedAt
+- [2026-09-08 23:21] tunnel-524-timeout (gw) — ash","tier":"flash","why":"dud-escalation(streak=3)","tok":"52454/73","raw":19938,"cached":51200,"ms":2063,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"th
+
+## check 2026-09-08 23:33 — turns=594 failovers=0 cache_hit=81% max_billed=85034
+- [2026-09-08 23:33] tunnel-524-timeout (gw) — (streak=18)","tok":"48195/116","raw":40362,"cached":0,"ms":4524,"ttft":null} {"ev":"dud-escalation","session":"a0fc2cdb","streak":19} {"ev":"turn","user":"9281b628","session":"ca02
+- [2026-09-08 23:33] tunnel-524-timeout (gw) — e=camel","tok":"33713/540","raw":23201,"cached":20472,"ms":15246,"ttft":null} [prefix-lint] 9281b628-e6d2-4a7d-a6b4-c00c28aa6954: volatile:iso-timestamp in tool[10]: "…f1', joinedA
+- [2026-09-08 23:33] tunnel-524-timeout (gw) — agnes","tok":"23829/4371","raw":19558,"cached":20992,"ms":27524,"ttft":null} [prefix-lint] 9281b628-e6d2-4a7d-a6b4-c00c28aa6954: volatile:iso-timestamp in tool[10]: "…f1', joinedAt
+- [2026-09-08 23:33] tunnel-524-timeout (gw) — -flash","tier":"flash","why":"theta-routine=agnes","tok":"18524/3103","raw":17975,"cached":17664,"ms":20509,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"q
+- [2026-09-08 23:33] tunnel-524-timeout (gw) — flash","why":"theta-routine=agnes","tok":"29556/97","raw":18524,"cached":26368,"ms":1370,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"theta","to":"agnes-2
+- [2026-09-08 23:33] tunnel-524-timeout (gw) — ash","tier":"flash","why":"dud-escalation(streak=3)","tok":"52494/138","raw":40989,"cached":51200,"ms":2267,"ttft":null} {"ev":"dud-escalation","session":"ad7af688","streak":4} {"e
+- [2026-09-08 23:33] tunnel-524-timeout (gw) — h","tier":"flash","why":"dud-escalation(streak=1)","tok":"46524/376","raw":34525,"cached":0,"ms":9228,"ttft":null} {"ev":"turn","user":"9281b628","session":"f90ba053","ep":"theta",
+- [2026-09-08 23:33] tunnel-524-timeout (gw) — ne=agnes","tok":"37301/590","raw":24560,"cached":33536,"ms":5246,"ttft":null} [prefix-lint] 9281b628-e6d2-4a7d-a6b4-c00c28aa6954: volatile:iso-timestamp in tool[11]: "…', uploadedA
+- [2026-09-08 23:33] stream/dispatch-error (gw) — 11483/765","raw":9485,"cached":10240,"ms":5187,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+- [2026-09-08 23:33] stream/dispatch-error (gw) — ":"21860/430","raw":19619,"cached":0,"ms":4039,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+- [2026-09-08 23:33] stream/dispatch-error (gw) — 12105/147","raw":10949,"cached":7936,"ms":2639,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"a0fc2cdb",
+
+## check 2026-09-08 23:45 — turns=384 failovers=0 cache_hit=84% max_billed=65945
+- [2026-09-08 23:45] tunnel-524-timeout (gw) — h","tier":"flash","why":"dud-escalation(streak=11)","tok":"45243/118","raw":35253,"cached":43008,"ms":2375,"ttft":null} {"ev":"dud-escalation","session":"8879334d","streak":12} {"e
+- [2026-09-08 23:45] tunnel-524-timeout (gw) — h","why":"dud-escalation(streak=2)","tok":"57404/73","raw":45243,"cached":55296,"ms":2218,"ttft":null} [prefix-lint] 9281b628-e6d2-4a7d-a6b4-c00c28aa6954: volatile:iso-timestamp in
+- [2026-09-08 23:45] tunnel-524-timeout (gw) — ","why":"dud-escalation(streak=18)","tok":"60289/60","raw":45245,"cached":59392,"ms":2242,"ttft":null} [prefix-lint] 9281b628-e6d2-4a7d-a6b4-c00c28aa6954: volatile:iso-timestamp in
+
+## check 2026-09-08 23:57 — turns=235 failovers=0 cache_hit=83% max_billed=86006
+- [2026-09-08 23:57] tunnel-524-timeout (gw) — e=agnes","tok":"24081/142","raw":16242,"cached":23040,"ms":1524,"ttft":null} {"ev":"turn","user":"9281b628","session":"8879334d","ep":"theta","to":"agnes-2.5-flash","tier":"flash",
+- [2026-09-08 23:57] tunnel-524-timeout (gw) — reak=9)","tok":"47637/112","raw":42091,"cached":47104,"ms":2524,"ttft":null} {"ev":"dud-escalation","session":"8879334d","streak":10} {"ev":"turn","user":"9281b628","session":"a0fc
+- [2026-09-08 23:57] stream/dispatch-error (gw) — 9559/380","raw":14051,"cached":17152,"ms":3544,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"dud-escalation","session":"8879334d","streak"
+
+## check 2026-09-09 00:09 — turns=203 failovers=0 cache_hit=81% max_billed=51263
+- [2026-09-09 00:09] tunnel-524-timeout (gw) — o":"auto","tier":"flash","why":"theta-routine=camel","tok":"5247/67","raw":4272,"cached":0,"ms":4637,"ttft":null} {"ev":"turn","user":"9281b628","session":"a0fc2cdb","ep":"theta","
+- [2026-09-09 00:09] tunnel-524-timeout (gw) — "theta-routine=camel","tok":"12326/224","raw":9943,"cached":5244,"ms":9168,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"theta","to":"auto","tier":"flash",
+
+## check 2026-09-09 00:21 — turns=682 failovers=0 cache_hit=80% max_billed=58520
+- [2026-09-09 00:21] tunnel-524-timeout (gw) — heta-routine=agnes","tok":"285/1","raw":1,"cached":256,"ms":524,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"qwen-3.8","to":"qwen3.8-flash","tier":"flash"
+- [2026-09-09 00:21] tunnel-524-timeout (gw) — ine=camel","tok":"12889/113","raw":2769,"cached":4246,"ms":8524,"ttft":null} {"ev":"turn","user":"9281b628","session":"417e8738","ep":"theta","to":"agnes-2.5-flash","tier":"flash",
+- [2026-09-09 00:21] tunnel-524-timeout (gw) — -flash","tier":"flash","why":"theta-routine=agnes","tok":"16524/375","raw":8229,"cached":15360,"ms":3002,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"qwen
+- [2026-09-09 00:21] tunnel-524-timeout (gw) — flash","why":"theta-routine=agnes","tok":"52634/317","raw":45242,"cached":51456,"ms":2793,"ttft":null} {"ev":"dud-escalation","session":"417e8738","streak":1} [prefix-lint] 9281b62
+- [2026-09-09 00:21] tunnel-524-timeout (gw) — heta-routine=agnes","tok":"55564/1087","raw":45662,"cached":52480,"ms":7457,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"theta","to":"agnes-2.5-flash","ti
+- [2026-09-09 00:21] tunnel-524-timeout (gw) — "flash","why":"theta-routine=agnes","tok":"12333/87","raw":8524,"cached":9984,"ms":1084,"ttft":null} {"ev":"turn","user":"9281b628","session":"417e8738","ep":"theta","to":"glm-5.3-
+- [2026-09-09 00:21] tunnel-524-timeout (gw) — 2.5-flash","tier":"flash","why":"theta-hard=agnes","tok":"15524/866","raw":9091,"cached":14080,"ms":5026,"ttft":null} {"ev":"turn","user":"9281b628","session":"236fcf29","ep":"thet
+- [2026-09-09 00:21] stream/dispatch-error (gw) — amel","tok":"7/5","raw":1,"cached":0,"ms":1696,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"8879334d",
+- [2026-09-09 00:21] stream/dispatch-error (gw) — :"8411/130","raw":8804,"cached":1298,"ms":6593,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn [dispatch hyper] client disconnected mid-generation
+- [2026-09-09 00:21] stream/dispatch-error (gw) — h hyper] client disconnected mid-generation — aborting turn [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"8879334d",
+
+## check 2026-09-09 00:33 — turns=1014 failovers=0 cache_hit=80% max_billed=89990
+- [2026-09-09 00:33] tunnel-524-timeout (gw) — 5-flash","tier":"flash","why":"theta-routine=agnes","tok":"25242/619","raw":16448,"cached":22784,"ms":3883,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"qw
+- [2026-09-09 00:33] tunnel-524-timeout (gw) — h","tier":"flash","why":"dud-escalation(streak=1)","tok":"35524/162","raw":24632,"cached":0,"ms":5346,"ttft":null} {"ev":"turn","user":"9281b628","session":"46c3f433","ep":"theta",
+- [2026-09-09 00:33] tunnel-524-timeout (gw) — heta-routine=agnes","tok":"89990/307","raw":58351,"cached":85248,"ms":3561,"ttft":null} {"ev":"turn","user":"9281b628","session":"46c3f433","ep":"theta","to":"glm-5.3-flash","tier"
+- [2026-09-09 00:33] stream/dispatch-error (gw) — A…" {"ev":"dud-escalation","session":"417e8738","streak":1} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"8879334d",
+- [2026-09-09 00:33] stream/dispatch-error (gw) — :"9924/167","raw":8445,"cached":5632,"ms":1720,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+- [2026-09-09 00:33] stream/dispatch-error (gw) — 5457/561","raw":13665,"cached":12800,"ms":5555,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"a7fd55a1",
+- [2026-09-09 00:33] stream/dispatch-error (gw) — 4405/155","raw":12048,"cached":14080,"ms":1792,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn [prefix-lint] 9281b628-e6d2-4a7d-a6b4-c00c28aa6954:
+- [2026-09-09 00:33] stream/dispatch-error (gw) — ok":"7137/161","raw":5774,"cached":0,"ms":1596,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"8879334d",
+- [2026-09-09 00:33] stream/dispatch-error (gw) — 4030/527","raw":11849,"cached":22528,"ms":6354,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",

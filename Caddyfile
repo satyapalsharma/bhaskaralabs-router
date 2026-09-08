@@ -1,9 +1,11 @@
-# Caddy reverse proxy. Auto-TLS for both names. No buffering directives:
-# Caddy streams SSE responses by default (gateway holds streams open minutes).
-api.bhaskaralabs.com {
+# NOTE (Cloudflare Flexible proxy in front): scheme http:// disables Caddy's
+# auto-https redirect (the edge terminates TLS; origin serves plain HTTP).
+# Redirect loop otherwise: CF→origin HTTP → Caddy 308 → CF → … When moving to
+# Full (strict), drop the http:// prefixes again so Caddy issues public certs.
+http://api.bhaskaralabs.com {
 	reverse_proxy gateway:8793
 }
 
-bhaskaralabs.com, www.bhaskaralabs.com {
+http://bhaskaralabs.com, http://www.bhaskaralabs.com {
 	reverse_proxy web:3000
 }
