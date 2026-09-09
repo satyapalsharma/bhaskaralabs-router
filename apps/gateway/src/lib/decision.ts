@@ -15,7 +15,7 @@ import { route, routeTheta, routeQwenSmart, classifyHardness, FLASH_OF, type Rou
 import { camelEnabled, camelSlotFree } from "../providers/camel";
 import { agnesEnabled, agnesSlotFree } from "../providers/agnes";
 import { stepfunEnabled, stepfunSlotFree } from "../providers/stepfun";
-import { generalcomputeEnabled, generalcomputeSlotFree } from "../providers/generalcompute";
+import { generalcomputeEnabled, generalcomputeSlotFree, GENERALCOMPUTE_MODEL } from "../providers/generalcompute";
 import { devpassEnabled } from "../providers/devpass";
 import { llmGatewayEnabled } from "../providers/llmgateway";
 import { feihoaEnabled, FEIHOA_MODEL, FEIHOA_INPUT_BUDGET, feihoaSlotFree } from "../providers/feihoa";
@@ -129,13 +129,17 @@ export async function decideTurn(
       hardCapped: false,
     };
   }
-
   if (endpointModel === "theta") {
     // Dud-escalation: consecutive chat-mode duds on huge tool prompts skip
-    // the weak lanes straight to hyper-flash (measured 56% working vs 8%).
+    // the weak lanes straight to minimax (stronger instruction-following at
+    // length than flash-class; founder directive 2026-09-08). Falls back to
+    // hyper-flash when the lane is down — a rescue must never 502.
     const dud = ROUTER.escalation.enabled ? dudStreak(sessionId) : 0;
     if (dud >= 1) {
       console.log(JSON.stringify({ ev: "dud-escalation", session: sessionId.slice(0, 8), streak: dud }));
+      if (generalcomputeEnabled() && generalcomputeSlotFree()) {
+        return { provider: "generalcompute", upstreamModel: GENERALCOMPUTE_MODEL, tier: "flash", effort: "low", reason: `dud-escalation(streak=${dud})`, hardCapped: false };
+      }
       return { provider: "hyper", upstreamModel: "glm-5.3-flash", tier: "flash", effort: "low", reason: `dud-escalation(streak=${dud})`, hardCapped: false };
     }
     const prefixTokens = estimateTokens(messages);
