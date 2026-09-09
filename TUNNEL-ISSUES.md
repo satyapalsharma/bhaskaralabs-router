@@ -6112,3 +6112,194 @@ stabilized (00:00-07:00 window).
 - [2026-09-09 00:57] tunnel-524-timeout (gw) — :"flash","why":"theta-routine=agnes","tok":"8398/705","raw":5249,"cached":5376,"ms":4303,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"theta","to":"auto","
 - [2026-09-09 00:57] tunnel-524-timeout (gw) — reak=13)","tok":"52148/264","raw":23379,"cached":49152,"ms":5244,"ttft":null} {"ev":"dud-escalation","session":"236fcf29","streak":1} {"ev":"turn","user":"9281b628","session":"f5fc
 - [2026-09-09 00:57] stream/dispatch-error (gw) — 42047/68","raw":26450,"cached":40960,"ms":2075,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+
+## check 2026-09-09 01:09 — turns=732 failovers=0 cache_hit=78% max_billed=81895
+- [2026-09-09 01:09] upstream-error (gw) — s","tok":"285/1","raw":1,"cached":256,"ms":500,"ttft":null} [upstream hyper] 429: {"error":{"message":"You've hit your hourly rate limit. Please try again in 11s.","type":"rate_lim
+- [2026-09-09 01:09] upstream-error (gw) — 3717/315","raw":36660,"cached":52992,"ms":2660,"ttft":null} [upstream hyper] 429: {"error":{"message":"You've hit your hourly rate limit. Please try again in 1m2s.","type":"rate_li
+- [2026-09-09 01:09] upstream-error (gw) — ry again in 1m2s.","type":"rate_limit_error","code":null}}  [upstream hyper] 429: {"error":{"message":"You've hit your hourly rate limit. Please try again in 52s.","type":"rate_lim
+- [2026-09-09 01:09] upstream-error (gw) — ":"35665/36","raw":31212,"cached":0,"ms":12063,"ttft":null} [upstream hyper] 429: {"error":{"message":"You've hit your hourly rate limit. Please try again in 27s.","type":"rate_lim
+- [2026-09-09 01:09] upstream-error (gw) — ll} {"ev":"dud-escalation","session":"0c8da65c","streak":5} [upstream hyper] 429: {"error":{"message":"You've hit your hourly rate limit. Please try again in 22s.","type":"rate_lim
+- [2026-09-09 01:09] upstream-error (gw) — \":{\"message\":\"You've hit your hourly rate limit. Plea"} [upstream hyper] 429: {"error":{"message":"You've hit your hourly rate limit. Please try again in 10s.","type":"rate_lim
+- [2026-09-09 01:09] upstream-error (gw) — A…" {"ev":"dud-escalation","session":"417e8738","streak":1} [upstream hyper] 429: {"error":{"message":"You've hit your hourly rate limit. Please try again in 1s.","type":"rate_limi
+- [2026-09-09 01:09] upstream-error (gw) — 704/158","raw":61405,"cached":65280,"ms":10785,"ttft":null} [upstream hyper] 429: {"error":{"message":"You've hit your hourly rate limit. Please try again in 1s.","type":"rate_limi
+- [2026-09-09 01:09] upstream-error (gw) — ]: "…, "expiresAt": "2026-09-08T19:52:03.618Z", "createdA…" [upstream hyper] 429: {"error":{"message":"You've hit your hourly rate limit. Please try again in 2s.","type":"rate_limi
+- [2026-09-09 01:09] tunnel-524-timeout (gw) — flash","why":"theta-routine=agnes","tok":"12833/73","raw":11524,"cached":11264,"ms":1116,"ttft":null} {"ev":"turn","user":"9281b628","session":"75318ee0","ep":"theta","to":"auto","
+- [2026-09-09 01:09] tunnel-524-timeout (gw) — sage\":\"You've hit your hourly rate limit. Plea)","tok":"50524/78","raw":34793,"cached":47872,"ms":5762,"ttft":null} {"ev":"turn","user":"9281b628","session":"8879334d","ep":"thet
+- [2026-09-09 01:09] tunnel-524-timeout (gw) — d=agnes","tok":"37569/494","raw":30205,"cached":27648,"ms":7524,"ttft":null} {"ev":"turn","user":"9281b628","session":"38098557","ep":"theta","to":"glm-5.3-flash","tier":"flash","w
+- [2026-09-09 01:09] stream/dispatch-error (gw) — l} {"ev":"dud-escalation","session":"f5fc9712","streak":10} [dispatch agnes] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+
+## check 2026-09-09 01:21 — turns=649 failovers=0 cache_hit=80% max_billed=78349
+- [2026-09-09 01:21] upstream-error (gw) — l} {"ev":"dud-escalation","session":"a5fbbdf5","streak":14} [upstream hyper] 429: {"error":{"message":"You've hit your hourly rate limit. Please try again in 13s.","type":"rate_lim
+- [2026-09-09 01:21] upstream-error (gw) — l} {"ev":"dud-escalation","session":"a7fd55a1","streak":12} [upstream hyper] 429: {"error":{"message":"You've hit your hourly rate limit. Please try again in 56s.","type":"rate_lim
+- [2026-09-09 01:21] upstream-error (gw) — 6686/189","raw":34954,"cached":45056,"ms":4850,"ttft":null} [upstream hyper] 429: {"error":{"message":"You've hit your hourly rate limit. Please try again in 29s.","type":"rate_lim
+- [2026-09-09 01:21] upstream-error (gw) — 87/1095","raw":48014,"cached":51200,"ms":19115,"ttft":null} [upstream hyper] 429: {"error":{"message":"You've hit your hourly rate limit. Please try again in 1s.","type":"rate_limi
+- [2026-09-09 01:21] upstream-error (gw) — 2807/171","raw":16610,"cached":21248,"ms":1716,"ttft":null} [upstream hyper] 429: {"error":{"message":"You've hit your hourly rate limit. Please try again in 1s.","type":"rate_limi
+- [2026-09-09 01:21] upstream-error (gw) — :"6508/145","raw":6446,"cached":2048,"ms":4647,"ttft":null} [upstream hyper] 429: {"error":{"message":"You've hit your hourly rate limit. Please try again in 1s.","type":"rate_limi
+- [2026-09-09 01:21] tunnel-524-timeout (gw) — ","why":"dud-escalation(streak=2)","tok":"41215/32","raw":39524,"cached":40960,"ms":5190,"ttft":null} {"ev":"turn","user":"9281b628","session":"2d4ae555","ep":"theta","to":"agnes-2
+- [2026-09-09 01:21] tunnel-524-timeout (gw) — :"auto","tier":"flash","why":"theta-routine=camel","tok":"16524/866","raw":18296,"cached":15808,"ms":11733,"ttft":null} {"ev":"dud-escalation","session":"75318ee0","streak":2} {"ev
+- [2026-09-09 01:21] tunnel-524-timeout (gw) — :"flash","why":"theta-routine=agnes","tok":"6531/359","raw":5249,"cached":0,"ms":2384,"ttft":null} {"ev":"turn","user":"9281b628","session":"ca02a929","ep":"qwen-3.8","to":"qwen3.8
+- [2026-09-09 01:21] tunnel-524-timeout (gw) — essage\":\"You've hit your hourly rate limit. Plea)","tok":"52440/45","raw":45658,"cached":47872,"ms":137348,"ttft":null} {"ev":"turn","user":"9281b628","session":"22e5d6a6","ep":"
+
+## check 2026-09-09 01:33 — turns=4 failovers=0 cache_hit=24% max_billed=12808
+- no new issues
+
+## check 2026-09-09 01:45 — turns=14 failovers=0 cache_hit=72% max_billed=41678
+- no new issues
+
+## check 2026-09-09 01:57 — turns=202 failovers=0 cache_hit=75% max_billed=62229
+- [2026-09-09 01:57] tunnel-524-timeout (gw) — ash","tier":"flash","why":"dud-escalation(streak=6)","tok":"52438/110","raw":39567,"cached":51200,"ms":2629,"ttft":null} {"ev":"dud-escalation","session":"a7fd55a1","streak":7} {"e
+- [2026-09-09 01:57] tunnel-524-timeout (gw) — 5-flash","tier":"flash","why":"theta-routine=agnes","tok":"35245/2233","raw":29634,"cached":0,"ms":15839,"ttft":null} {"ev":"dud-escalation","session":"a7fd55a1","streak":14} {"ev"
+- [2026-09-09 01:57] stream/dispatch-error (gw) — s","tok":"285/1","raw":1,"cached":256,"ms":544,"ttft":null} [dispatch camel] attempt 1 failed (The operation timed out.), retrying {"ev":"turn","user":"9281b628","session":"0c8da65
+
+## check 2026-09-09 02:09 — turns=13 failovers=0 cache_hit=28% max_billed=9872
+- no new issues
+
+## check 2026-09-09 02:21 — turns=3 failovers=0 cache_hit=85% max_billed=16823
+- no new issues
+
+## check 2026-09-09 02:33 — turns=0 failovers=0 cache_hit=85% max_billed=8458
+- no new issues
+
+## check 2026-09-09 02:45 — turns=26 failovers=0 cache_hit=87% max_billed=52784
+- [2026-09-09 02:45] stream/dispatch-error (gw) — 763/867","raw":17261,"cached":16640,"ms":12315,"ttft":null} [dispatch camel] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+
+## check 2026-09-09 02:57 — turns=0 failovers=0 cache_hit=0% max_billed=0
+- no new issues
+
+## check 2026-09-09 03:09 — turns=39 failovers=0 cache_hit=91% max_billed=43446
+- [2026-09-09 03:09] stream/dispatch-error (gw) — amel","tok":"7/5","raw":1,"cached":0,"ms":4138,"ttft":null} [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+
+## check 2026-09-09 03:21 — turns=60 failovers=0 cache_hit=91% max_billed=47974
+- [2026-09-09 03:21] tunnel-524-timeout (gw) — ion-sticky (reeval-blocked: prefix-too-large)","tok":"37002/5247","raw":27747,"cached":35840,"ms":65532,"ttft":null} [prefix-lint] 9281b628-e6d2-4a7d-a6b4-c00c28aa6954: volatile:is
+- [2026-09-09 03:21] stream/dispatch-error (gw) — 1]: "… assert_eq!(text, "2024-01-02T03:04:05Z"); assert_e…" [dispatch camel] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+
+## check 2026-09-09 03:33 — turns=42 failovers=0 cache_hit=92% max_billed=61600
+- [2026-09-09 03:33] stream/dispatch-error (gw) — ]: "… assert_eq!(text, \"2024-01-02T03:04:05Z\");\n203: a…" [dispatch hyper] client disconnected mid-generation — aborting turn {"ev":"dud-escalation","session":"ca02a929","streak"
+
+## check 2026-09-09 03:45 — turns=20 failovers=0 cache_hit=0% max_billed=7
+- [2026-09-09 03:45] stream/dispatch-error (gw) — amel","tok":"7/5","raw":1,"cached":0,"ms":8534,"ttft":null} [dispatch camel] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+
+## check 2026-09-09 03:57 — turns=20 failovers=0 cache_hit=0% max_billed=7
+- no new issues
+
+## check 2026-09-09 04:09 — turns=20 failovers=0 cache_hit=0% max_billed=7
+- no new issues
+
+## check 2026-09-09 04:21 — turns=22 failovers=0 cache_hit=0% max_billed=7
+- no new issues
+
+## check 2026-09-09 04:33 — turns=20 failovers=0 cache_hit=0% max_billed=7
+- [2026-09-09 04:33] stream/dispatch-error (gw) — amel","tok":"7/5","raw":1,"cached":0,"ms":6503,"ttft":null} [dispatch camel] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+
+## check 2026-09-09 04:45 — turns=3 failovers=0 cache_hit=0% max_billed=7
+- no new issues
+
+## check 2026-09-09 04:57 — turns=18 failovers=0 cache_hit=0% max_billed=7
+- no new issues
+
+## check 2026-09-09 05:09 — turns=19 failovers=0 cache_hit=0% max_billed=7
+- [2026-09-09 05:09] stream/dispatch-error (gw) — mel","tok":"7/5","raw":1,"cached":0,"ms":16906,"ttft":null} [dispatch camel] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+
+## check 2026-09-09 05:21 — turns=19 failovers=0 cache_hit=0% max_billed=7
+- [2026-09-09 05:21] stream/dispatch-error (gw) — amel","tok":"7/5","raw":1,"cached":0,"ms":8608,"ttft":null} [dispatch camel] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+
+## check 2026-09-09 05:33 — turns=3 failovers=0 cache_hit=0% max_billed=7
+- [2026-09-09 05:33] stream/dispatch-error (gw) — amel","tok":"7/5","raw":1,"cached":0,"ms":8559,"ttft":null} [dispatch camel] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+
+## check 2026-09-09 05:45 — turns=22 failovers=0 cache_hit=0% max_billed=7
+- no new issues
+
+## check 2026-09-09 05:57 — turns=21 failovers=0 cache_hit=0% max_billed=7
+- no new issues
+
+## check 2026-09-09 06:09 — turns=21 failovers=0 cache_hit=0% max_billed=7
+- no new issues
+
+## check 2026-09-09 06:21 — turns=21 failovers=0 cache_hit=0% max_billed=7
+- no new issues
+
+## check 2026-09-09 06:33 — turns=21 failovers=0 cache_hit=0% max_billed=7
+- no new issues
+
+## check 2026-09-09 06:45 — turns=21 failovers=0 cache_hit=0% max_billed=7
+- no new issues
+
+## check 2026-09-09 06:57 — turns=22 failovers=0 cache_hit=0% max_billed=7
+- no new issues
+
+## check 2026-09-09 07:09 — turns=22 failovers=0 cache_hit=0% max_billed=7
+- no new issues
+
+## check 2026-09-09 07:21 — turns=22 failovers=0 cache_hit=0% max_billed=7
+- no new issues
+
+## check 2026-09-09 07:33 — turns=16 failovers=0 cache_hit=0% max_billed=7
+- [2026-09-09 07:33] stream/dispatch-error (gw) — amel","tok":"7/5","raw":1,"cached":0,"ms":3845,"ttft":null} [dispatch camel] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+- [2026-09-09 07:33] stream/dispatch-error (gw) — amel","tok":"7/5","raw":1,"cached":0,"ms":5871,"ttft":null} [dispatch camel] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+
+## check 2026-09-09 07:45 — turns=18 failovers=0 cache_hit=0% max_billed=7
+- [2026-09-09 07:45] stream/dispatch-error (gw) — mel","tok":"7/5","raw":1,"cached":0,"ms":10334,"ttft":null} [dispatch camel] client disconnected mid-generation — aborting turn {"ev":"turn","user":"9281b628","session":"ca02a929",
+- [2026-09-09 07:45] stream/dispatch-error (gw) — amel","tok":"7/5","raw":1,"cached":0,"ms":9602,"ttft":null} [dispatch camel] client disconnected mid-generation — aborting turn
+
+## check 2026-09-09 07:57 — turns=18 failovers=0 cache_hit=0% max_billed=7
+- no new issues
+
+## check 2026-09-09 08:09 — turns=21 failovers=0 cache_hit=0% max_billed=7
+- no new issues
+
+## check 2026-09-09 08:21 — turns=21 failovers=0 cache_hit=0% max_billed=7
+- no new issues
+
+## check 2026-09-09 08:33 — turns=10 failovers=0 cache_hit=0% max_billed=7
+- no new issues
+
+## check 2026-09-09 08:45 — turns=20 failovers=0 cache_hit=0% max_billed=7
+- no new issues
+
+## check 2026-09-09 08:57 — turns=21 failovers=0 cache_hit=0% max_billed=7
+- no new issues
+
+## check 2026-09-09 09:09 — turns=20 failovers=0 cache_hit=0% max_billed=7
+- no new issues
+
+## check 2026-09-09 09:21 — turns=21 failovers=0 cache_hit=0% max_billed=7
+- no new issues
+
+## check 2026-09-09 09:33 — turns=21 failovers=0 cache_hit=0% max_billed=7
+- no new issues
+
+## check 2026-09-09 09:45 — turns=5 failovers=0 cache_hit=0% max_billed=7
+- no new issues
+
+## check 2026-09-09 09:57 — turns=22 failovers=0 cache_hit=0% max_billed=7
+- no new issues
+
+## check 2026-09-09 10:09 — turns=22 failovers=0 cache_hit=0% max_billed=7
+- no new issues
+
+## check 2026-09-09 10:21 — turns=22 failovers=0 cache_hit=0% max_billed=7
+- no new issues
+
+## check 2026-09-09 10:33 — turns=22 failovers=0 cache_hit=0% max_billed=7
+- no new issues
+
+## check 2026-09-09 10:45 — turns=23 failovers=0 cache_hit=0% max_billed=7
+- no new issues
+
+## check 2026-09-09 10:57 — turns=22 failovers=0 cache_hit=0% max_billed=7
+- no new issues
+
+## check 2026-09-09 11:09 — turns=22 failovers=0 cache_hit=0% max_billed=7
+- no new issues
+
+## check 2026-09-09 11:21 — turns=22 failovers=0 cache_hit=0% max_billed=7
+- no new issues
+
+## check 2026-09-09 11:33 — turns=22 failovers=0 cache_hit=0% max_billed=7
+- no new issues
+
+## check 2026-09-09 11:45 — turns=22 failovers=0 cache_hit=0% max_billed=7
+- no new issues
+
+## check 2026-09-09 11:57 — turns=23 failovers=0 cache_hit=0% max_billed=7
+- no new issues

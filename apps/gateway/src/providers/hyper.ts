@@ -67,7 +67,7 @@ function toNumber(value: unknown, fallback = 0): number {
   return typeof value === "number" ? value : fallback;
 }
 
-function readRawUsage(u: RawUsage) {
+export function readRawUsage(u: RawUsage) {
   return {
     promptTokens: typeof u.prompt_tokens === "number" ? u.prompt_tokens : 0,
     completionTokens: typeof u.completion_tokens === "number" ? u.completion_tokens : 0,

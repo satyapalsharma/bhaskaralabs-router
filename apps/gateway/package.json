@@ -12,5 +12,12 @@
     "@types/bun": "^1.4.0",
     "drizzle-kit": "^0.31.10",
     "typescript": "5.9"
+  },
+  "scripts": {
+    "test": "bun src/test/run-all.test.ts",
+    "test:watch": "bun --watch src/test/run-all.test.ts",
+    "test:auth": "bun src/test/auth.test.ts",
+    "test:providers": "bun src/test/providers.test.ts",
+    "test:prefix": "bun src/test/prefix.test.ts"
   }
 }

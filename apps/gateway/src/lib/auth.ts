@@ -24,7 +24,7 @@ export function newApiKey(): { full: string; prefix: string; hash: string } {
   return { full, prefix, hash };
 }
 
-function sha256(input: string): string {
+export function sha256(input: string): string {
   return createHash("sha256").update(input).digest("hex");
 }
 
