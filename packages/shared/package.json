@@ -6,12 +6,15 @@
   "exports": {
     ".": "./src/index.ts",
     "./pricing": "./src/pricing.ts",
-    "./metering": "./src/metering.ts"
+    "./metering": "./src/metering.ts",
+    "./skill": "./src/skill.ts",
+    "./overflow-models": "./src/overflow-models.ts"
   },
   "scripts": {
-    "test": "bun src/pricing.test.ts && bun src/metering.test.ts && bun src/metering-comprehensive.test.ts",
+    "test": "bun src/pricing.test.ts && bun src/metering.test.ts && bun src/metering-comprehensive.test.ts && bun src/overflow.test.ts",
     "test:pricing": "bun src/pricing.test.ts",
     "test:metering": "bun src/metering.test.ts",
-    "test:metering-comprehensive": "bun src/metering-comprehensive.test.ts"
+    "test:metering-comprehensive": "bun src/metering-comprehensive.test.ts",
+    "test:overflow": "bun src/overflow.test.ts"
   }
 }

@@ -10,13 +10,19 @@ export type QuizQuestion = {
   explanation?: string;
 };
 
+/**
+ * Quiz. Reads as part of the article rather than as a widget: the
+ * questions are a numbered list, the choices are ruled rows, and the
+ * result is stated in a line of text. State is carried by an icon and
+ * a label as well as colour.
+ */
 export default function Quiz({
   id,
   title = "Check your understanding",
   questions,
 }: {
-  // Stable per-article quiz id, e.g. "tokenization-101". Used as the
-  // localStorage key for progress; renaming it resets saved scores.
+  // Stable per-article quiz id. Used as the localStorage key; renaming it
+  // resets saved scores for this quiz.
   id: string;
   title?: string;
   questions: QuizQuestion[];
@@ -28,13 +34,19 @@ export default function Quiz({
   const [best, setBest] = useState<{ best: number; total: number } | null>(null);
 
   useEffect(() => {
-    setBest(getQuizBest(id));
+    // Post-mount read: localStorage is unavailable during SSR, so the first
+    // render is always "no saved score" and hydration stays consistent.
+    const hydrate = async () => {
+      setBest(getQuizBest(id));
+    };
+    void hydrate();
   }, [id]);
 
   if (questions.length === 0) return null;
 
   const answered = selected.filter((s) => s !== null).length;
   const score = questions.filter((q, i) => selected[i] === q.answerIndex).length;
+  const complete = score === questions.length;
 
   function choose(qi: number, ci: number) {
     if (submitted) return;
@@ -56,36 +68,44 @@ export default function Quiz({
   return (
     <section
       aria-label={title}
-      className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5 sm:p-6"
+      className="mt-14 border-t-2 border-ink pt-8"
     >
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h3 className="font-semibold text-zinc-100">{title}</h3>
-        <p className="text-xs text-zinc-600">
-          {best ? `Best on this device: ${best.best}/${best.total} · ` : null}
-          Progress saves on this device only
+      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+        <h2 className="subhead">{title}</h2>
+        <p className="font-mono text-[0.6875rem] text-ink-faint">
+          {best ? `best ${best.best}/${best.total} · ` : ""}
+          saved on this device
         </p>
       </div>
 
-      <ol className="mt-5 space-y-6">
+      <ol className="mt-8 space-y-9">
         {questions.map((q, qi) => {
           const pick = selected[qi];
           return (
             <li key={qi}>
-              <p className="text-sm font-medium text-zinc-200">
-                <span className="mr-2 text-zinc-600">{qi + 1}.</span>
+              <p className="measure text-[0.9375rem] font-medium text-ink">
+                <span className="mr-3 font-mono text-[0.8125rem] text-ink-faint">
+                  {String(qi + 1).padStart(2, "0")}
+                </span>
                 {q.prompt}
               </p>
-              <div className="mt-2.5 space-y-2" role="radiogroup" aria-label={q.prompt}>
+
+              <div
+                className="mt-4 space-y-px border-y border-rule"
+                role="radiogroup"
+                aria-label={q.prompt}
+              >
                 {q.choices.map((choice, ci) => {
                   const isPick = pick === ci;
                   const isAnswer = ci === q.answerIndex;
-                  let cls =
-                    "border-zinc-800 bg-zinc-950/60 text-zinc-300 hover:border-zinc-600";
-                  if (submitted && isAnswer)
-                    cls = "border-emerald-500/60 bg-emerald-500/10 text-zinc-100";
-                  else if (submitted && isPick && !isAnswer)
-                    cls = "border-red-500/60 bg-red-500/10 text-zinc-100";
-                  else if (isPick) cls = "border-amber-500/70 bg-amber-500/10 text-zinc-100";
+                  const state = submitted
+                    ? isAnswer
+                      ? "ok"
+                      : isPick
+                        ? "wrong"
+                        : "idle"
+                    : "idle";
+
                   return (
                     <button
                       key={ci}
@@ -94,51 +114,84 @@ export default function Quiz({
                       aria-checked={isPick}
                       disabled={submitted}
                       onClick={() => choose(qi, ci)}
-                      className={`flex w-full items-start gap-3 rounded-lg border px-3.5 py-2.5 text-left text-sm transition-colors disabled:cursor-default ${cls}`}
+                      className={`flex w-full items-start gap-4 border-b border-rule-faint px-4 py-3 text-left text-[0.9375rem] transition-colors last:border-b-0 disabled:cursor-default ${
+                        state === "ok"
+                          ? "bg-ok-soft text-ink"
+                          : state === "wrong"
+                            ? "bg-danger-soft text-ink"
+                            : isPick
+                              ? "bg-accent-soft text-ink"
+                              : "text-ink-soft enabled:hover:bg-sunken"
+                      }`}
                     >
-                      <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-current text-[10px]">
-                        {isPick ? "●" : ""}
+                      <span
+                        aria-hidden
+                        className={`mt-[0.3rem] flex h-4 w-4 shrink-0 items-center justify-center border font-mono text-[0.625rem] leading-none ${
+                          state === "ok"
+                            ? "border-ok text-ok"
+                            : state === "wrong"
+                              ? "border-danger text-danger"
+                              : isPick
+                                ? "border-accent bg-accent text-accent-ink"
+                                : "border-rule-strong text-transparent"
+                        }`}
+                      >
+                        {state === "ok" ? "✓" : state === "wrong" ? "×" : "•"}
                       </span>
                       <span>{choice}</span>
+                      {submitted && isAnswer && (
+                        <span className="label ml-auto self-center text-ok">
+                          Correct
+                        </span>
+                      )}
+                      {submitted && isPick && !isAnswer && (
+                        <span className="label ml-auto self-center text-danger">
+                          Your answer
+                        </span>
+                      )}
                     </button>
                   );
                 })}
               </div>
-              {submitted && q.explanation ? (
-                <p className="mt-2 text-[13px] leading-relaxed text-zinc-500">
+
+              {submitted && q.explanation && (
+                <p className="measure mt-3 text-[0.875rem] leading-relaxed text-ink-mute">
                   {q.explanation}
                 </p>
-              ) : null}
+              )}
             </li>
           );
         })}
       </ol>
 
-      <div className="mt-6 flex flex-wrap items-center gap-3">
+      <div className="mt-9 flex flex-wrap items-center gap-4">
         {!submitted ? (
-          <button
-            type="button"
-            onClick={submit}
-            disabled={answered < questions.length}
-            className="rounded-md bg-amber-500 px-4 py-2 text-sm font-medium text-zinc-950 transition-colors hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            Check answers
-            {answered < questions.length
-              ? ` (${answered}/${questions.length} answered)`
-              : ""}
-          </button>
-        ) : (
           <>
-            <p className="text-sm text-zinc-200" role="status">
-              Score: <strong>{score}/{questions.length}</strong>
-              {score === questions.length ? " — clean sweep." : ""}
-            </p>
             <button
               type="button"
-              onClick={retry}
-              className="rounded-md border border-zinc-700 px-4 py-2 text-sm text-zinc-300 transition-colors hover:border-zinc-500 hover:text-zinc-100"
+              onClick={submit}
+              disabled={answered < questions.length}
+              className="btn btn-primary"
             >
-              Retry
+              Check answers
+            </button>
+            <span className="font-mono text-[0.75rem] text-ink-faint">
+              {answered} of {questions.length} answered
+            </span>
+          </>
+        ) : (
+          <>
+            <p role="status" className="text-[0.9375rem] text-ink">
+              {score} of {questions.length} correct
+              {complete && (
+                <span className="ml-3 tag tag-ok">
+                  <span className="dot" />
+                  Clean sweep
+                </span>
+              )}
+            </p>
+            <button type="button" onClick={retry} className="btn btn-outline">
+              Try again
             </button>
           </>
         )}

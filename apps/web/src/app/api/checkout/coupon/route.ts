@@ -27,7 +27,7 @@ export async function POST(req: Request) {
   const code = body.coupon.trim().toUpperCase();
   if (!code) {
     // Clear coupon → back to base price.
-    const base = PLANS[cs.plan as "basic" | "advanced"].priceUsd;
+    const base = PLANS[cs.plan as "starter" | "pro"].priceUsd;
     await db.update(checkoutSessions)
       .set({ couponCode: null, discountUsd: "0", priceUsd: String(base), updatedAt: new Date() })
       .where(eq(checkoutSessions.id, cs.id));
@@ -37,7 +37,7 @@ export async function POST(req: Request) {
   const check = await validateCoupon(code, cs.plan, cs.userId);
   if (!check.ok) return NextResponse.json({ error: check.error }, { status: 400 });
 
-  const base = PLANS[cs.plan as "basic" | "advanced"].priceUsd;
+  const base = PLANS[cs.plan as "starter" | "pro"].priceUsd;
   const discountUsd = Number(((base * check.discountPct) / 100).toFixed(2));
   const amount = Math.max(0, Number((base - discountUsd).toFixed(2)));
   await db.update(checkoutSessions)

@@ -6,12 +6,13 @@
 // Design constraints:
 //   - ONLY fires on inconclusive signals (adds one cheap call; never in the
 //     hot path for clearly-routine or clearly-hard turns).
-//   - Uses yolo (free, 4 slots, ~6s with reasoning off) — feihoa measured
-//     16-19s for a 1-word classify, too slow to hold a request.
+//   - Uses the Agnes flat lane: fastest lane we have (0.3-1.1s serves) and
+//     prepaid, so a classification costs no marginal spend. Runs on the same
+//     semaphore as real traffic, so a judge call can never starve a turn.
 //   - Memoized by prompt hash — identical re-classifications are free.
 //   - STRICT output contract: model must reply exactly "hard" or "routine".
 //     Anything else → null (fail-open to the heuristic, no retry loop).
-import { yoloSlotFree } from "../providers/yolo";
+import { agnesEnabled, agnesSlotFree, AGNES_BASE } from "../providers/agnes";
 import { createHash } from "node:crypto";
 
 
@@ -31,9 +32,9 @@ export async function judgeClassify(prompt: string): Promise<boolean | null> {
   const memo = JUDGE_MEMO.get(h);
   if (memo !== undefined) return memo;
 
-  // Yolo judge (fast, free, 4 slots); never blocks routing — failure returns
-  // null → caller keeps the heuristic classification.
-  const verdict = await yoloJudgeClassify(prompt).catch(() => null);
+  // Judge on the fast flat lane; never blocks routing — failure returns null
+  // and the caller keeps the heuristic classification.
+  const verdict = await judgeClassifyUpstream(prompt).catch(() => null);
   if (verdict === null) return null; // fail-open: no memo on failure
 
   if (JUDGE_MEMO.size > JUDGE_MEMO_MAX) JUDGE_MEMO.clear();
@@ -41,19 +42,19 @@ export async function judgeClassify(prompt: string): Promise<boolean | null> {
   return verdict;
 }
 
-/** Yolo judge — reasoning off, strict one-word contract. */
-async function yoloJudgeClassify(prompt: string): Promise<boolean | null> {
-  const key = (process.env.YOLO_AUTO_API_KEY ?? "").trim();
-  if (!key || !yoloSlotFree()) return null;
-  const res = await fetch(`${process.env.YOLO_BASE_URL ?? "https://yolo-auto.com/v1"}/chat/completions`, {
+/** Judge dispatch — strict one-word contract, hard 12s deadline. */
+async function judgeClassifyUpstream(prompt: string): Promise<boolean | null> {
+  const key = (process.env.AGNES_API_KEY ?? "").trim();
+  if (!key || !agnesEnabled() || !agnesSlotFree()) return null;
+  const res = await fetch(`${AGNES_BASE}/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
     body: JSON.stringify({
-      model: process.env.YOLO_MODEL ?? "qwen3.8-27b",
+      model: process.env.AGNES_MODEL ?? "agnes-2.5-flash",
       messages: [{ role: "user", content: JUDGE_PROMPT + prompt.slice(0, 2000) }],
       max_tokens: 8,
       temperature: 0,
-      reasoning_effort: "none", // qwen reasoning eats max_tokens → null content
+      reasoning_effort: "none", // reasoning eats max_tokens → null content
     }),
     signal: AbortSignal.timeout(12_000),
   });

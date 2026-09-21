@@ -1,248 +1,197 @@
-// Comprehensive metering tests - edge cases and validation
-import { valueUserFacing, valueActualCost, type Usage } from "./metering";
+// Comprehensive metering edge cases. Complements metering.test.ts, which covers
+// the three headline claims; this file covers the boundaries the ledger will
+// actually see in production.
 
-console.log("Running comprehensive metering tests...\n");
+import { valueUserFacing, valueActualCost, isFlatProvider, registerUpstreamRates, clearUpstreamRates, type Usage } from "./metering";
+import { FLAT_PROVIDERS, UPSTREAM_RATES } from "./pricing";
 
-// Helper to check if number is approximately equal
-function approxEqual(a: number, b: number, tolerance: number = 1e-9): boolean {
-  return Math.abs(a - b) < tolerance;
+let passed = 0;
+let failed = 0;
+
+function check(name: string, cond: boolean, detail = "") {
+  if (cond) {
+    passed++;
+    console.log(`  ✓ ${name}`);
+  } else {
+    failed++;
+    console.error(`  ✗ ${name}${detail ? ` — ${detail}` : ""}`);
+  }
 }
 
-// Test 1: Zero token usage
-console.log("Test 1: Zero token usage");
-const zeroUsage: Usage = {
-  promptTokens: 0,
-  completionTokens: 0,
-  model: "glm-5.3",
-  provider: "hyper"
-};
-const zeroFacing = valueUserFacing(zeroUsage);
-const zeroActual = valueActualCost(zeroUsage);
-if (!approxEqual(zeroFacing.equivalentApiCost, 0)) {
-  throw new Error("Zero usage should have zero cost");
-}
-if (!approxEqual(zeroActual, 0)) {
-  throw new Error("Zero usage should have zero actual cost");
-}
-console.log("  ✓ Zero usage costs $0");
+const near = (a: number, b: number, tol = 1e-9) => Math.abs(a - b) <= tol;
 
-// Test 2: Very large token counts
-console.log("\nTest 2: Very large token counts");
-const largeUsage: Usage = {
-  promptTokens: 1_000_000_000, // 1 billion tokens
-  completionTokens: 500_000_000,
-  model: "glm-5.3",
-  provider: "hyper"
-};
-const largeFacing = valueUserFacing(largeUsage);
-const largeActual = valueActualCost(largeUsage);
-// Should not overflow or error
-if (!Number.isFinite(largeFacing.equivalentApiCost)) {
-  throw new Error("Large usage should not overflow");
-}
-console.log(`  ✓ Large usage handled: $${largeFacing.equivalentApiCost.toFixed(2)}`);
-
-// Test 3: Different providers return different costs
-console.log("\nTest 3: Different providers have different costs");
-const testUsage: Usage = {
+const base: Usage = {
   promptTokens: 100_000,
   completionTokens: 50_000,
   model: "glm-5.3",
-  provider: "hyper"
+  provider: "hyper",
+  endpoint: "glm-5.3",
 };
-const hyperCost = valueActualCost({ ...testUsage, provider: "hyper" });
-const camelCost = valueActualCost({ ...testUsage, provider: "camel" });
-const agnesCost = valueActualCost({ ...testUsage, provider: "agnes" });
 
-console.log(`  Hyper cost: $${hyperCost.toFixed(6)}`);
-console.log(`  Camel cost: $${camelCost.toFixed(6)}`);
-console.log(`  Agnes cost: $${agnesCost.toFixed(6)}`);
+console.log("Test 1: degenerate inputs never produce NaN or Infinity");
+{
+  const zero: Usage = { ...base, promptTokens: 0, completionTokens: 0 };
+  check("zero usage costs $0", valueActualCost(zero) === 0 && valueUserFacing(zero).equivalentApiCost === 0);
 
-if (hyperCost === camelCost && hyperCost !== 0) {
-  throw new Error("Hyper and Camel should have different costs for non-zero usage");
+  const huge: Usage = { ...base, promptTokens: 1_000_000_000, completionTokens: 500_000_000 };
+  check("a billion tokens stays finite", Number.isFinite(valueActualCost(huge)) && Number.isFinite(valueUserFacing(huge).equivalentApiCost));
+
+  const negative: Usage = { ...base, promptTokens: -100, completionTokens: -50 };
+  check("negative tokens stay finite", Number.isFinite(valueActualCost(negative)));
 }
-console.log("  ✓ Different providers have different costs");
 
-// Test 4: Cache hit pricing for Hyper
-console.log("\nTest 4: Cache hit pricing for Hyper");
-const cachedUsage: Usage = {
-  promptTokens: 100_000,
-  completionTokens: 50_000,
-  cachedTokens: 50_000, // 50% cached
-  model: "glm-5.3",
-  provider: "hyper"
-};
-const noCacheCost = valueActualCost({ ...cachedUsage, cachedTokens: 0 });
-const withCacheCost = valueActualCost(cachedUsage);
+console.log("\nTest 2: cache accounting");
+{
+  const noCache = valueActualCost({ ...base, cachedTokens: 0 });
+  const halfCache = valueActualCost({ ...base, cachedTokens: 50_000 });
+  const fullCache = valueActualCost({ ...base, cachedTokens: 100_000 });
+  check("cache reduces cost", halfCache < noCache);
+  check("more cache reduces cost further", fullCache < halfCache);
+  check("full cache is still positive (output is never cached)", fullCache > 0);
 
-if (withCacheCost >= noCacheCost) {
-  throw new Error("Cached usage should cost less than non-cached");
+  // A provider reporting more cached tokens than prompt tokens must not create
+  // a negative fresh-token count.
+  const overCached = valueActualCost({ ...base, cachedTokens: 150_000 });
+  check(
+    "cached tokens are clamped to prompt tokens",
+    near(overCached, fullCache),
+    `${overCached} vs ${fullCache}`,
+  );
 }
-console.log(`  No cache: $${noCacheCost.toFixed(6)}`);
-console.log(`  With cache: $${withCacheCost.toFixed(6)}`);
-console.log("  ✓ Cache hits reduce cost");
 
-// Test 5: Full cache scenario
-console.log("\nTest 5: Full cache scenario");
-const fullCacheUsage: Usage = {
-  promptTokens: 100_000,
-  completionTokens: 0,
-  cachedTokens: 100_000, // 100% cached
-  model: "glm-5.3",
-  provider: "hyper"
-};
-const fullCacheCost = valueActualCost(fullCacheUsage);
-if (fullCacheCost < 0) {
-  throw new Error("Full cache cost should not be negative");
+console.log("\nTest 3: reasoning tokens are billed once, not twice");
+{
+  // Providers include reasoning inside completion_tokens. Counting it again
+  // would inflate every reasoning-heavy turn.
+  const withReasoning = valueActualCost({ ...base, reasoningTokens: 40_000 });
+  const without = valueActualCost(base);
+  check("reasoning tokens do not change the bill", near(withReasoning, without));
 }
-console.log(`  Full cache cost: $${fullCacheCost.toFixed(6)}`);
-console.log("  ✓ Full cache scenario handled");
 
-// Test 6: Reasoning tokens included in completion
-console.log("\nTest 6: Reasoning tokens included in completion");
-const reasoningUsage: Usage = {
-  promptTokens: 10_000,
-  completionTokens: 5_000,
-  reasoningTokens: 10_000, // reasoning tokens
-  model: "glm-5.3",
-  provider: "hyper"
-};
-const reasoningCost = valueActualCost(reasoningUsage);
-// The reasoning tokens are part of completion_tokens in the response
-// So the cost should be based on completionTokens only
-console.log(`  Cost with reasoning: $${reasoningCost.toFixed(6)}`);
-console.log("  ✓ Reasoning tokens handled");
-
-// Test 7: Unknown model defaults
-console.log("\nTest 7: Unknown model defaults");
-const unknownModelUsage: Usage = {
-  promptTokens: 10_000,
-  completionTokens: 5_000,
-  model: "unknown-model-xyz",
-  provider: "hyper"
-};
-const unknownCost = valueActualCost(unknownModelUsage);
-// Should default to glm-5.3 rates or return 0
-console.log(`  Unknown model cost: $${unknownCost.toFixed(6)}`);
-console.log("  ✓ Unknown models handled gracefully");
-
-// Test 8: actualCostOverrideUsd for Camel
-console.log("\nTest 8: actualCostOverrideUsd for Camel");
-const camelWithOverride: Usage = {
-  promptTokens: 10_000,
-  completionTokens: 5_000,
-  model: "gpt-5.6",
-  provider: "camel",
-  actualCostOverrideUsd: 0.012345
-};
-const camelOverrideCost = valueActualCost(camelWithOverride);
-if (!approxEqual(camelOverrideCost, 0.012345)) {
-  throw new Error(`Expected override cost, got ${camelOverrideCost}`);
+console.log("\nTest 4: flat providers book zero, metered providers do not");
+{
+  for (const p of FLAT_PROVIDERS) {
+    check(`${p} books $0`, valueActualCost({ ...base, provider: p }) === 0);
+    check(`${p} is classified flat`, isFlatProvider(p));
+  }
+  check("agnes is flat", isFlatProvider("agnes"));
+  check("hyper is not flat", !isFlatProvider("hyper"));
+  check("stepfun is metered, not flat", !isFlatProvider("stepfun"));
+  check(
+    "stepfun books a positive cost",
+    valueActualCost({ ...base, provider: "stepfun", model: "step-3.7-flash" }) > 0,
+  );
 }
-console.log(`  Camel with override: $${camelOverrideCost.toFixed(6)}`);
-console.log("  ✓ actualCostOverrideUsd is used for Camel");
 
-// Test 9: Display tokens match input
-console.log("\nTest 9: Display tokens match input");
-const displayTestUsage: Usage = {
-  promptTokens: 123_456,
-  completionTokens: 78_901,
-  model: "qwen-3.8",
-  provider: "hyper"
-};
-const displayResult = valueUserFacing(displayTestUsage);
-if (displayResult.displayTokens.input !== 123_456) {
-  throw new Error("Display input tokens should match usage");
+console.log("\nTest 5: a provider-reported exact cost always wins");
+{
+  const overridden: Usage = { ...base, actualCostOverrideUsd: 0.012345 };
+  check("override beats the rate card", near(valueActualCost(overridden), 0.012345));
+  // Even on a flat provider — an override means we know the real number.
+  const flatWithOverride: Usage = { ...base, provider: "agnes", actualCostOverrideUsd: 0.5 };
+  check("override beats the flat rule", near(valueActualCost(flatWithOverride), 0.5));
 }
-if (displayResult.displayTokens.output !== 78_901) {
-  throw new Error("Display output tokens should match usage");
+
+console.log("\nTest 6: unknown combinations fail closed");
+{
+  check("unknown provider books $0", valueActualCost({ ...base, provider: "brand-new-provider" }) === 0);
+  check(
+    "unknown model on a known provider books $0",
+    valueActualCost({ ...base, model: "no-such-model" }) === 0,
+  );
+  // The important property: we never invent a cost. A silent wrong number is
+  // worse than a zero, because the zero is visible in the admin ledger.
+  const unknown = valueActualCost({ ...base, provider: "brand-new-provider" });
+  check("and it is exactly zero, not a guess", unknown === 0);
 }
-console.log(`  ✓ Display tokens: input=${displayResult.displayTokens.input}, output=${displayResult.displayTokens.output}`);
 
-// Test 10: Negative token counts
-console.log("\nTest 10: Negative token counts (edge case)");
-const negativeUsage: Usage = {
-  promptTokens: -100,
-  completionTokens: -50,
-  model: "glm-5.3",
-  provider: "hyper"
-};
-const negativeFacing = valueUserFacing(negativeUsage);
-const negativeActual = valueActualCost(negativeUsage);
-// Should handle negative values (might result in negative cost, which is odd but mathematically correct)
-console.log(`  Negative usage cost: $${negativeActual.toFixed(6)}`);
-console.log("  ✓ Negative values handled (though they shouldn't occur in practice)");
+console.log("\nTest 7: endpoint decides the display rate, not the provider");
+{
+  // The same upstream lane serves both products. Hyper answering a theta turn
+  // must be valued at theta display rates, not glm list rates.
+  const asTheta: Usage = { ...base, provider: "hyper", model: "glm-5.3-flash", endpoint: "theta" };
+  const asGlm: Usage = { ...base, provider: "hyper", model: "glm-5.3-flash", endpoint: "glm-5.3" };
+  const thetaCost = valueUserFacing(asTheta).equivalentApiCost;
+  const glmCost = valueUserFacing(asGlm).equivalentApiCost;
+  check("theta and glm display values differ on the same lane", thetaCost !== glmCost);
+  check(
+    "theta uses theta display rates",
+    near(thetaCost, (100_000 * 0.2 + 50_000 * 0.4) / 1e6),
+  );
+  check(
+    "glm uses full-model list rates",
+    near(glmCost, (100_000 * 1.52432 + 50_000 * 4.79072) / 1e6),
+  );
 
-// Test 11: Partial cache scenario
-console.log("\nTest 11: Partial cache with more cached than prompt");
-const partialUsage: Usage = {
-  promptTokens: 100_000,
-  completionTokens: 50_000,
-  cachedTokens: 150_000, // More cached than prompt (shouldn't happen but test anyway)
-  model: "glm-5.3",
-  provider: "hyper"
-};
-const partialCost = valueActualCost(partialUsage);
-// Should cap cached at promptTokens
-console.log(`  Partial cache cost: $${partialCost.toFixed(6)}`);
-console.log("  ✓ Partial cache with edge case handled");
-
-// Test 12: Theta display rates
-console.log("\nTest 12: Theta display rates");
-const thetaUsage: Usage = {
-  promptTokens: 100_000,
-  completionTokens: 50_000,
-  model: "theta",
-  provider: "yolo" // Theta uses yolo/feihoa as backchannel
-};
-const thetaResult = valueUserFacing(thetaUsage);
-// Theta should use THETA_DISPLAY rates
-const expectedThetaCost = (100_000 * 0.20 + 50_000 * 0.40) / 1_000_000;
-if (!approxEqual(thetaResult.equivalentApiCost, expectedThetaCost)) {
-  throw new Error(`Theta cost mismatch: expected ${expectedThetaCost}, got ${thetaResult.equivalentApiCost}`);
+  // Legacy rows have no endpoint; the fallback must still classify them.
+  const noEndpoint: Usage = { ...base };
+delete noEndpoint.endpoint;
+  const legacyTheta: Usage = { ...noEndpoint, model: "agnes-2.5-flash", provider: "agnes" };
+  check(
+    "a row without an endpoint falls back sensibly",
+    near(valueUserFacing(legacyTheta).equivalentApiCost, (100_000 * 0.2 + 50_000 * 0.4) / 1e6),
+  );
+  // And a legacy glm row must not be mistaken for theta.
+  const legacyGlm: Usage = { ...noEndpoint, model: "glm-5.3", provider: "hyper" };
+  check(
+    "a legacy glm row values at list rates",
+    near(valueUserFacing(legacyGlm).equivalentApiCost, (100_000 * 1.52432 + 50_000 * 4.79072) / 1e6),
+  );
 }
-console.log(`  Theta display cost: $${thetaResult.equivalentApiCost.toFixed(6)}`);
-console.log("  ✓ Theta display rates correct");
 
-// Test 13: Bootstrap providers (agnes, stepfun) have 0 cost
-console.log("\nTest 13: Bootstrap providers have 0 actual cost");
-const agnesUsageBootstrap: Usage = {
-  promptTokens: 100_000,
-  completionTokens: 50_000,
-  model: "qwen-3.8",
-  provider: "agnes"
-};
-const stepfunUsageBootstrap: Usage = {
-  promptTokens: 100_000,
-  completionTokens: 50_000,
-  model: "qwen-3.8",
-  provider: "stepfun"
-};
-const agnesCostBootstrap = valueActualCost(agnesUsageBootstrap);
-const stepfunCostBootstrap = valueActualCost(stepfunUsageBootstrap);
-
-if (!approxEqual(agnesCostBootstrap, 0)) {
-  throw new Error("Agnes should have 0 cost (flat plan)");
+console.log("\nTest 8: display tokens are the raw streamed counts");
+{
+  const r = valueUserFacing({ ...base, promptTokens: 123_456, completionTokens: 78_901, cachedTokens: 100_000 });
+  check("input is unmodified", r.displayTokens.input === 123_456);
+  check("output is unmodified", r.displayTokens.output === 78_901);
+  // Pre-compression counts are a stated product promise: the dashboard shows
+  // what the agent actually sent, never a post-optimisation number.
+  check("cached tokens are not subtracted from the display count", r.displayTokens.input === 123_456);
 }
-if (!approxEqual(stepfunCostBootstrap, 0)) {
-  throw new Error("Stepfun should have 0 cost (flat plan)");
-}
-console.log("  ✓ Bootstrap providers have 0 actual cost");
 
-// Test 14: DevPass provider
-console.log("\nTest 14: DevPass provider");
-const devpassUsage: Usage = {
-  promptTokens: 100_000,
-  completionTokens: 50_000,
-  model: "deepseek-v4-flash-0731",
-  provider: "devpass"
-};
-const devpassCost = valueActualCost(devpassUsage);
-// DevPass has its own rate card
-if (devpassCost <= 0) {
-  throw new Error("DevPass should have positive cost");
+console.log("\nTest 9: every routed provider has a defined cost path");
+{
+  // A provider that is neither flat nor in the rate table would silently book
+  // $0 while actually costing money.
+  const covered = new Set([...FLAT_PROVIDERS, ...Object.keys(UPSTREAM_RATES)]);
+  const routed = ["hyper", "agnes", "stepfun", "camel", "llmgateway", "electronhub", "openference", "pareto", "teamorouter"];
+  const uncovered = routed.filter((p) => !covered.has(p));
+  check("every routed provider is costed", uncovered.length === 0, uncovered.join(", "));
 }
-console.log(`  DevPass cost: $${devpassCost.toFixed(6)}`);
-console.log("  ✓ DevPass cost calculated");
 
-console.log("\n✅ All comprehensive metering tests passed!");
+console.log("\nTest 10: runtime rate overlay for DB-registered providers");
+{
+  // The compiled table only knows the hardcoded lanes. A provider added through
+  // the admin panel has no entry there, and a missing entry books every turn at
+  // $0 — which is invisible in a spend report and indistinguishable from a flat
+  // lane. The gateway registers the fleet's cards so that cannot happen.
+  clearUpstreamRates();
+
+  const turn: Usage = { ...base, provider: "newlane", model: "some-model" };
+  check("an unregistered provider books at $0", valueActualCost(turn) === 0);
+
+  registerUpstreamRates("newlane", { "some-model": { input: 2, output: 6, cacheHit: 0.5 } });
+  // 100k prompt, 50k completion, no cache: 100k*2/M + 50k*6/M = 0.2 + 0.3
+  check("a registered provider books at its own rate", near(valueActualCost(turn), 0.5), `got ${valueActualCost(turn)}`);
+
+  // Cache is priced at the card's cacheHit, not the input rate: 100k cached at
+  // $0.5/M plus 50k completion at $6/M is 0.05 + 0.30, against 0.50 uncached.
+  const cachedTurn: Usage = { ...turn, cachedTokens: 100_000 };
+  check("cache bills at the card's cache rate", near(valueActualCost(cachedTurn), 0.35), `got ${valueActualCost(cachedTurn)}`);
+
+  // A lane serving `glm-5.3:dev` while the row records `glm-5.3` (or the
+  // reverse) must still find its card — a miss on the suffix is another $0.
+  registerUpstreamRates("suffixed", { "glm-5.3:dev": { input: 1.4, output: 4.4 } });
+  check("plan-suffixed card resolves for a bare id", valueActualCost({ ...turn, provider: "suffixed", model: "glm-5.3" }) > 0);
+  check("bare card resolves for a suffixed id", valueActualCost({ ...turn, provider: "suffixed", model: "glm-5.3:dev" }) > 0);
+
+  // Openference advertises `GLM-5.3` uppercase while calls route to `glm-5.3`.
+  registerUpstreamRates("caselane", { "GLM-5.3": { input: 1.4, output: 4.4 } });
+  check("case-differing id resolves to its card", valueActualCost({ ...turn, provider: "caselane", model: "glm-5.3" }) > 0);
+
+  clearUpstreamRates();
+  check("clearing the overlay restores $0", valueActualCost(turn) === 0);
+}
+
+console.log(`\n${passed} passed, ${failed} failed`);
+if (failed > 0) process.exit(1);

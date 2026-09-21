@@ -13,7 +13,7 @@ export const user = pgTable("user", {
   image: text("image"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-  plan: text("plan").notNull().default("free"),
+  plan: text("plan").notNull().default("trial"),
   cohort: integer("cohort").notNull().default(1),
   trainingOptOut: boolean("training_opt_out").notNull().default(false),
   role: text("role").notNull().default("user"), // user | admin
@@ -99,6 +99,18 @@ export const usageLedger = pgTable(
     userEquivalentCostUsd: numeric("user_equiv_cost_usd", { precision: 12, scale: 6 }).notNull(),
     actualCostUsd: numeric("actual_cost_usd", { precision: 12, scale: 6 }).notNull().default("0"),
     providerMeta: text("provider_meta"),
+    // Did the response ask for a tool? Without this the dud rate is not
+    // computable from the ledger: a turn that answered "read the auth module"
+    // with 140 tokens of tool arguments has the same token shape as a turn that
+    // gave up (large prompt, tiny completion), and only this flag separates
+    // them. Null on rows written before the column existed — treat null as
+    // "unknown", never as false.
+    hasToolCalls: boolean("has_tool_calls"),
+    // Routing causality. `reason` was stdout-only before this; persisting it (and
+    // the signals that produced it) is the prerequisite for calibrating skill
+    // cards from real traffic. routerSignals is a JSON blob.
+    routerReason: text("router_reason"),
+    routerSignals: text("router_signals"),
     latencyMs: integer("latency_ms"),
     ttftMs: integer("ttft_ms"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -107,6 +119,29 @@ export const usageLedger = pgTable(
     index("usage_user_created_idx").on(t.userId, t.createdAt),
     index("usage_session_idx").on(t.sessionId),
     index("usage_provider_idx").on(t.provider, t.createdAt),
+  ],
+);
+
+// ── Skill cards: measured per-model, per-capability success rates ──
+// The routing asset. Calibrated offline from the ledger (escalation-derived
+// labels today; a replay-eval harness can supersede per cell later — the loader
+// prefers the higher-confidence source). Capability dimensions live in
+// packages/shared/src/skill.ts.
+export const skillCards = pgTable(
+  "skill_cards",
+  {
+    id: text("id").primaryKey(),
+    modelId: text("model_id").notNull(), // upstream model id: "glm-5.3-flash"
+    capability: text("capability").notNull(), // coding|debug|type_repair|refactor|planning|long_context
+    successRate: numeric("success_rate", { precision: 6, scale: 4 }).notNull(),
+    support: integer("support").notNull().default(0), // contributing observations
+    source: text("source").notNull().default("escalation-derived"),
+    confidence: text("confidence").notNull().default("low"), // low|medium|high
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("skill_card_unique").on(t.modelId, t.capability),
+    index("skill_card_model_idx").on(t.modelId),
   ],
 );
 // ── Docs registry: curated, pre-compressed reference packs injected into the
@@ -281,9 +316,9 @@ export const sessionLocks = pgTable(
 export const upstreamProviders = pgTable(
   "upstream_providers",
   {
-    id: text("id").primaryKey(), // slug: "feihoa", "yolo", "stepfun"...
+    id: text("id").primaryKey(), // slug: "teamorouter", "pareto", "stepfun"...
     name: text("name").notNull(), // display name
-    baseUrl: text("base_url").notNull(), // https://api.feihoa.com/v1
+    baseUrl: text("base_url").notNull(), // https://api.example.com/v1
     protocol: text("protocol").notNull().default("openai"), // openai | anthropic
     authStyle: text("auth_style").notNull().default("bearer"), // bearer | x-api-key
     // flat (plan, per-request COGS≈0) | metered (per-token) | credits (prepaid bundle)
@@ -299,7 +334,7 @@ export const upstreamAccounts = pgTable(
   {
     id: text("id").primaryKey(),
     providerId: text("provider_id").notNull().references(() => upstreamProviders.id, { onDelete: "cascade" }),
-    label: text("label").notNull(), // "feihoa-main", "feihoa-backup"
+    label: text("label").notNull(), // "pareto-1", "pareto-2"
     apiKey: text("api_key").notNull(), // encrypted at rest recommended later
     // Health: set by gateway on errors; admin can force-disable.
     disabled: boolean("disabled").notNull().default(false),
@@ -321,8 +356,8 @@ export const upstreamModels = pgTable(
   {
     id: text("id").primaryKey(),
     providerId: text("provider_id").notNull().references(() => upstreamProviders.id, { onDelete: "cascade" }),
-    modelId: text("model_id").notNull(), // upstream id: "qwen3.8-27b"
-    // What clients may call it as (endpoint alias): "qwen-3.8" etc.
+    modelId: text("model_id").notNull(), // upstream id: "glm-5.3-flash"
+    // What clients may call it as (endpoint alias): "theta", "glm-5.3" etc.
     alias: text("alias"),
     // public → listed on /models; private → routable but hidden.
     visibility: text("visibility").notNull().default("public"),
@@ -345,15 +380,15 @@ export const upstreamModels = pgTable(
 );
 
 // ── Plan entitlements: per-plan, per-model, per-window usage caps ──
-// E.g. bigpro → qwen-3.8: 100 requests / 5h; theta: 500 requests / 5h.
+// E.g. an enterprise tier → glm-5.3: 400 requests / 5h.
 // Windows as hours (5, 24, 168) generalize 5h/daily/weekly. The gateway
 // enforces these from usage_ledger aggregates (no separate counters).
 export const planModelLimits = pgTable(
   "plan_model_limits",
   {
     id: text("id").primaryKey(),
-    plan: text("plan").notNull(), // matches subscriptions.plan ("basic","advanced","bigpro"...)
-    endpointModel: text("endpoint_model").notNull(), // "qwen-3.8" | "theta" | "glm-5.3" | fleet alias
+    plan: text("plan").notNull(), // matches subscriptions.plan ("trial","starter","pro", …)
+    endpointModel: text("endpoint_model").notNull(), // "theta" | "glm-5.3" | fleet alias
     windowHours: integer("window_hours").notNull(),
     maxRequests: integer("max_requests"),
     maxTokens: bigint("max_tokens", { mode: "number" }),

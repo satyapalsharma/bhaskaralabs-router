@@ -3,12 +3,19 @@
 // model they requested and standard token accounting. Upstream provider
 // identity (model ids, build fingerprints, internal cost/remaining meters,
 // routing metadata) must never reach the client. A blacklist misses unknown
-// upstream fields (e.g. feihoa's system_fingerprint build id); a whitelist
+// upstream fields (e.g. a provider's system_fingerprint build id); a whitelist
 // drops everything we don't explicitly forward.
 
 const OPENAI_TOP = new Set(["id", "object", "created", "model", "choices", "usage"]);
-const OPENAI_CHOICE = new Set(["index", "message", "finish_reason"]);
-const OPENAI_MESSAGE = new Set(["role", "content", "tool_calls", "reasoning_content"]);
+// `delta` belongs here, and its absence was not a missing feature — a streamed
+// choice carries its payload in `delta`, not `message`, so whitelisting only
+// `message` stripped every content fragment from every chunk. The stream still
+// framed correctly, still ended with [DONE], and still reported usage: it just
+// carried nothing. Clients saw an empty answer, and nothing in the gateway's own
+// accounting noticed, because the usage tap reads the raw upstream bytes before
+// this function runs.
+const OPENAI_CHOICE = new Set(["index", "message", "delta", "finish_reason"]);
+const OPENAI_MESSAGE = new Set(["role", "content", "tool_calls", "reasoning_content", "reasoning"]);
 const OPENAI_USAGE = new Set([
   "prompt_tokens",
   "completion_tokens",
@@ -35,6 +42,23 @@ function sanitizeUsage(u: unknown): Record<string, unknown> {
   return usage;
 }
 
+/**
+ * Keep the model's thinking under one canonical name.
+ *
+ * Providers disagree on the field: DeepSeek-derived servers use
+ * `reasoning_content`, Electron Hub uses `reasoning`, and the whitelist above
+ * kept only the first. Dropping `reasoning` is silent — the turn still answers,
+ * it just arrives shorn of its reasoning, and nothing in the response says so.
+ * Renaming rather than forwarding keeps the gateway's contract to clients at
+ * one field name instead of leaking whichever shape the upstream chose.
+ */
+function normalizeReasoning(msg: Record<string, unknown>): void {
+  if (msg.reasoning_content === undefined && typeof msg.reasoning === "string") {
+    msg.reasoning_content = msg.reasoning;
+  }
+  delete msg.reasoning;
+}
+
 /** OpenAI chat-completion (non-stream) response. */
 export function sanitizeOpenAiResponse(json: unknown, endpointModel: string): unknown {
   if (typeof json !== "object" || json === null) return json;
@@ -43,8 +67,16 @@ export function sanitizeOpenAiResponse(json: unknown, endpointModel: string): un
   if (Array.isArray(top.choices)) {
     top.choices = (top.choices as Array<Record<string, unknown>>).map((ch) => {
       const choice = pick(ch, OPENAI_CHOICE);
-      if (choice.message && typeof choice.message === "object") {
-        choice.message = pick(choice.message as Record<string, unknown>, OPENAI_MESSAGE);
+      // A non-streaming choice carries `message`; a streaming one carries
+      // `delta`. They hold the same fields, so they get the same whitelist —
+      // and the same reasoning rename.
+      for (const key of ["message", "delta"] as const) {
+        const container = choice[key];
+        if (container && typeof container === "object") {
+          const picked = pick(container as Record<string, unknown>, OPENAI_MESSAGE);
+          normalizeReasoning(picked);
+          choice[key] = picked;
+        }
       }
       return choice;
     });

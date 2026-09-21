@@ -9,14 +9,14 @@ import { PLANS } from "@bhaskara/shared/pricing";
 import { randomUUID } from "crypto";
 import { eq } from "drizzle-orm";
 
-// Start a checkout for basic/advanced. Currency: inr if region hint says India else usd.
+// Start a checkout for starter/pro. Currency: inr if region hint says India else usd.
 export async function POST(req: Request) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const body = (await req.json().catch(() => ({}))) as { plan?: unknown; coupon?: unknown; currency?: unknown };
-  const plan = body.plan === "basic" || body.plan === "advanced" ? body.plan : null;
-  if (!plan) return NextResponse.json({ error: "plan must be basic or advanced" }, { status: 400 });
+  const plan = body.plan === "starter" || body.plan === "pro" ? body.plan : null;
+  if (!plan) return NextResponse.json({ error: "plan must be starter or pro" }, { status: 400 });
   const currency = body.currency === "inr" ? "inr" : "usd";
 
   const p = PLANS[plan];

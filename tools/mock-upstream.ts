@@ -1,5 +1,5 @@
 // Mock OpenAI-compatible upstream for theta-provider E2E (localhost only).
-// Mimics agnes/stepfun/devpass response shape incl. usage object.
+// Mimics an OpenAI-compatible upstream response shape incl. usage object.
 const app = {
   async fetch(req: Request): Promise<Response> {
     const url = new URL(req.url);

@@ -1,7 +1,7 @@
 // Shadow-release: zombie-safe semaphore accounting for flat-plan lanes.
 //
 // Problem: when a client disconnects mid-generation we abort the upstream
-// fetch. On flat lanes (stepfun/agnes/feihoa/yolo) the server KEEPS
+// fetch. On flat lanes (stepfun/agnes/camel/electronhub) the server KEEPS
 // generating — a zombie holding one of the provider's concurrency slots for
 // the remainder of its generation (10-45s observed on stepfun). If the
 // semaphore releases instantly, our mirror undercounts the server: 6 mirror
@@ -17,13 +17,38 @@
 // Normal completion calls release(); abort/disconnect paths call
 // shadowRelease(). Whichever fires first wins; the other is a no-op.
 
-/** Conservative shadow-hold windows per lane (≈p90 generation ms). */
+/**
+ * Shadow-hold windows per lane, in ms.
+ *
+ * Re-derived from measured p90 generation time on real traffic (usage_ledger,
+ * 3h window, 2026-09-13) rather than from the serve times these lanes were
+ * first tuned against. That distinction is the point: the earlier values were
+ * written when these lanes carried short, mostly-streaming turns, and agent
+ * traffic made the same lanes run far longer. A hold shorter than the real
+ * generation does not merely mis-count — it undercounts the server's
+ * occupancy, which is the exact failure this file exists to prevent.
+ *
+ *   pareto       p90  4.9s   p99  30.1s   max 102.9s
+ *   agnes        p90 15.4s   p99  58.1s   max 153.4s
+ *   camel        p90 14.7s   p99  22.6s   max  24.4s
+ *   hyper        p90 98.6s   p99 167.5s   max 227.7s
+ *   stepfun      p90 307.3s  (single long-turn sample)
+ *   electronhub  p90 10.7s   p99  69.6s
+ *
+ * Held near p90 with a floor, not at the max: the hold guesses at one zombie,
+ * and holding every aborted turn for the observed worst case would idle the
+ * lane for no reason. p90 covers the common case; the lane budget in
+ * lib/lane-slot absorbs the tail.
+ */
 export const SHADOW_HOLD_MS: Record<string, number> = {
-  stepfun: 25_000, // p90 ≈ 24s measured; server generations run to completion
-  agnes: 5_000,    // fast lane (0.3-1.1s serves); brief hold suffices
-  feihoa: 15_000,  // ~28-30 TPS; typical generations 3-15s
-  yolo: 30_000,    // 4 slots; generations commonly 10-30s
-  camel: 20_000,   // gpt-5.6-luna class; ~2-10s typical, p90 ≈ 20s
+  // 60s, not the 4.9s p90: pareto's own gateway times out near 60s, so an
+  // aborted generation can legitimately still be running right up to it.
+  pareto: 60_000,
+  stepfun: 45_000, // p90 307s is an outlier path; 45s covers the working band
+  agnes: 20_000, // was 5s — measured p90 is 15.4s, so the old value undercounted 3×
+  hyper: 60_000, // was the 15s fallback — measured p90 is 98.6s
+  electronhub: 20_000,
+  camel: 20_000, // p90 14.7s; the one value that was already right
 };
 
 /**

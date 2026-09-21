@@ -1,47 +1,80 @@
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 
-// Typography primitives for academics articles. Articles are authored as TSX
-// modules under app/academics/_content using these components directly, so no
-// markdown compiler is needed. If `@next/mdx` is adopted later, pass this map
-// as `components={mdxComponents}` — the tag keys already match MDX names.
+/**
+ * Typography for academics articles. The series is the reading surface
+ * of the site, so it gets the most generous rhythm: serif headings,
+ * measured prose, hairlines only where a pause is earned.
+ *
+ * Articles are authored as TSX modules under app/academics/_content using
+ * these components. The keys in `mdxComponents` match MDX tag names, so if
+ * @next/mdx is adopted later the same map can be passed straight through.
+ */
 
 type P = { children?: ReactNode; className?: string };
 
 export function H1({ children }: P) {
-  return <h1 className="text-3xl font-bold tracking-tight text-zinc-50">{children}</h1>;
+  return <h1 className="display">{children}</h1>;
 }
 
 export function H2({ children }: P) {
-  return <h2 className="pt-4 text-xl font-semibold text-zinc-100">{children}</h2>;
+  return (
+    <h2 className="claim mt-14 border-t border-rule pt-8 first:mt-0 first:border-t-0 first:pt-0">
+      {children}
+    </h2>
+  );
 }
 
 export function H3({ children }: P) {
-  return <h3 className="pt-2 text-base font-semibold text-zinc-100">{children}</h3>;
+  return <h3 className="subhead mt-9">{children}</h3>;
 }
 
 export function Para({ children }: P) {
-  return <p className="leading-relaxed text-zinc-400">{children}</p>;
+  return (
+    <p className="measure mt-5 text-[1.0625rem] leading-[1.75] text-ink-soft">
+      {children}
+    </p>
+  );
 }
 
 export function Lead({ children }: P) {
-  return <p className="text-base leading-relaxed text-zinc-500">{children}</p>;
+  return (
+    <p className="lede measure mt-6 text-[1.125rem]">{children}</p>
+  );
 }
 
 export function UL({ children }: P) {
-  return <ul className="list-disc space-y-2 pl-6 text-zinc-400">{children}</ul>;
+  return (
+    <ul className="measure mt-5 space-y-3 pl-0 text-[1.0625rem] leading-[1.7] text-ink-soft">
+      {children}
+    </ul>
+  );
 }
 
 export function OL({ children }: P) {
-  return <ol className="list-decimal space-y-2 pl-6 text-zinc-400">{children}</ol>;
+  return (
+    <ol className="measure mt-5 list-decimal space-y-3 pl-5 text-[1.0625rem] leading-[1.7] text-ink-soft">
+      {children}
+    </ol>
+  );
 }
 
 export function LI({ children }: ComponentPropsWithoutRef<"li">) {
-  return <li className="leading-relaxed">{children}</li>;
+  return (
+    <li className="relative pl-5">
+      {/* Hairline marker for unordered items. Ordered lists get the
+          browser's own numerals, so the dash is hidden inside an ol. */}
+      <span
+        aria-hidden
+        className="absolute left-0 top-[0.7em] h-px w-3 bg-accent [ol_&]:hidden"
+      />
+      {children}
+    </li>
+  );
 }
 
 export function BodyLink({ children, ...rest }: ComponentPropsWithoutRef<"a">) {
   return (
-    <a className="text-amber-400 underline hover:text-amber-300" {...rest}>
+    <a className="prose-link" {...rest}>
       {children}
     </a>
   );
@@ -49,7 +82,7 @@ export function BodyLink({ children, ...rest }: ComponentPropsWithoutRef<"a">) {
 
 export function InlineCode({ children }: P) {
   return (
-    <code className="rounded bg-zinc-800/80 px-1.5 py-0.5 font-mono text-[0.85em] text-zinc-200">
+    <code className="whitespace-nowrap rounded-xs border border-rule bg-sunken px-1.5 py-0.5 font-mono text-[0.85em] text-ink">
       {children}
     </code>
   );
@@ -57,16 +90,18 @@ export function InlineCode({ children }: P) {
 
 export function CodeBlock({ children }: P) {
   return (
-    <pre className="overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 font-mono text-[13px] leading-relaxed text-zinc-200">
-      {children}
-    </pre>
+    <div className="machine my-6 overflow-hidden">
+      <pre className="overflow-x-auto px-4 py-3.5 font-mono text-[0.8125rem] leading-relaxed text-machine-soft">
+        {children}
+      </pre>
+    </div>
   );
 }
 
 export function Quote({ children }: P) {
   return (
-    <blockquote className="border-l-2 border-amber-500/60 pl-4 italic text-zinc-400">
-      {children}
+    <blockquote className="measure my-6 border-l-2 border-accent pl-5">
+      <div className="subhead text-ink">{children}</div>
     </blockquote>
   );
 }
@@ -79,19 +114,33 @@ export function Callout({
   children: ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900/40 p-5 text-sm">
-      {title ? <p className="font-semibold text-zinc-100">{title}</p> : null}
-      <div className="mt-1 leading-relaxed text-zinc-400">{children}</div>
+    <aside className="my-8 border border-rule bg-panel p-5">
+      {title && <p className="label text-accent-deep">{title}</p>}
+      <div className="measure mt-3 text-[0.9375rem] leading-relaxed text-ink-soft">
+        {children}
+      </div>
+    </aside>
+  );
+}
+
+/**
+ * A key figure worth isolating: one number or fact the reader should
+ * carry away. Rendered as a filed fact rather than a shout.
+ */
+export function Fact({ children }: P) {
+  return (
+    <div className="my-7 flex flex-wrap items-baseline gap-x-4 gap-y-1 border-y border-rule py-4">
+      <span className="label text-ink-faint">Key fact</span>
+      <span className="font-mono text-[0.9375rem] text-ink">{children}</span>
     </div>
   );
 }
 
-// Wraps a full article body with consistent vertical rhythm.
+/** Wraps an article body with a consistent vertical rhythm. */
 export function Prose({ children }: { children: ReactNode }) {
-  return <div className="mt-8 space-y-5 text-[15px]">{children}</div>;
+  return <div className="mt-12">{children}</div>;
 }
 
-// Tag map for a future MDX provider (`components={mdxComponents}`).
 export const mdxComponents = {
   h1: H1,
   h2: H2,

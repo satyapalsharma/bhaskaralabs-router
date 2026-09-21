@@ -18,6 +18,7 @@
     "test:watch": "bun --watch src/test/run-all.test.ts",
     "test:auth": "bun src/test/auth.test.ts",
     "test:providers": "bun src/test/providers.test.ts",
-    "test:prefix": "bun src/test/prefix.test.ts"
+    "test:prefix": "bun src/test/prefix.test.ts",
+    "ua:report": "bun scripts/ua-report.ts"
   }
 }

@@ -13,6 +13,7 @@
 import { db } from "../db";
 import { upstreamProviders, upstreamAccounts, upstreamModels } from "../db/schema";
 import { eq, and } from "drizzle-orm";
+import { registerUpstreamRates } from "@bhaskara/shared/metering";
 
 export interface UpstreamAccount {
   id: string;
@@ -118,8 +119,38 @@ export async function getFleet(force = false): Promise<Map<string, UpstreamProvi
       cacheReadUsdPerM: Number(m.cacheReadUsdPerM),
     });
   }
+  registerFleetRates(providers);
   snapshot = { providers, at: Date.now() };
   return providers;
+}
+
+/**
+ * Publish the fleet's rate cards to the metering layer.
+ *
+ * The ledger values a turn from a compiled rate table that only knows the
+ * hardcoded lanes, so a fleet provider with no entry there books at $0. That is
+ * correct for a flat lane and wrong for every metered one — Openference's 200
+ * turns of GLM-5.3 were recorded as free for exactly this reason. Registering
+ * here, on each fleet load, keeps the ledger's number in step with the admin
+ * panel's rate card instead of with a table that stopped being updated when
+ * providers moved into the database.
+ *
+ * A flat lane is registered as zero rather than skipped: the flag is what
+ * decides flat pricing in the metering layer, and it should be the fleet's
+ * answer, not a hardcoded list's.
+ */
+function registerFleetRates(providers: Map<string, UpstreamProviderConfig>): void {
+  for (const p of providers.values()) {
+    const cards: Record<string, { input: number; output: number; cacheHit?: number }> = {};
+    for (const m of p.models) {
+      cards[m.modelId] = {
+        input: p.billing === "flat" ? 0 : m.inputUsdPerM,
+        output: p.billing === "flat" ? 0 : m.outputUsdPerM,
+        cacheHit: p.billing === "flat" ? 0 : m.cacheReadUsdPerM,
+      };
+    }
+    registerUpstreamRates(p.id, cards);
+  }
 }
 
 /** Public models for the client-facing /v1/models endpoint (visibility=public). */

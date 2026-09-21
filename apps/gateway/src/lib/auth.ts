@@ -4,7 +4,7 @@
 
 import { db } from "../db";
 import { apiKeys, user as users, subscriptions } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { createHash, randomBytes } from "node:crypto";
 
 export interface AuthContext {
@@ -37,11 +37,19 @@ export async function authenticate(bearer: string | null): Promise<AuthContext |
   const userRows = await db.select().from(users).where(eq(users.id, key.userId)).limit(1);
   const user = userRows[0];
   if (!user) return null;
-  // latest active subscription defines the plan; fall back to user.plan
+  // Latest active subscription defines the plan; fall back to user.plan.
+  //
+  // The ordering and the status filter are both load-bearing. Without them this
+  // was `.limit(1)` over an unordered set, which returns whichever row the
+  // planner happens to reach first — in practice the oldest, so the first plan a
+  // user ever bought would keep overriding every one after it. Upgrading a
+  // subscription then looked like it had silently done nothing: the row was
+  // correct in the table and the request was still served on the old plan.
   const subRows = await db
     .select()
     .from(subscriptions)
-    .where(eq(subscriptions.userId, user.id))
+    .where(and(eq(subscriptions.userId, user.id), eq(subscriptions.status, "active")))
+    .orderBy(desc(subscriptions.createdAt))
     .limit(1);
   const plan = subRows[0]?.plan ?? user.plan;
   return {

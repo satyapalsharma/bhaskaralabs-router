@@ -10,7 +10,7 @@ import { eq } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
-// Relay: /login?next=/checkout-start?plan=basic lands here post-auth,
+// Relay: /login?next=/checkout-start?plan=starter lands here post-auth,
 // creates the session server-side and bounces to the PSP (stub: /checkout/mock).
 export default async function CheckoutStart({
   searchParams,
@@ -19,7 +19,7 @@ export default async function CheckoutStart({
 }) {
   const session = await auth.api.getSession({ headers: await headers() });
   const sp = await searchParams;
-  const plan = sp.plan === "advanced" ? "advanced" : sp.plan === "basic" ? "basic" : null;
+  const plan = sp.plan === "pro" ? "pro" : sp.plan === "starter" ? "starter" : null;
   if (!plan) redirect("/plans");
   if (!session?.user) redirect(`/login?next=${encodeURIComponent(`/checkout-start?plan=${plan}${sp.coupon ? `&coupon=${sp.coupon}` : ""}`)}`);
   const p = PLANS[plan];

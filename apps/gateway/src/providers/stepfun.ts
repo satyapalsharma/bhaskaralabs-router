@@ -22,7 +22,7 @@ export const STEPFUN_MAX_CONCURRENCY = 6;
 let stepfunInFlight = 0;
 
 /** 429 throttle: server said concurrency-full. Cool the lane briefly so the
- *  failover retry lands on yolo/hyper instead of hammering stepfun again
+ *  failover retry lands on the next lane instead of hammering stepfun again
  *  (observed 317 429s vs 259 served = 122% waste, 2026-09-04). */
 let throttleUntil = 0;
 /** True when stepfun has a free generation slot AND isn't in 429 cooldown. */

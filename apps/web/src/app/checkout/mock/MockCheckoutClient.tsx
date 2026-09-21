@@ -3,10 +3,18 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function MockCheckoutClient({ sessionId, pending }: { sessionId: string; pending: boolean }) {
+export default function MockCheckoutClient({
+  sessionId,
+  pending,
+}: {
+  sessionId: string;
+  pending: boolean;
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-  const [state, setState] = useState<"idle" | "paid" | "error">(pending ? "idle" : "paid");
+  const [state, setState] = useState<"idle" | "paid" | "error">(
+    pending ? "idle" : "paid",
+  );
   const [msg, setMsg] = useState("");
   const [coupon, setCoupon] = useState("");
   const [couponMsg, setCouponMsg] = useState("");
@@ -22,9 +30,9 @@ export default function MockCheckoutClient({ sessionId, pending }: { sessionId: 
       });
       const data = (await res.json()) as { ok?: boolean; error?: string };
       if (data.ok) {
-        setCouponMsg("Applied ✓");
-        router.refresh(); // re-render server totals
-      } else setCouponMsg(data.error ?? "failed");
+        setCouponMsg("Applied.");
+        router.refresh();
+      } else setCouponMsg(data.error ?? "That code was not accepted.");
     } finally {
       setBusy(false);
     }
@@ -44,11 +52,11 @@ export default function MockCheckoutClient({ sessionId, pending }: { sessionId: 
         setState("paid");
         setTimeout(() => router.push("/dashboard"), 900);
       } else {
-        setMsg(data.error ?? "something went wrong");
+        setMsg(data.error ?? "Something went wrong on our side.");
         setState("error");
       }
     } catch {
-      setMsg("network error");
+      setMsg("Network error. Try again.");
       setState("error");
     } finally {
       setBusy(false);
@@ -57,9 +65,13 @@ export default function MockCheckoutClient({ sessionId, pending }: { sessionId: 
 
   if (state === "paid") {
     return (
-      <div className="mt-6 rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-300">
-        ✓ Activated — redirecting to your dashboard…
-      </div>
+      <p
+        role="status"
+        className="mt-6 flex items-center gap-2 border border-ok bg-ok-soft px-4 py-3 text-[0.875rem] text-ok"
+      >
+        <span className="dot" />
+        Activated. Taking you to the dashboard…
+      </p>
     );
   }
 
@@ -67,32 +79,48 @@ export default function MockCheckoutClient({ sessionId, pending }: { sessionId: 
     <div className="mt-6">
       {pending && (
         <>
-          <div className="flex gap-2">
+          <label htmlFor="coupon" className="label text-ink-faint">
+            Coupon code · optional
+          </label>
+          <div className="mt-3 flex gap-2">
             <input
+              id="coupon"
               value={coupon}
               onChange={(e) => setCoupon(e.target.value)}
-              placeholder="Coupon code (optional)"
-              className="flex-1 rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm uppercase"
+              placeholder="LAUNCH50"
+              className="field flex-1 font-mono uppercase"
             />
             <button
+              type="button"
               onClick={applyCoupon}
               disabled={busy || !coupon.trim()}
-              className="rounded-md border border-zinc-700 px-3 py-2 text-sm hover:border-zinc-500 disabled:opacity-50 transition-colors"
+              className="btn btn-outline"
             >
               Apply
             </button>
           </div>
-          {couponMsg && <p className="mt-1.5 text-xs text-zinc-400">{couponMsg}</p>}
+          {couponMsg && (
+            <p className="mt-2 font-mono text-[0.6875rem] text-ink-mute">
+              {couponMsg}
+            </p>
+          )}
         </>
       )}
+
       <button
+        type="button"
         onClick={pay}
         disabled={busy}
-        className="mt-3 w-full rounded-md bg-emerald-500 px-4 py-2.5 font-medium text-zinc-950 hover:bg-emerald-400 disabled:opacity-50 transition-colors"
+        className="btn btn-primary mt-4 w-full"
       >
-        {busy ? "Processing…" : "Pay & activate (stub)"}
+        {busy ? "Processing…" : "Pay and activate"}
       </button>
-      {state === "error" && <p className="mt-2 text-sm text-red-400">{msg}</p>}
+
+      {state === "error" && (
+        <p role="alert" className="mt-3 text-[0.8125rem] text-danger">
+          {msg}
+        </p>
+      )}
     </div>
   );
 }

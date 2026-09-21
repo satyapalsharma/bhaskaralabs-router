@@ -9,14 +9,14 @@ import MockCheckoutClient from "./MockCheckoutClient";
 
 export const dynamic = "force-dynamic";
 
-// Stub PSP page. In production this route never renders — Stripe/Razorpay host
-// checkout on their domains and confirm via webhook.
+// Stub PSP page. In production this route never renders — Stripe and Razorpay
+// host checkout on their own domains and confirm by webhook.
 export default async function MockCheckoutPage({
   searchParams,
 }: {
   searchParams: Promise<{ session?: string }>;
 }) {
-  if (paymentMode() !== "stub") redirect("/plans"); // real PSPs don't use this page
+  if (paymentMode() !== "stub") redirect("/plans");
 
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) redirect("/login");
@@ -24,41 +24,62 @@ export default async function MockCheckoutPage({
   const { session: sid } = await searchParams;
   if (!sid) redirect("/plans");
 
-  const rows = await db.select().from(checkoutSessions).where(eq(checkoutSessions.id, sid)).limit(1);
+  const rows = await db
+    .select()
+    .from(checkoutSessions)
+    .where(eq(checkoutSessions.id, sid))
+    .limit(1);
   const cs = rows[0];
   if (!cs || cs.userId !== session.user.id) redirect("/plans");
 
+  const isInr = cs.currency.toUpperCase() === "INR";
+
   return (
-    <main className="mx-auto max-w-md px-6 py-24">
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-lg font-semibold">Checkout</h1>
-          <span className="rounded-full border border-zinc-700 px-2.5 py-0.5 text-[10px] uppercase tracking-widest text-zinc-500">
-            stub mode
-          </span>
-        </div>
-        <p className="mt-1 text-sm text-zinc-500">
-          Payments processor integration pending keys — this page simulates the PSP-hosted flow
-          end-to-end. No card, no charge.
-        </p>
-        <dl className="mt-6 space-y-2 text-sm">
-          <div className="flex justify-between">
-            <dt className="text-zinc-400">Plan</dt>
-            <dd className="font-medium capitalize">{cs.plan}</dd>
-          </div>
-          {Number(cs.discountUsd) > 0 && (
-            <div className="flex justify-between">
-              <dt className="text-zinc-400">Discount ({cs.couponCode})</dt>
-              <dd className="text-emerald-400">−${cs.discountUsd}</dd>
-            </div>
-          )}
-          <div className="flex justify-between border-t border-zinc-800 pt-2">
-            <dt className="text-zinc-400">Total (first cycle)</dt>
-            <dd className="text-lg font-semibold">${cs.priceUsd} {cs.currency.toUpperCase() === "INR" ? "≈ ₹" + (Number(cs.priceUsd) * 100).toLocaleString() : ""}</dd>
-          </div>
-        </dl>
-        <MockCheckoutClient sessionId={cs.id} pending={cs.status === "pending"} />
+    <main className="mx-auto max-w-lg px-5 py-16 sm:px-6 sm:py-24">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="subhead">Checkout</h1>
+        <span className="tag tag-warn">
+          <span className="dot" />
+          Stub mode
+        </span>
       </div>
+      <p className="measure mt-4 text-[0.875rem] leading-relaxed text-ink-mute">
+        The payment processor is pending keys, so this page simulates the hosted
+        flow end to end. No card is charged.
+      </p>
+
+      <dl className="mt-8">
+        <div className="flex items-baseline justify-between gap-6 border-b border-rule py-3.5">
+          <dt className="label text-ink-faint">Plan</dt>
+          <dd className="font-mono text-[0.875rem] capitalize text-ink">
+            {cs.plan}
+          </dd>
+        </div>
+        {Number(cs.discountUsd) > 0 && (
+          <div className="flex items-baseline justify-between gap-6 border-b border-rule py-3.5">
+            <dt className="label text-ink-faint">
+              Discount · {cs.couponCode}
+            </dt>
+            <dd className="num font-mono text-[0.875rem] text-ok">
+              −${cs.discountUsd}
+            </dd>
+          </div>
+        )}
+        <div className="flex items-baseline justify-between gap-6 py-4">
+          <dt className="label text-ink-faint">Total, first cycle</dt>
+          <dd className="num font-mono text-[1.25rem] font-medium text-ink">
+            ${cs.priceUsd}
+            {isInr && (
+              <span className="ml-2 text-[0.8125rem] font-normal text-ink-mute">
+                ≈ ₹
+                {(Number(cs.priceUsd) * 100).toLocaleString("en-IN")}
+              </span>
+            )}
+          </dd>
+        </div>
+      </dl>
+
+      <MockCheckoutClient sessionId={cs.id} pending={cs.status === "pending"} />
     </main>
   );
 }

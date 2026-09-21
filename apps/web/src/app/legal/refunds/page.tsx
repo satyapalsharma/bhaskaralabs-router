@@ -22,20 +22,20 @@ export default function RefundsPage() {
       <Section heading="Mid-cycle problems">
         <ul className="list-disc space-y-1 pl-5">
           <li>
-            <strong className="text-zinc-200">Service down &gt; 24 hours continuously</strong> (planned
+            <strong>Service down &gt; 24 hours continuously</strong> (planned
             maintenance excluded, announced 24h ahead): pro-rata credit or refund for the downtime day, your
             choice.
           </li>
           <li>
-            <strong className="text-zinc-200">Billing errors</strong> (charged twice, wrong plan price,
+            <strong>Billing errors</strong> (charged twice, wrong plan price,
             coupon honoured then revoked): corrected and refunded within 5 business days.
           </li>
           <li>
-            <strong className="text-zinc-200">We terminate your account for a breach by you</strong>: no
+            <strong>We terminate your account for a breach by you</strong>: no
             refund for the remainder of the cycle except where consumer law requires one.
           </li>
           <li>
-            <strong className="text-zinc-200">We terminate for convenience or end-of-cohort</strong>: full
+            <strong>We terminate for convenience or end-of-cohort</strong>: full
             pro-rata refund of the unused period.
           </li>
         </ul>

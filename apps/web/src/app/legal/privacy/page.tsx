@@ -20,17 +20,17 @@ export default function PrivacyPage() {
 
       <Section heading="Data we collect">
         <p>
-          <strong className="text-zinc-200">Account data:</strong> your name, email address, and avatar from
+          <strong>Account data:</strong> your name, email address, and avatar from
           GitHub (or the email you sign up with), hashed passwords where relevant, plan and billing history,
           and cohort/gate status.
         </p>
         <p>
-          <strong className="text-zinc-200">Usage metadata:</strong> per-request records — model endpoint,
+          <strong>Usage metadata:</strong> per-request records — model endpoint,
           routing tier, token counts, cached/reasoning token counts, latency, time-to-first-token, and
           computed costs. This is what powers your dashboard quota cards and our margin accounting.
         </p>
         <p>
-          <strong className="text-zinc-200">Prompt and completion content:</strong> only when your account
+          <strong>Prompt and completion content:</strong> only when your account
           has training use enabled (see section below). Your dashboard switch controls this, and it takes
           effect on your very next request.
         </p>
@@ -38,14 +38,14 @@ export default function PrivacyPage() {
 
       <Section heading="Prompt content retention — the short version">
         <p>
-          With <strong className="text-zinc-200">training use ON</strong>: prompts and completions are
+          With <strong>training use ON</strong>: prompts and completions are
           retained to improve our systems and to train our models, for up to 30 months, in our
           India-hosted database, encrypted at rest.
         </p>
         <p>
-          With <strong className="text-zinc-200">training use OFF</strong>: your request content is passed
+          With <strong>training use OFF</strong>: your request content is passed
           through to the upstream inference provider for the duration of the call and is{" "}
-          <strong className="text-zinc-200">not written to our store</strong>. We retain only the usage
+          <strong>not written to our store</strong>. We retain only the usage
           metadata (token counts, timings) needed to bill and operate the service. Upstream providers we
           contract with are required to be zero-data-retention for pass-through traffic.
         </p>

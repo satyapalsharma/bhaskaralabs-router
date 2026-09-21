@@ -1,26 +1,47 @@
-// Quota tracking: frontier token caps (monthly) + theta rate windows (5h rolling + monthly).
-// Backed by usage_ledger aggregation — simple and correct; rate_windows table optimizes later.
+// Quota tracking.
+//
+// Quotas are counted in REQUESTS, not tokens, for both products. That is the
+// promise the pricing page makes ("300 requests / 5 hours") and it is the only
+// unit a user can predict: with token quotas a single 1M-context glm turn can
+// silently consume a month of allowance.
+//
+// The cost that a call cap cannot bound is glm-5.3 context: one call may carry
+// a million tokens. So glm-5.3 carries a second cap on total tokens per window.
+// Two caps, two failure modes: the call cap protects the provider relationship,
+// the token cap protects the margin.
+//
+// Backed by usage_ledger aggregation. Simple and correct; a dedicated
+// rate_windows table optimises later if the aggregate becomes hot.
 
 import { db } from "../db";
-import { usageLedger, rateWindows, apiKeys } from "../db/schema";
+import { usageLedger, apiKeys } from "../db/schema";
 import { and, eq, gte, sql } from "drizzle-orm";
-import { PLANS } from "@bhaskara/shared/pricing";
+import { PLANS, THROTTLE, type Plan, type PlanId } from "@bhaskara/shared/pricing";
 
 export interface QuotaState {
-  frontierInUsed: number;
-  frontierOutUsed: number;
+  /** glm-5.3 calls in the trailing window. */
+  glmThisWindow: number;
+  /** glm-5.3 total tokens in the trailing window. */
+  glmTokensThisWindow: number;
+  /** theta calls in the trailing window. */
+  thetaThisWindow: number;
+  /** theta calls this calendar month. */
   thetaThisMonth: number;
-  thetaLast5h: number;
   limits: {
-    frontierInputM: number;
-    frontierOutputM: number;
-    thetaPer5h: number;
-    thetaMonthly: number;
+    thetaPer5h: number | null; // null = unlimited
+    thetaExtraMonthly: number;
+    glmPer5h: number;
+    glmTokensPer5h: number;
   };
-  overFrontierIn: boolean;
-  overFrontierOut: boolean;
-  overTheta5h: boolean;
-  overThetaMonth: boolean;
+  /** theta has no window cap: the throttle replaces it. */
+  unlimitedTheta: boolean;
+  /** Operator key: no cap, no throttle, no rejection. */
+  unlimited: boolean;
+  overThetaWindow: boolean;
+  overGlmCalls: boolean;
+  overGlmTokens: boolean;
+  /** Delay to apply before serving, in ms. 0 = serve immediately. */
+  throttleDelayMs: number;
 }
 
 function monthStart(): Date {
@@ -28,33 +49,60 @@ function monthStart(): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 }
 
-function fiveHoursAgo(): Date {
-  return new Date(Date.now() - 5 * 60 * 60 * 1000);
+function windowStart(): Date {
+  return new Date(Date.now() - THROTTLE.windowHours * 60 * 60 * 1000);
+}
+
+export function planOf(plan: string): Plan {
+  return PLANS[plan as PlanId] ?? PLANS.trial;
+}
+
+/**
+ * The Pro throughput curve, expressed as a delay.
+ *
+ * Below `fullSpeedUntil` calls in the window the turn is served immediately.
+ * Between it and `rejectAfter` the delay ramps linearly to `maxDelayMs`. The
+ * point is to make a runaway agent self-limit: the client sees latency, not an
+ * error, and a human working normally never reaches the ramp.
+ */
+export function throttleDelayMs(requestsInWindow: number, plan: Plan): number {
+  if (plan.unlimited) return 0; // operator key: never throttled
+  if (plan.thetaPer5h !== null) return 0; // no unlimited tier → no throttle
+  const { fullSpeedUntil, rejectAfter, minDelayMs, maxDelayMs } = THROTTLE;
+  if (requestsInWindow <= fullSpeedUntil) return 0;
+  const over = Math.min(requestsInWindow, rejectAfter) - fullSpeedUntil;
+  const span = Math.max(1, rejectAfter - fullSpeedUntil);
+  const t = over / span;
+  return Math.round(minDelayMs + t * (maxDelayMs - minDelayMs));
 }
 
 export async function getQuotaState(userId: string, plan: string): Promise<QuotaState> {
-  const p = PLANS[plan as keyof typeof PLANS] ?? PLANS.free;
+  const p = planOf(plan);
   const since = monthStart();
-  const since5h = fiveHoursAgo();
+  const sinceWindow = windowStart();
 
-  const frontierRows = await db
+  const glmRows = await db
     .select({
-      in: sql<number>`coalesce(sum(${usageLedger.promptTokens}), 0)`,
-      out: sql<number>`coalesce(sum(${usageLedger.completionTokens}), 0)`,
+      calls: sql<number>`count(*) filter (where ${usageLedger.createdAt} >= ${sinceWindow.toISOString()})`,
+      tokens: sql<number>`coalesce(sum(
+        case when ${usageLedger.createdAt} >= ${sinceWindow.toISOString()}
+          then ${usageLedger.promptTokens} + ${usageLedger.completionTokens}
+          else 0 end
+      ), 0)`,
     })
     .from(usageLedger)
     .where(
       and(
         eq(usageLedger.userId, userId),
-        sql`${usageLedger.endpointModel} in ('glm-5.3', 'qwen-3.8')`,
-        gte(usageLedger.createdAt, since)
-      )
+        eq(usageLedger.endpointModel, "glm-5.3"),
+        gte(usageLedger.createdAt, since),
+      ),
     );
 
   const thetaRows = await db
     .select({
       month: sql<number>`count(*)`,
-      win5h: sql<number>`count(*) filter (where ${usageLedger.createdAt} >= ${since5h.toISOString()})`,
+      win: sql<number>`count(*) filter (where ${usageLedger.createdAt} >= ${sinceWindow.toISOString()})`,
     })
     .from(usageLedger)
     .where(
@@ -65,48 +113,55 @@ export async function getQuotaState(userId: string, plan: string): Promise<Quota
       ),
     );
 
-  const frontierInUsed = Number(frontierRows[0]?.in ?? 0);
-  const frontierOutUsed = Number(frontierRows[0]?.out ?? 0);
+  const glmThisWindow = Number(glmRows[0]?.calls ?? 0);
+  const glmTokensThisWindow = Number(glmRows[0]?.tokens ?? 0);
   const thetaThisMonth = Number(thetaRows[0]?.month ?? 0);
-  const thetaLast5h = Number(thetaRows[0]?.win5h ?? 0);
+  const thetaThisWindow = Number(thetaRows[0]?.win ?? 0);
 
-  const capIn = p.frontierInputM * 1e6;
-  const capOut = p.frontierOutputM * 1e6;
+  const unlimitedTheta = p.thetaPer5h === null;
+  const thetaCap = p.thetaPer5h ?? Number.POSITIVE_INFINITY;
 
   return {
-    frontierInUsed,
-    frontierOutUsed,
+    glmThisWindow,
+    glmTokensThisWindow,
+    thetaThisWindow,
     thetaThisMonth,
-    thetaLast5h,
     limits: {
-      frontierInputM: p.frontierInputM,
-      frontierOutputM: p.frontierOutputM,
       thetaPer5h: p.thetaPer5h,
-      thetaMonthly: p.thetaMonthly,
+      thetaExtraMonthly: p.thetaExtraMonthly,
+      glmPer5h: p.glmPer5h,
+      glmTokensPer5h: p.glmTokensPer5h,
     },
-    overFrontierIn: frontierInUsed >= capIn,
-    overFrontierOut: frontierOutUsed >= capOut,
-    // thetaPer5h === 0 means "no rolling window cap" (monthly ceiling governs).
-    overTheta5h: p.thetaPer5h > 0 ? thetaLast5h >= p.thetaPer5h : false,
-    overThetaMonth: thetaThisMonth >= p.thetaMonthly,
+    unlimitedTheta,
+    unlimited: p.unlimited === true,
+    // An unlimited tier is never blocked by the window — it is throttled.
+    overThetaWindow: unlimitedTheta ? false : thetaThisWindow >= thetaCap,
+    overGlmCalls: glmThisWindow >= p.glmPer5h,
+    overGlmTokens: glmTokensThisWindow >= p.glmTokensPer5h,
+    throttleDelayMs: throttleDelayMs(thetaThisWindow, p),
   };
 }
 
-// ── Trial velocity gate (farm friction): FREE-plan keys younger than
-// TRIAL_AGE_H hours may not burn more than TRIAL_HOURLY_TOKENS per rolling
-// hour. Paid plans are NEVER gated here (quotas + rate windows + abuse
-// alerts own whales; a fresh key ≠ a farm — observed 2026-09-08: advanced
-// user, 1-day-old key, 16M theta tokens/2h on flat lanes). Env-tuned,
-// fail-open on DB error.
+// ── Trial velocity gate ──
+// Farm friction: trial keys younger than TRIAL_AGE_H hours may not burn more
+// than TRIAL_HOURLY_TOKENS per rolling hour. Paid plans are never gated here —
+// their quotas and rate windows own that, and a fresh key is not evidence of a
+// farm (observed 2026-09-08: a paid user with a 1-day-old key legitimately ran
+// 16M theta tokens in two hours). Env-tuned, fail-open on DB error.
 const TRIAL_AGE_H = Number(process.env.TRIAL_AGE_H ?? 24);
 const TRIAL_HOURLY_TOKENS = Number(process.env.TRIAL_HOURLY_TOKENS ?? 300_000);
 
 export async function checkTrialVelocity(apiKeyId: string, plan: string): Promise<string | null> {
-  if (plan !== "free") return null;
+  if (plan !== "trial") return null;
   try {
-    const keys = await db.select({ createdAt: apiKeys.createdAt }).from(apiKeys).where(eq(apiKeys.id, apiKeyId)).limit(1);
+    const keys = await db
+      .select({ createdAt: apiKeys.createdAt })
+      .from(apiKeys)
+      .where(eq(apiKeys.id, apiKeyId))
+      .limit(1);
     const born = keys[0]?.createdAt;
     if (!born || Date.now() - born.getTime() > TRIAL_AGE_H * 3600 * 1000) return null;
+
     const rows = await db
       .select({ tok: sql<number>`coalesce(sum(${usageLedger.promptTokens} + ${usageLedger.completionTokens}), 0)` })
       .from(usageLedger)
@@ -122,14 +177,27 @@ export async function checkTrialVelocity(apiKeyId: string, plan: string): Promis
     return null;
   }
 }
+
+/**
+ * The rejection message for a quota-exhausted turn, or null to serve.
+ *
+ * Messages name the window and the reset so a harness can act on them without
+ * parsing a number out of prose, and they never mention the plan's internal
+ * cost structure.
+ */
 export function quotaRejection(state: QuotaState, endpointModel: string): string | null {
-  if (state.overFrontierIn && endpointModel !== "theta")
-    return "Monthly frontier input quota exhausted. Upgrade at https://bhaskaralabs.com/dashboard";
-  if (state.overFrontierOut && endpointModel !== "theta")
-    return "Monthly frontier output quota exhausted. Upgrade at https://bhaskaralabs.com/dashboard";
+  if (state.unlimited) return null; // operator key
   if (endpointModel === "theta") {
-    if (state.overThetaMonth) return "Monthly theta request quota exhausted.";
-    if (state.overTheta5h) return "Theta 5-hour window exhausted — resets automatically. Use frontier models meanwhile.";
+    if (!state.unlimitedTheta && state.overThetaWindow) {
+      return `Theta 5-hour request window exhausted (${state.limits.thetaPer5h} requests). Resets automatically — continue with glm-5.3 meanwhile.`;
+    }
+    return null;
+  }
+  if (state.overGlmCalls) {
+    return `glm-5.3 5-hour request window exhausted (${state.limits.glmPer5h} requests). Resets automatically.`;
+  }
+  if (state.overGlmTokens) {
+    return `glm-5.3 5-hour token budget exhausted (${(state.limits.glmTokensPer5h / 1e6).toFixed(0)}M tokens). Resets automatically.`;
   }
   return null;
 }

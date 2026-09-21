@@ -66,6 +66,25 @@ export function fitUpstreamWindow(
     drop++;
   }
 
+  // Finish the group the cut landed in.
+  //
+  // A `tool` message is only valid immediately after the assistant that issued
+  // its `tool_calls`. If the cut dropped that assistant, the surviving reply is
+  // orphaned and OpenAI-protocol providers reject the whole request:
+  //
+  //   400 Messages with role 'tool' must be a response to a preceding
+  //       message with 'tool_calls'
+  //
+  // This guard drops from the FRONT, so unlike compaction it cannot walk back
+  // — walking back would keep messages it was asked to shed and break the fit
+  // guarantee the caller relies on. Walking FORWARD is the correct direction
+  // here: drop the orphaned replies with their owner. The result fits at least
+  // as well as the un-snapped cut, and stays valid.
+  while (drop < messages.length - minKeep && messages[drop].role === "tool") {
+    running -= msgTokens(messages[drop]);
+    drop++;
+  }
+
   if (drop === firstNonSystem) {
     stats.tokensAfter = running;
     return { messages, stats }; // nothing droppable

@@ -70,5 +70,28 @@ await sql`
 await sql`CREATE INDEX IF NOT EXISTS lessons_status_idx ON learned_lessons (status, created_at)`;
 await sql`CREATE INDEX IF NOT EXISTS lessons_user_idx ON learned_lessons (user_id)`;
 
-console.log("db-ensure: doc_packs, request_archives, learned_lessons OK");
+// Routing causality on the ledger: the `reason` string was stdout-only, so
+// nothing could be calibrated from traffic. These two columns unblock it.
+await sql`ALTER TABLE usage_ledger ADD COLUMN IF NOT EXISTS router_reason TEXT`;
+await sql`ALTER TABLE usage_ledger ADD COLUMN IF NOT EXISTS router_signals TEXT`;
+await sql`CREATE INDEX IF NOT EXISTS usage_endpoint_created_idx ON usage_ledger (endpoint_model, created_at)`;
+
+// Skill cards: measured per-model per-capability success rates (routing asset).
+await sql`
+  CREATE TABLE IF NOT EXISTS skill_cards (
+    id TEXT PRIMARY KEY,
+    model_id TEXT NOT NULL,
+    capability TEXT NOT NULL,
+    success_rate NUMERIC(6,4) NOT NULL,
+    support INTEGER NOT NULL DEFAULT 0,
+    source TEXT NOT NULL DEFAULT 'escalation-derived',
+    confidence TEXT NOT NULL DEFAULT 'low',
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  )`;
+await sql`CREATE UNIQUE INDEX IF NOT EXISTS skill_card_unique ON skill_cards (model_id, capability)`;
+await sql`CREATE INDEX IF NOT EXISTS skill_card_model_idx ON skill_cards (model_id)`;
+
+console.log(
+  "db-ensure: doc_packs, request_archives, learned_lessons, usage_ledger(router_*), skill_cards OK",
+);
 await sql.end();

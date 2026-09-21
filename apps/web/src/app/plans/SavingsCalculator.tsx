@@ -1,140 +1,326 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { FRONTIER_DISPLAY, THETA_DISPLAY, PLANS, ROUTER } from "@bhaskara/shared/pricing";
+import {
+  FRONTIER_DISPLAY,
+  THETA_DISPLAY,
+  PLANS,
+  ROUTER,
+} from "@bhaskara/shared/pricing";
+import { rate, usd } from "@/lib/format";
 
-// All rates come from the single pricing config — no hardcoded numbers in UI.
+/* All rates come from the single pricing config — no hardcoded numbers. */
 
-const fmtUsd = (n: number) =>
-  n >= 100 ? `$${n.toFixed(0)}` : n >= 1 ? `$${n.toFixed(2)}` : `$${n.toFixed(4)}`;
+function Slider({
+  id,
+  label,
+  value,
+  display,
+  min,
+  max,
+  step,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: number;
+  display: string;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-4">
+        <label htmlFor={id} className="label text-ink-faint">
+          {label}
+        </label>
+        <output htmlFor={id} className="num font-mono text-[0.875rem] text-ink">
+          {display}
+        </output>
+      </div>
+      <input
+        id={id}
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="slider mt-3"
+      />
+    </div>
+  );
+}
 
-const fmtM = (tokensM: number) => `${tokensM >= 1 ? tokensM.toFixed(0) : tokensM.toFixed(1)}M`;
+function Figure({
+  label,
+  value,
+  detail,
+  tone = "plain",
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  tone?: "plain" | "signal";
+}) {
+  const signal = tone === "signal";
+  return (
+    <div
+      className={`border-t-2 px-5 py-5 ${
+        signal ? "border-accent bg-accent-soft" : "border-ink bg-panel"
+      }`}
+    >
+      <p className={`label ${signal ? "text-accent-deep" : "text-ink-faint"}`}>
+        {label}
+      </p>
+      <p
+        className={`num mt-3 font-mono text-[1.75rem] font-medium leading-none ${
+          signal ? "text-accent-deep" : "text-ink"
+        }`}
+      >
+        {value}
+      </p>
+      <p className="mt-3 text-[0.75rem] leading-relaxed text-ink-mute">
+        {detail}
+      </p>
+    </div>
+  );
+}
 
 export default function SavingsCalculator() {
-  const [model, setModel] = useState<"glm-5.3" | "qwen-3.8">("glm-5.3");
-  const [tokensM, setTokensM] = useState(25);
-  const [inputShare, setInputShare] = useState(80); // % of tokens that are input
-  const [cacheHit, setCacheHit] = useState(80); // slider, secondary view only
+  const [glmRequests, setGlmRequests] = useState(600);
+  const [contextK, setContextK] = useState(60);
+  const [outputK, setOutputK] = useState(6);
+  const [thetaRequests, setThetaRequests] = useState(6000);
+  const [cacheHit, setCacheHit] = useState(ROUTER.cacheHitAssumption * 100);
   const [showSecondary, setShowSecondary] = useState(false);
 
-  const plan = tokensM <= 25 ? PLANS.basic : PLANS.advanced;
+  const plan = PLANS.pro;
 
   const calc = useMemo(() => {
-    const inM = (tokensM * inputShare) / 100;
-    const outM = tokensM - inM;
-    const rate = FRONTIER_DISPLAY[model];
+    const reads = glmRequests * contextK * 1_000;
+    const writes = glmRequests * outputK * 1_000;
 
-    // Headline: FULL direct-API cost at list rates, no cache discounts —
-    // what you'd pay buying direct with zero engineering.
-    const directCost = inM * rate.input + outM * rate.output;
+    // Bought direct, at list, with no cache engineering at all.
+    const directCost = (reads * FRONTIER_DISPLAY.input + writes * FRONTIER_DISPLAY.output) / 1e6;
 
-    // Secondary view: what DIY caching would cost (same rates, cache-hit share at list cache price)
-    const cacheRate = rate.cacheHit ?? rate.input;
-    const diyCached = inM * (cacheHit / 100) * cacheRate + inM * (1 - cacheHit / 100) * rate.input + outM * rate.output;
+    // The same workload with your own caching in front of it. This is the
+    // honest comparison — nobody buying at these volumes pays full input rate.
+    const cacheRate = FRONTIER_DISPLAY.cacheHit ?? FRONTIER_DISPLAY.input;
+    const diyCached =
+      ((reads * (cacheHit / 100) * cacheRate) +
+        (reads * (1 - cacheHit / 100) * FRONTIER_DISPLAY.input) +
+        writes * FRONTIER_DISPLAY.output) /
+      1e6;
 
-    // theta metered at display rates
-    const thetaCost = inM * THETA_DISPLAY.input + outM * THETA_DISPLAY.output;
+    // theta is metered per request in the plans. This is the display-rate value
+    // of the same traffic, which is what the dashboard shows alongside it.
+    const thetaDisplayValue =
+      (thetaRequests * contextK * 1_000 * THETA_DISPLAY.input +
+        thetaRequests * outputK * 1_000 * THETA_DISPLAY.output) /
+      1e6;
 
-    return { inM, outM, directCost, diyCached, thetaCost };
-  }, [model, tokensM, inputShare, cacheHit]);
+    return { reads, writes, directCost, diyCached, thetaDisplayValue };
+  }, [glmRequests, contextK, outputK, thetaRequests, cacheHit]);
 
-  const savingsPct = Math.max(0, (1 - plan.priceUsd / calc.directCost) * 100);
+  const monthlyUsd = plan.priceUsd;
+  const savingsPct = Math.max(0, (1 - monthlyUsd / calc.directCost) * 100);
+  const savedUsd = calc.directCost - monthlyUsd;
+  const diySavingsPct = Math.max(0, (1 - monthlyUsd / calc.diyCached) * 100);
+
+  // Whether the workload actually fits the plan's window. This is the honest
+  // caveat: a plan is a rate, and a rate has a shape.
+  const perDay = glmRequests / 30;
+  const per5h = perDay * (5 / 24);
+  const fitsWindow = per5h <= plan.glmPer5h;
 
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-6">
-      <h3 className="text-lg font-semibold">What would this cost at direct API rates?</h3>
-      <p className="text-sm text-zinc-400 mt-1">
-        Compare our plan price against buying the same tokens directly — at list rates, no caching tricks.
-      </p>
+    <div className="grid gap-px bg-rule lg:grid-cols-12">
+      {/* ── Controls ─────────────────────────────────────────── */}
+      <div className="min-w-0 bg-panel p-6 lg:col-span-5">
+        <p className="label border-b border-rule pb-4 text-ink-faint">
+          Your month
+        </p>
 
-      {/* Controls */}
-      <div className="mt-6 grid sm:grid-cols-3 gap-6">
-        <label className="text-sm">
-          <span className="text-zinc-400">Model</span>
-          <select
-            value={model}
-            onChange={(e) => setModel(e.target.value as "glm-5.3" | "qwen-3.8")}
-            className="mt-1 w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2"
-          >
-            <option value="glm-5.3">GLM-5.3</option>
-            <option value="qwen-3.8">Qwen-3.8</option>
-          </select>
-        </label>
-        <label className="text-sm">
-          <span className="text-zinc-400">Monthly tokens: <strong className="text-zinc-100">{fmtM(tokensM)}</strong></span>
-          <input
-            type="range" min={1} max={100} value={tokensM}
-            onChange={(e) => setTokensM(Number(e.target.value))}
-            className="mt-3 w-full accent-amber-500"
+        <div className="mt-6 space-y-7">
+          <Slider
+            id="calc-glm-requests"
+            label="glm-5.3 requests"
+            value={glmRequests}
+            display={glmRequests.toLocaleString("en-US")}
+            min={100}
+            max={3000}
+            step={50}
+            onChange={setGlmRequests}
           />
-        </label>
-        <label className="text-sm">
-          <span className="text-zinc-400">Input share: <strong className="text-zinc-100">{inputShare}%</strong></span>
-          <input
-            type="range" min={30} max={95} value={inputShare}
-            onChange={(e) => setInputShare(Number(e.target.value))}
-            className="mt-3 w-full accent-amber-500"
+          <Slider
+            id="calc-theta-requests"
+            label="theta requests"
+            value={thetaRequests}
+            display={thetaRequests.toLocaleString("en-US")}
+            min={1000}
+            max={40000}
+            step={500}
+            onChange={setThetaRequests}
           />
-        </label>
+          <Slider
+            id="calc-context"
+            label="Context per request"
+            value={contextK}
+            display={`${contextK}K tok`}
+            min={5}
+            max={400}
+            step={5}
+            onChange={setContextK}
+          />
+          <Slider
+            id="calc-output"
+            label="Output per request"
+            value={outputK}
+            display={`${outputK}K tok`}
+            min={1}
+            max={60}
+            step={1}
+            onChange={setOutputK}
+          />
+        </div>
+
+        <dl className="mt-7 space-y-2.5 border-t border-rule pt-5 font-mono text-[0.75rem]">
+          {[
+            ["input", `${(calc.reads / 1e6).toFixed(1)}M tok`],
+            ["output", `${(calc.writes / 1e6).toFixed(1)}M tok`],
+            ["glm / 5h", `${per5h.toFixed(1)} req`],
+          ].map(([k, v]) => (
+            <div key={k} className="flex justify-between gap-4">
+              <dt className="text-ink-faint">{k}</dt>
+              <dd className="num text-ink-soft">{v}</dd>
+            </div>
+          ))}
+        </dl>
       </div>
 
-      {/* Headline comparison */}
-      <div className="mt-8 grid sm:grid-cols-3 gap-4">
-        <div className="rounded-lg border border-zinc-800 p-4">
-          <div className="text-xs text-zinc-500 uppercase tracking-wide">Direct API (list rates)</div>
-          <div className="mt-1 text-2xl font-semibold text-zinc-100">{fmtUsd(calc.directCost)}</div>
-          <div className="text-xs text-zinc-500 mt-1">{fmtM(calc.inM)} in + {fmtM(calc.outM)} out, {model}</div>
+      {/* ── Result ───────────────────────────────────────────── */}
+      <div className="min-w-0 bg-panel lg:col-span-7">
+        <div className="grid sm:grid-cols-2">
+          <Figure
+            label="Bought direct, at list"
+            value={usd(calc.directCost)}
+            detail={`${glmRequests.toLocaleString("en-US")} glm-5.3 requests at list rates, no cache discount applied.`}
+          />
+          <Figure
+            label="On the plan"
+            value={`${usd(monthlyUsd)}/mo`}
+            detail={`${plan.id} — ${plan.glmPer5h} glm-5.3 requests and ${(plan.glmTokensPer5h / 1e6).toFixed(0)}M tokens per 5-hour window, plus ${plan.thetaPer5h === null ? "unlimited" : plan.thetaPer5h} theta requests.`}
+          />
         </div>
-        <div className="rounded-lg border border-zinc-800 p-4">
-          <div className="text-xs text-zinc-500 uppercase tracking-wide">Bhaskara plan</div>
-          <div className="mt-1 text-2xl font-semibold text-zinc-100">${plan.priceUsd}/mo</div>
-          <div className="text-xs text-zinc-500 mt-1">{plan.id} plan</div>
-        </div>
-        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4">
-          <div className="text-xs text-amber-500 uppercase tracking-wide">You save</div>
-          <div className="mt-1 text-2xl font-semibold text-amber-400">{savingsPct.toFixed(0)}%</div>
-          <div className="text-xs text-zinc-500 mt-1">{fmtUsd(calc.directCost - plan.priceUsd)} every month</div>
-        </div>
-      </div>
 
-      {/* Secondary view */}
-      <button
-        onClick={() => setShowSecondary(!showSecondary)}
-        className="mt-6 text-sm text-zinc-400 hover:text-zinc-200 transition-colors"
-      >
-        {showSecondary ? "− Hide" : "+ Show"} what it&apos;d cost with your own caching
-      </button>
-      {showSecondary && (
-        <div className="mt-4 rounded-lg border border-zinc-800 p-4 text-sm">
-          <label className="block">
-            <span className="text-zinc-400">Your cache hit rate: <strong className="text-zinc-100">{cacheHit}%</strong></span>
-            <input
-              type="range" min={0} max={100} value={cacheHit}
-              onChange={(e) => setCacheHit(Number(e.target.value))}
-              className="mt-2 w-full accent-amber-500"
-            />
-          </label>
-          <div className="mt-4 grid sm:grid-cols-2 gap-4">
-            <div>
-              <div className="text-xs text-zinc-500 uppercase tracking-wide">Direct API with your caching</div>
-              <div className="mt-1 text-xl font-semibold">{fmtUsd(calc.diyCached)}</div>
-              <p className="text-xs text-zinc-500 mt-1">
-                Still more than the plan — and you&apos;re doing the cache engineering yourself.
-              </p>
-            </div>
-            <div>
-              <div className="text-xs text-zinc-500 uppercase tracking-wide">theta metered equivalent</div>
-              <div className="mt-1 text-xl font-semibold">{fmtUsd(calc.thetaCost)}</div>
-              <p className="text-xs text-zinc-500 mt-1">
-                Same volume on theta at display rates (${THETA_DISPLAY.input}/M in, ${THETA_DISPLAY.output}/M out).
-              </p>
-            </div>
+        <div className="grid border-t border-rule sm:grid-cols-2">
+          <Figure
+            tone="signal"
+            label="Difference"
+            value={`${savingsPct.toFixed(0)}%`}
+            detail={`${usd(savedUsd)} a month, or ${usd(savedUsd * 12)} a year.`}
+          />
+          <div className="border-t-2 border-ink bg-panel px-5 py-5">
+            <p className="label text-ink-faint">Does it fit?</p>
+            <p className="mt-3 text-[0.75rem] leading-relaxed text-ink-mute">
+              {fitsWindow ? (
+                <>
+                  This workload averages{" "}
+                  <span className="num font-mono text-ink-soft">
+                    {per5h.toFixed(1)}
+                  </span>{" "}
+                  glm requests per 5-hour window — inside the plan&rsquo;s{" "}
+                  <span className="num font-mono text-ink-soft">
+                    {plan.glmPer5h}
+                  </span>
+                  .
+                </>
+              ) : (
+                <>
+                  Spread evenly this fits, but a bursty month is a different
+                  question: the cap is{" "}
+                  <span className="num font-mono text-ink-soft">
+                    {plan.glmPer5h}
+                  </span>{" "}
+                  requests per rolling 5 hours. If your work arrives in bursts,
+                  size against the burst, not the average.
+                </>
+              )}
+            </p>
           </div>
-          <p className="mt-4 text-xs text-zinc-600">
-            Defaults use an {ROUTER.cacheHitAssumption * 100}% cache-hit assumption; adjust to your workload.
-          </p>
         </div>
-      )}
+
+        {/* ── Secondary: DIY cache economics ─────────────────── */}
+        <div className="border-t border-rule p-5">
+          <button
+            type="button"
+            onClick={() => setShowSecondary((v) => !v)}
+            aria-expanded={showSecondary}
+            aria-controls="calc-secondary"
+            className="flex w-full items-center justify-between gap-4 text-left"
+          >
+            <span className="text-[0.875rem] font-medium text-ink">
+              If you built the caching yourself
+            </span>
+            <span
+              aria-hidden
+              className={`font-mono text-[0.875rem] text-ink-faint transition-transform duration-200 ${
+                showSecondary ? "rotate-45" : ""
+              }`}
+            >
+              +
+            </span>
+          </button>
+
+          {showSecondary && (
+            <div id="calc-secondary" className="mt-5 space-y-6">
+              <Slider
+                id="calc-cache-hit"
+                label="Your cache hit rate"
+                value={cacheHit}
+                display={`${cacheHit}%`}
+                min={0}
+                max={100}
+                step={1}
+                onChange={setCacheHit}
+              />
+
+              <div className="grid gap-px bg-rule sm:grid-cols-3">
+                <div className="bg-sunken px-4 py-4">
+                  <p className="label text-ink-faint">Your cost</p>
+                  <p className="num mt-2 font-mono text-[1.0625rem] text-ink">
+                    {usd(calc.diyCached)}
+                  </p>
+                </div>
+                <div className="bg-sunken px-4 py-4">
+                  <p className="label text-ink-faint">Against the plan</p>
+                  <p className="num mt-2 font-mono text-[1.0625rem] text-ink">
+                    {diySavingsPct.toFixed(0)}% saved
+                  </p>
+                </div>
+                <div className="bg-sunken px-4 py-4">
+                  <p className="label text-ink-faint">theta, valued</p>
+                  <p className="num mt-2 font-mono text-[1.0625rem] text-ink">
+                    {usd(calc.thetaDisplayValue)}
+                  </p>
+                </div>
+              </div>
+
+              <p className="text-[0.75rem] leading-relaxed text-ink-faint">
+                theta is metered per request in the plans. The figure above is
+                what the same traffic would be worth at theta&rsquo;s display
+                rates (${rate(THETA_DISPLAY.input)}/M in, $
+                {rate(THETA_DISPLAY.output)}/M out) — the number your dashboard
+                shows beside your usage, not a charge. The default cache-hit
+                assumption is {ROUTER.cacheHitAssumption * 100}%.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

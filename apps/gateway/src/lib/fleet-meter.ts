@@ -7,6 +7,7 @@
 import { writeLedger } from "./ledger";
 import { parseUsageNonStream, SseUsageAccumulator } from "../providers/hyper";
 import { recordAccountUsage } from "./account-windows";
+import { getFleet } from "./upstream-config";
 
 export interface FleetMeterCtx {
   userId: string;
@@ -99,4 +100,30 @@ export async function meterFleetResponse(res: Response, ctx: FleetMeterCtx): Pro
     }
   })();
   return new Response(clientBranch, { status: res.status, headers: res.headers });
+}
+
+/**
+ * Router-path fleet turns also feed the account window ring — with REAL cost,
+ * priced from the fleet catalogue. A flat 0 (the earlier behaviour) made the
+ * per-account dailyCostUsd cap blind on exactly the path that carries most of
+ * the traffic, so a $20/day pareto allowance could be overspent silently.
+ * Cached tokens bill at the cache-read rate, uncached at input.
+ */
+export async function meterRouterFleetTurn(
+  providerId: string,
+  accountId: string,
+  upstreamModel: string,
+  prompt: number,
+  completion: number,
+  cached: number,
+): Promise<void> {
+  const fleet = await getFleet().catch(() => null);
+  const model = fleet?.get(providerId)?.models.find((m) => m.modelId === upstreamModel);
+  if (!model) {
+    recordAccountUsage(accountId, prompt + completion, 0);
+    return;
+  }
+  const uncached = Math.max(0, prompt - cached);
+  const cost = (uncached * model.inputUsdPerM + cached * model.cacheReadUsdPerM + completion * model.outputUsdPerM) / 1e6;
+  recordAccountUsage(accountId, prompt + completion, cost);
 }

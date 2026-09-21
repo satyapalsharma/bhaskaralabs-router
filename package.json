@@ -8,9 +8,9 @@
     "cli": "bun apps/web/src/cli.ts",
     "seed": "bun apps/web/seed.ts",
     "typecheck": "tsc --noEmit",
-    "test": "bun apps/gateway/src/test/run-all.test.ts && bun packages/shared/src/pricing.test.ts && bun packages/shared/src/metering.test.ts && bun packages/shared/src/metering-comprehensive.test.ts",
+    "test": "bun apps/gateway/src/test/run-all.test.ts && bun packages/shared/src/pricing.test.ts && bun packages/shared/src/metering.test.ts && bun packages/shared/src/metering-comprehensive.test.ts && bun packages/shared/src/overflow.test.ts",
     "test:gateway": "bun apps/gateway/src/test/run-all.test.ts",
-    "test:shared": "bun packages/shared/src/pricing.test.ts && bun packages/shared/src/metering.test.ts && bun packages/shared/src/metering-comprehensive.test.ts",
+    "test:shared": "bun packages/shared/src/pricing.test.ts && bun packages/shared/src/metering.test.ts && bun packages/shared/src/metering-comprehensive.test.ts && bun packages/shared/src/overflow.test.ts",
     "test:watch": "bun --watch apps/gateway/src/test/run-all.test.ts"
   }
 }

@@ -3,7 +3,7 @@
 //   POST   /api/admin/plans?type=limit          → { plan, endpointModel, windowHours, maxRequests?, maxTokens?, maxCostUsd? }
 //   PATCH  /api/admin/plans?type=limit&id=...   → partial update (incl. active toggle)
 //   DELETE /api/admin/plans?type=limit&id=...   → delete one row
-// Plan slugs are free-text and must match subscriptions.plan ("bigpro"...).
+// Plan slugs are free-text and must match subscriptions.plan ("pro", "starter", …).
 // Windows are hours: 5 (5h), 24 (daily), 168 (weekly).
 import { NextResponse } from "next/server";
 import { requireAdmin, isAdminResponse } from "@/lib/admin";
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
     const plan = String(body.plan ?? "").trim();
     const endpointModel = String(body.endpointModel ?? "").trim();
     if (!plan) return NextResponse.json({ error: "plan required (e.g. bigpro)" }, { status: 400 });
-    if (!endpointModel) return NextResponse.json({ error: "endpointModel required (e.g. qwen-3.8, theta)" }, { status: 400 });
+    if (!endpointModel) return NextResponse.json({ error: "endpointModel required (e.g. glm-5.3, theta)" }, { status: 400 });
     if (!validWindow(body.windowHours)) return NextResponse.json({ error: "windowHours must be one of 1, 5, 24, 168" }, { status: 400 });
     const maxRequests = body.maxRequests == null || body.maxRequests === "" ? null : Number(body.maxRequests);
     const maxTokens = body.maxTokens == null || body.maxTokens === "" ? null : Number(body.maxTokens);

@@ -62,3 +62,32 @@ export function releaseHyperBudget(estUsd: number): void {
   inFlightUsd = Math.max(0, inFlightUsd - Math.max(0, estUsd));
   cachedAt = 0; // force refresh on next read
 }
+
+// Account-level dead-mark, separate from the budget gate. "You're out of
+// credits" is the PROVIDER refusing the account, not our daily cap firing;
+// without a dead-mark every flash turn paid a doomed round-trip to hyper
+// before walking to a metered lane. Streak-backed like agnes: repeated
+// refusals lengthen the cooldown; any success clears it.
+let hyperDeadStreak = 0;
+let hyperDeadUntil = 0;
+
+export function markHyperDead(overrideMs?: number): void {
+  hyperDeadStreak++;
+  const base = 10 * 60 * 1000;
+  const backoff = Math.min(base * Math.pow(2, hyperDeadStreak - 1), 2 * 60 * 60 * 1000);
+  const cooldown = overrideMs && overrideMs > 0 ? overrideMs : backoff;
+  hyperDeadUntil = Date.now() + cooldown;
+  console.log(JSON.stringify({ ev: "hyper-cooldown", streak: hyperDeadStreak, cooldownSec: Math.round(cooldown / 1000), source: overrideMs ? "provider-reset" : "backoff" }));
+}
+
+/** Any successful response proves the account is alive — clear the streak. */
+export function hyperAccountAlive(): void {
+  hyperDeadStreak = 0;
+  hyperDeadUntil = 0;
+}
+
+/** False while the account is refusing (out of credits / auth), independent of
+ *  the daily budget gate. */
+export function hyperAlive(): boolean {
+  return Date.now() >= hyperDeadUntil;
+}

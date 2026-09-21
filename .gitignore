@@ -1,6 +1,15 @@
 .env
 .next/
 node_modules/
-.env
 apps/web/.env
 pg-small-*.sql
+
+# Plaintext credential scratch file. Never tracked: `git add .` would other-
+# wise stage live provider keys, and a pushed key is a burned key.
+keyss
+*keyss*
+keys.txt
+
+# Local dev SQLite (a committed DB is a committed copy of every key hash and
+# ledger row it ever held).
+apps/gateway/gateway.db

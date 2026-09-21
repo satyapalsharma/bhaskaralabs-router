@@ -4,7 +4,7 @@ import { newApiKey } from "../lib/auth";
 import { randomUUID } from "node:crypto";
 
 const email = process.argv[2] ?? "test@bhaskaralabs.dev";
-const plan = process.argv[3] ?? "basic";
+const plan = process.argv[3] ?? "starter";
 const userId = randomUUID();
 await db.insert(users).values({ id: userId, name: email.split("@")[0], email, plan, cohort: 1, emailVerified: true });
 
@@ -22,7 +22,7 @@ await db.insert(subscriptions).values({
   userId,
   plan,
   currency: "usd",
-  pricePaid: plan === "advanced" ? "30" : "15",
+  pricePaid: plan === "pro" ? "25" : "10",
   periodEnd,
 });
 

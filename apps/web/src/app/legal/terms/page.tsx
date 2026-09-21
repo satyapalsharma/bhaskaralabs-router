@@ -7,8 +7,8 @@ export default function TermsPage() {
     <LegalPage title="Terms of Service" effective="1 September 2026">
       <Section heading="1. What this service is">
         <p>
-          Bhaskara Labs provides hosted inference endpoints (<code>glm-5.3</code>, <code>qwen-3.8</code>,{" "}
-          <code>glm-5.3-flash</code>, <code>theta</code>) compatible with OpenAI and Anthropic APIs, intended
+          Bhaskara Labs provides hosted inference endpoints (<code>glm-5.3</code>,{" "}
+          <code>theta</code>) compatible with OpenAI and Anthropic APIs, intended
           for use by software agents and developers. Access is granted against the plan you purchase; each
           account receives API keys that authenticate its requests.
         </p>
@@ -48,9 +48,10 @@ export default function TermsPage() {
       <Section heading="4. Plans, quotas, and billing">
         <p>
           Subscription plans are billed monthly and renew automatically until cancelled. Cancel any time
-          before the renewal date — access continues to the end of the paid period. Quotas apply per
-          calendar month (frontier tokens) and as a rolling five-hour window (theta requests); both are
-          visible live in your dashboard and in response headers.
+          before the renewal date — access continues to the end of the paid period. Quotas apply as
+          rolling five-hour windows of requests; glm-5.3 additionally carries a token budget on the same
+          window, because a single call may carry a million-token context. Both are visible live in your
+          dashboard and in response headers.
         </p>
         <p>
           Where we disclose regional pricing, you are charged the price displayed at checkout for the

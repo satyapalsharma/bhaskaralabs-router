@@ -1,10 +1,16 @@
 // Server-side quota/usage queries for the dashboard.
-// Mirrors gateway/src/lib/quotas.ts semantics against the shared DB.
+// Mirrors gateway/src/lib/quotas.ts semantics against the shared DB. Keep the
+// two in step — the dashboard promises the same numbers the gateway enforces,
+// and a drift here is a support ticket ("it says I have 12 left").
+//
+// Quotas are counted in requests for both products; glm-5.3 carries a second
+// cap on tokens because a single call may carry a million-token context.
+
 import { db } from "@/db";
 import { usageLedger, subscriptions } from "@/db/schema";
 import { user as users } from "@/db/schema";
 import { and, eq, gte, sql, desc } from "drizzle-orm";
-import { PLANS } from "@bhaskara/shared/pricing";
+import { PLANS, THROTTLE, type PlanId } from "@bhaskara/shared/pricing";
 
 function monthStart(): Date {
   const now = new Date();
@@ -13,16 +19,27 @@ function monthStart(): Date {
 
 export interface QuotaSnapshot {
   plan: string;
-  frontierInUsed: number;
-  frontierOutUsed: number;
+  /** glm-5.3 calls in the trailing window. */
+  glmThisWindow: number;
+  /** glm-5.3 total tokens in the trailing window. */
+  glmTokensThisWindow: number;
+  /** theta calls in the trailing window. */
+  thetaThisWindow: number;
+  /** theta calls this calendar month. */
   thetaThisMonth: number;
-  thetaLast5h: number;
-  limits: { frontierInputM: number; frontierOutputM: number; thetaPer5h: number; thetaMonthly: number };
+  limits: {
+    thetaPer5h: number | null; // null = unlimited
+    thetaExtraMonthly: number;
+    glmPer5h: number;
+    glmTokensPer5h: number;
+  };
+  unlimitedTheta: boolean;
   memberSince: Date;
   subRenews: Date | null;
+  daysLeft: number | null; // resolved server-side so the client never calls Date.now() mid-render
   trainingOptOut: boolean;
   cohort: number;
-  equivCostMonthUsd: number; // what this month's traffic would cost at direct API list rates
+  equivCostMonthUsd: number; // this month's traffic valued at direct API list rates
 }
 
 export async function getQuotaSnapshot(userId: string): Promise<QuotaSnapshot | null> {
@@ -38,28 +55,32 @@ export async function getQuotaSnapshot(userId: string): Promise<QuotaSnapshot | 
     .limit(1);
   const plan = subRows[0]?.plan ?? user.plan;
 
-  const p = PLANS[plan as keyof typeof PLANS] ?? PLANS.free;
+  const p = PLANS[plan as PlanId] ?? PLANS.trial;
   const since = monthStart();
-  const since5h = new Date(Date.now() - 5 * 60 * 60 * 1000);
+  const sinceWindow = new Date(Date.now() - THROTTLE.windowHours * 60 * 60 * 1000);
 
-  const frontierRows = await db
+  const glmRows = await db
     .select({
-      in: sql<number>`coalesce(sum(${usageLedger.promptTokens}), 0)`,
-      out: sql<number>`coalesce(sum(${usageLedger.completionTokens}), 0)`,
+      calls: sql<number>`count(*) filter (where ${usageLedger.createdAt} >= ${sinceWindow.toISOString()})`,
+      tokens: sql<number>`coalesce(sum(
+        case when ${usageLedger.createdAt} >= ${sinceWindow.toISOString()}
+          then ${usageLedger.promptTokens} + ${usageLedger.completionTokens}
+          else 0 end
+      ), 0)`,
     })
     .from(usageLedger)
     .where(
       and(
         eq(usageLedger.userId, userId),
+        eq(usageLedger.endpointModel, "glm-5.3"),
         gte(usageLedger.createdAt, since),
-        sql`${usageLedger.endpointModel} != 'theta'`,
       ),
     );
 
   const thetaRows = await db
     .select({
       month: sql<number>`count(*)`,
-      win5h: sql<number>`count(*) filter (where ${usageLedger.createdAt} >= ${since5h.toISOString()})`,
+      win: sql<number>`count(*) filter (where ${usageLedger.createdAt} >= ${sinceWindow.toISOString()})`,
     })
     .from(usageLedger)
     .where(
@@ -74,20 +95,25 @@ export async function getQuotaSnapshot(userId: string): Promise<QuotaSnapshot | 
     .select({ total: sql<number>`coalesce(sum(${usageLedger.userEquivalentCostUsd}::numeric), 0)` })
     .from(usageLedger)
     .where(and(eq(usageLedger.userId, userId), gte(usageLedger.createdAt, since)));
+
   return {
     plan,
-    frontierInUsed: Number(frontierRows[0]?.in ?? 0),
-    frontierOutUsed: Number(frontierRows[0]?.out ?? 0),
+    glmThisWindow: Number(glmRows[0]?.calls ?? 0),
+    glmTokensThisWindow: Number(glmRows[0]?.tokens ?? 0),
+    thetaThisWindow: Number(thetaRows[0]?.win ?? 0),
     thetaThisMonth: Number(thetaRows[0]?.month ?? 0),
-    thetaLast5h: Number(thetaRows[0]?.win5h ?? 0),
     limits: {
-      frontierInputM: p.frontierInputM,
-      frontierOutputM: p.frontierOutputM,
       thetaPer5h: p.thetaPer5h,
-      thetaMonthly: p.thetaMonthly,
+      thetaExtraMonthly: p.thetaExtraMonthly,
+      glmPer5h: p.glmPer5h,
+      glmTokensPer5h: p.glmTokensPer5h,
     },
+    unlimitedTheta: p.thetaPer5h === null,
     memberSince: user.createdAt,
     subRenews: subRows[0]?.periodEnd ?? null,
+    daysLeft: subRows[0]?.periodEnd
+      ? Math.max(0, Math.ceil((subRows[0].periodEnd.getTime() - Date.now()) / 86_400_000))
+      : null,
     trainingOptOut: user.trainingOptOut,
     cohort: user.cohort,
     equivCostMonthUsd: Number(equivRows[0]?.total ?? 0),
@@ -101,7 +127,8 @@ export interface DayUsage {
   savedUsd: number;
 }
 
-// 7-day totals per day: requests, tokens, estimated USD saved (direct-API equiv − theta equiv)
+/** 7-day totals per day: requests, tokens, and dollars saved (direct-API
+ *  equivalent minus what the turn actually cost us). */
 export async function getRecentUsage(userId: string): Promise<DayUsage[]> {
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const rows = await db

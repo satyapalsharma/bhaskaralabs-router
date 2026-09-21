@@ -3,7 +3,7 @@ import { requireAdmin, isAdminResponse } from "@/lib/admin";
 import { db } from "@/db";
 import { usageLedger, subscriptions, user as users, providerMonthly } from "@/db/schema";
 import { and, eq, gte, sql } from "drizzle-orm";
-import { PROVIDER_CLASS, ROUTER } from "@bhaskara/shared/pricing";
+import { HYPER, PROVIDER_CLASS, ROUTER } from "@bhaskara/shared/pricing";
 
 // GET /api/admin/alerts — the control loop for the cohort gate:
 //   1. abuse/margin alerts (full-share > 8% amber / >= 10% hard cap, negative
@@ -83,19 +83,19 @@ export async function GET() {
     const total = Number(r.total);
     if (total < 10) continue; // tiny samples are noise, not signal
     const share = Number(r.fullReqs) / total;
-    if (share >= ROUTER.fullShareCapPerUserPerWeek) {
+    if (share >= ROUTER.fullModelShareCap) {
       alerts.push({
         id: `full-cap:${r.userId}`,
         severity: "red",
         title: `${r.email} hit the weekly full-model hard cap`,
-        detail: `${(share * 100).toFixed(1)}% full-share over ${total} frontier turns (cap ${(ROUTER.fullShareCapPerUserPerWeek * 100).toFixed(0)}%) — turns are being served on flash. Heavy planner: fair-use nudge is active; consider pointing them at Advanced.`,
+        detail: `${(share * 100).toFixed(1)}% full-share over ${total} frontier turns (cap ${(ROUTER.fullModelShareCap * 100).toFixed(0)}%) — turns are being served on flash. Heavy planner: fair-use nudge is active; consider pointing them at Advanced.`,
       });
-    } else if (share >= ROUTER.fullShareAlertAt) {
+    } else if (share >= ROUTER.fullModelShareAlertAt) {
       alerts.push({
         id: `full-alert:${r.userId}`,
         severity: "amber",
         title: `${r.email} near the full-model cap`,
-        detail: `${(share * 100).toFixed(1)}% full-share over ${total} frontier turns (alert at ${(ROUTER.fullShareAlertAt * 100).toFixed(0)}%, hard cap ${(ROUTER.fullShareCapPerUserPerWeek * 100).toFixed(0)}%).`,
+        detail: `${(share * 100).toFixed(1)}% full-share over ${total} frontier turns (alert at ${(ROUTER.fullModelShareAlertAt * 100).toFixed(0)}%, hard cap ${(ROUTER.fullModelShareCap * 100).toFixed(0)}%).`,
       });
     }
   }
@@ -146,7 +146,9 @@ export async function GET() {
     .innerJoin(users, eq(users.id, usageLedger.userId))
     .where(and(gte(usageLedger.createdAt, dayAgo), sql`${usageLedger.endpointModel} <> 'theta'`))
     .groupBy(usageLedger.userId, users.email, sql`to_char(${usageLedger.createdAt}, 'YYYY-MM-DD')`);
-  // basic plan: 20M in + 5M out monthly — 50% of the input cap in one day = 10M
+  // A burst is judged against the plan that has to absorb it: half of the
+  // smallest paid glm window (Starter, 2M tokens / 5h) burned inside one day is
+  // already abnormal, and no legitimate workload arrives that way.
   const BURST_THRESHOLD = 10_000_000;
   for (const r of burstRows) {
     if (Number(r.tokens) >= BURST_THRESHOLD) {
@@ -201,10 +203,11 @@ export async function GET() {
           : "no-go";
 
   // ── Hyper-only shadow margin (weekly) ──
-  // COGS recomputed EXCLUDING every [BOOTSTRAP] provider — the standing
-  // proof the core stays profitable on Hyper alone (§3). Theta requests that
-  // would have served on bootstrap backends are priced at their Hyper flash
-  // fallback (qwen3.8-flash rates) — what the degrade path actually costs.
+  // COGS recomputed EXCLUDING every [BOOTSTRAP] provider — the standing proof
+  // the core stays profitable on Hyper alone. Bootstrap traffic is re-priced at
+  // what the degrade path would actually have cost on Hyper flash: the rate card
+  // is read from the shared config rather than copied, so a price change cannot
+  // leave this proof silently wrong.
   const shadowRows = await db
     .select({
       provider: usageLedger.provider,
@@ -217,7 +220,7 @@ export async function GET() {
     .where(gte(usageLedger.createdAt, weekAgo))
     .groupBy(usageLedger.provider);
 
-  const HYPER_FLASH_FALLBACK = { input: 0.15, cacheHit: 0.016, output: 0.47 }; // qwen3.8-flash
+  const HYPER_FLASH_FALLBACK = HYPER["glm-5.3-flash"];
   let shadowCogs = 0;
   let bootstrapCogs = 0;
   for (const r of shadowRows) {
@@ -229,7 +232,8 @@ export async function GET() {
       const p = Number(r.prompt);
       const cached = Math.min(Number(r.cached), p);
       const fresh = p - cached;
-      shadowCogs += (cached * HYPER_FLASH_FALLBACK.cacheHit + fresh * HYPER_FLASH_FALLBACK.input + Number(r.completion) * HYPER_FLASH_FALLBACK.output) / 1e6;
+      const cacheRate = HYPER_FLASH_FALLBACK.cacheHit ?? HYPER_FLASH_FALLBACK.input;
+      shadowCogs += (cached * cacheRate + fresh * HYPER_FLASH_FALLBACK.input + Number(r.completion) * HYPER_FLASH_FALLBACK.output) / 1e6;
     }
   }
 
@@ -244,7 +248,7 @@ export async function GET() {
     bootstrapCogsUsd: Number(bootstrapCogs.toFixed(4)),
     weekRevenueUsd: Number(shadowWeekRevenue[0]?.paid ?? 0),
     marginUsd: Number((Number(shadowWeekRevenue[0]?.paid ?? 0) - shadowCogs).toFixed(4)),
-    note: "Weekly COGS as if every [BOOTSTRAP] request had served on the Hyper flash fallback (kill-switch path). Core-only profitability proof.",
+    note: "Weekly COGS as if every flat/bootstrap request had served on the Hyper glm-5.3 flash fallback (kill-switch path). Core-only profitability proof.",
   };
 
   return NextResponse.json({
@@ -252,8 +256,8 @@ export async function GET() {
     cohortPnl,
     shadowMargin,
     fullSharePolicy: {
-      alertAt: ROUTER.fullShareAlertAt,
-      hardCap: ROUTER.fullShareCapPerUserPerWeek,
+      alertAt: ROUTER.fullModelShareAlertAt,
+      hardCap: ROUTER.fullModelShareCap,
     },
   });
 }

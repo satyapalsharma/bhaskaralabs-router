@@ -27,14 +27,22 @@ export async function signupOpen(): Promise<boolean> {
   }
 }
 
+// Email+password is a dev/QA convenience with NO email verification — in
+// production it is an open door to mint trial accounts. Default therefore
+// flips by environment: on for a local BETTER_AUTH_URL, off anywhere else.
+// BETTER_AUTH_EMAIL_SIGNUP=true|false forces either way.
+const EMAIL_PASSWORD_ENABLED =
+  process.env.BETTER_AUTH_EMAIL_SIGNUP != null
+    ? process.env.BETTER_AUTH_EMAIL_SIGNUP === "true"
+    : /localhost|127\.0\.0\.1/.test(process.env.BETTER_AUTH_URL ?? "");
+
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
     provider: "pg",
     schema,
   }),
-  // Email+password: local dev / QA only — prod UI offers GitHub; remove before launch.
   emailAndPassword: {
-    enabled: true,
+    enabled: EMAIL_PASSWORD_ENABLED,
     minPasswordLength: 10,
     autoSignIn: true,
   },

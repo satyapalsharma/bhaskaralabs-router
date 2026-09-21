@@ -146,6 +146,29 @@ export function neededSetKeep(history: ChatMessage[], span: number, spanTokens: 
   return keep;
 }
 
+/**
+ * Move a compaction cut back to a boundary that does not split a tool-call
+ * group.
+ *
+ * A group is `assistant(tool_calls)` followed by one or more `tool` messages.
+ * OpenAI-protocol providers reject a `tool` message whose owning assistant is
+ * absent, so a cut that summarizes the assistant while keeping its replies
+ * breaks every subsequent turn of the session.
+ *
+ * Walking *back* is the conservative direction: the surviving history keeps the
+ * whole group, so compaction summarizes slightly less. Walking forward would
+ * also produce a valid seam, but it would compact a group the model may still
+ * be working from.
+ *
+ * Returns 0 when the walk reaches the start of the history — the caller treats
+ * an empty span as "nothing to compact" and sends the original messages.
+ */
+export function safeSpanBoundary(history: ChatMessage[], span: number): number {
+  let s = Math.min(span, history.length);
+  while (s > 0 && history[s]?.role === "tool") s--;
+  return s;
+}
+
 export async function maybeCompact(
   messages: ChatMessage[],
   opts: { alreadyCompacted?: boolean; logSkip?: boolean; extraTokens?: number; threshold?: number; span?: number } = {},
@@ -178,6 +201,22 @@ export async function maybeCompact(
     spanTokens += typeof m.content === "string" ? estTokens(m.content) : estTokens(JSON.stringify(m.content ?? ""));
     span++;
   }
+
+  // Snap the cut to a safe seam.
+  //
+  // A tool-call group is `assistant(tool_calls)` followed by its `tool`
+  // messages, and OpenAI-protocol providers reject the group unless both halves
+  // arrive together:
+  //
+  //   400 Messages with role 'tool' must be a response to a preceding
+  //       message with 'tool_calls'
+  //
+  // Compaction replaces everything before the cut with one summary block, so a
+  // cut landing inside a group summarizes the assistant away and leaves its
+  // `tool` replies orphaned at the head of the surviving history. The session
+  // then fails on every subsequent turn — the summarizer ran once, but the
+  // damage is permanent until the client resets its history.
+  span = safeSpanBoundary(history, span);
   // Needed-set keep (Parsec-trim needed-set concept, frequency-counted):
   // span blocks the SURVIVING history still references (paths/call-shapes
   // mentioned ≥2 times later) stay verbatim; the rest is summarized.

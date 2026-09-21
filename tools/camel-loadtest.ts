@@ -2,7 +2,13 @@
 // Plan constraints: concurrency 1 (sequential main test), plus a 2-parallel
 // probe to see how the server treats over-concurrency (queue vs 429).
 
-const KEY = "qaml_live_A6LTN-THROlODFwZDRa_IDKz4EiqOtSlDw2OGJWLanA";
+// Key comes from the environment — a live key committed to the repo is a
+// burned key (and this one was, pre-2026-09-17; it has been rotated).
+const KEY = process.env.CAMEL_API_KEY ?? "";
+if (!KEY) {
+  console.error("CAMEL_API_KEY not set — refusing to run without it");
+  process.exit(2);
+}
 const BASE = "https://stream.camelai.com/v1/chat/completions";
 
 const PROMPTS = [

@@ -1,9 +1,9 @@
 // LLMGateway provider (api.llmgateway.io) — the paid fallback lane behind Hyper.
-// Same model ids as Hyper (qwen3.8-max/27b/flash, glm-5.3/flash), OpenAI-compat.
+// Same model ids as Hyper (glm-5.3 / glm-5.3-flash), OpenAI-compat.
 // DevPass flat-rate plan: no per-token COGS from our side (allowance burn tracked
 // in ledger usage); NO upstream prompt caching (verified live 2026-09-04: cached=0
 // on repeated identical prefixes) — so this lane is a fallback, never a cache-sticky
-// primary. Latency measured: qwen3.8-27b ~13s, max ~3s non-stream.
+// primary. Latency measured: glm-5.3 ~3s non-stream.
 
 export const LLMGATEWAY_BASE = process.env.LLMGATEWAY_BASE_URL ?? "https://api.llmgateway.io/v1";
 

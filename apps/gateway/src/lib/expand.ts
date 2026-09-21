@@ -1,7 +1,7 @@
 // Expander pass (v2 frontier-minimal concept, flash-backed plumbing).
 // When x-bhaskara-expand is on: pass 1 runs with MINIMAL-FORM discipline
-// (frontier writes pseudocode, not full code), pass 2 expands via cheap
-// qwen3.8-flash. Wins iff frontier output savings exceed expansion cost —
+// (frontier writes pseudocode, not full code), pass 2 expands via the cheap
+// glm-5.3 flash tier. Wins iff frontier output savings exceed expansion cost —
 // ledger-tagged per turn (expand:{pass2out}) for the readout. Non-stream
 // only; streams ignore the flag. Fail-open everywhere: any failure returns
 // the original completion untouched. A trained small model replaces the
@@ -45,9 +45,9 @@ export async function expandCompletion(
   const key = hyperKey();
   if (!key) return null;
   const res = await hyperChat({
-    model: "qwen3.8-flash",
+    model: "glm-5.3-flash",
     body: {
-      model: "qwen3.8-flash",
+      model: "glm-5.3-flash",
       messages: [
         { role: "system", content: "Expand the following minimal pseudocode draft into complete, working code. Output ONLY the expanded code, no explanations." },
         { role: "user", content: minimal.slice(0, 32_000) },

@@ -130,11 +130,18 @@ function sweep(now: number): void {
   if (emptyStreaks.size > 0) emptyStreaks.clear();
 }
 
-/** Record that the session's latest upstream turn returned `contentChars`. */
-export function recordContentChars(sessionId: string, contentChars: number): void {
+/** Record that the session's latest upstream turn returned `contentChars`.
+ *
+ *  `hasToolCalls` marks a turn that requested a tool. Tool calls stream as
+ *  `delta.tool_calls`, not `delta.content`, so a perfectly productive turn —
+ *  "read this file", "run the tests" — arrives with zero content chars. Counting
+ *  it as empty output escalated healthy agent sessions to the metered lane, and
+ *  a coding agent emits a tool call on most turns, so the streak was measuring
+ *  the agent's normal working rhythm rather than a stuck model. */
+export function recordContentChars(sessionId: string, contentChars: number, hasToolCalls = false): void {
   const now = Date.now();
   sweep(now);
-  if (contentChars > 0) {
+  if (contentChars > 0 || hasToolCalls) {
     emptyStreaks.delete(sessionId);
     return;
   }
@@ -149,17 +156,38 @@ export function emptyOutputStreak(sessionId: string): number {
 // A dud = huge prompt + tiny completion WITH tools present (model gave up
 // into chat-mode instead of calling tools). 60K-in/300-out turns are ~100%
 // waste (quota + time; on metered lanes, cash). Consecutive duds escalate
-// the session to hyper-flash (56% working vs 8% on agnes, measured 2026-09-08).
-// Any non-dud turn resets. In-process like emptyStreaks; restart only delays.
+// the session to hyper-flash. Any non-dud turn resets. In-process like
+// emptyStreaks; restart only delays.
 const dudStreaks = new Map<string, number>();
 
 export const DUD_MIN_PROMPT = Number(process.env.DUD_MIN_PROMPT ?? 40_000);
 export const DUD_MAX_OUT = Number(process.env.DUD_MAX_OUT ?? 1_000);
 
-/** Record a completed turn; toolsPresent = request carried tool schemas/calls. */
-export function recordDudTurn(sessionId: string, promptTokens: number, completionTokens: number, toolsPresent: boolean): void {
+/**
+ * Record a completed turn; toolsPresent = request carried tool schemas/calls.
+ *
+ * `responseHadToolCalls` is what separates a dud from a working turn. The
+ * intent is "the model gave up into chat-mode", but a short completion at a
+ * large prompt is equally the signature of a *correct* tool call — an agent
+ * answering "read the auth module" replies with ~100 tokens of arguments and
+ * no prose. Without this flag the detector scored those as failures, and
+ * because a single dud escalates the session, one normal tool call at 40k+
+ * context was enough to move a healthy session onto the metered lane.
+ *
+ * The measured provider differences survive: at matched prompt sizes the dud
+ * rates still separate (stepfun ~5%, agnes ~17%, hyper ~29%), they are simply
+ * no longer inflated by turns that worked.
+ */
+export function recordDudTurn(
+  sessionId: string,
+  promptTokens: number,
+  completionTokens: number,
+  toolsPresent: boolean,
+  responseHadToolCalls = false,
+): void {
   sweep(Date.now());
-  const dud = toolsPresent && promptTokens >= DUD_MIN_PROMPT && completionTokens < DUD_MAX_OUT;
+  const dud =
+    toolsPresent && !responseHadToolCalls && promptTokens >= DUD_MIN_PROMPT && completionTokens < DUD_MAX_OUT;
   if (dud) dudStreaks.set(sessionId, (dudStreaks.get(sessionId) ?? 0) + 1);
   else dudStreaks.delete(sessionId);
 }
@@ -189,4 +217,30 @@ export function contentCharsOf(json: unknown): number {
     return n;
   }
   return 0;
+}
+
+/**
+ * Whether a completed response asked for a tool — the "this turn was
+ * productive" signal the escalation streaks need.
+ *
+ * Reads both wire shapes because the gateway serves both: OpenAI
+ * `choices[].message.tool_calls`, Anthropic `content[].type === "tool_use"`.
+ * A caller that cannot determine the shape should pass `false`, which keeps
+ * the old conservative behaviour rather than silently marking turns healthy.
+ */
+export function hasToolCallsOf(json: unknown): boolean {
+  if (typeof json !== "object" || json === null) return false;
+  const j = json as Record<string, unknown>;
+  // OpenAI shape
+  if (Array.isArray(j.choices)) {
+    for (const choice of j.choices as Array<{ message?: { tool_calls?: unknown } }>) {
+      if (Array.isArray(choice?.message?.tool_calls) && choice.message.tool_calls.length > 0) return true;
+    }
+    return false;
+  }
+  // Anthropic shape
+  if (Array.isArray(j.content)) {
+    return (j.content as Array<{ type?: string }>).some((part) => part?.type === "tool_use");
+  }
+  return false;
 }

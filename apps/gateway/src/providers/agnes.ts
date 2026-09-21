@@ -2,16 +2,22 @@
 // Verified live 2026-09-04: base https://apihub.agnes-ai.com/v1, Bearer auth.
 // Per-request COGS = 0 (flat plan); ledger tracks request count.
 // Key rotated 2026-09-05 (cpk-WvNL..., renewed subscription): plan
-// concurrency is 10 — verified by user from the Agnes dashboard.
+// concurrency is 16 — confirmed by the user from the Agnes dashboard.
 
 import { makeShadowRelease, SHADOW_HOLD_MS } from "../lib/shadow-release";
 export const AGNES_BASE = process.env.AGNES_BASE_URL ?? "https://apihub.agnes-ai.com/v1";
 
-/** Agnes concurrency cap — new paid plan allows 10 concurrent. */
-export const AGNES_MAX_CONCURRENCY = 10;
+/**
+ * Agnes concurrency cap — the paid plan allows 16 concurrent.
+ *
+ * Overridable without a rebuild because this is the plan's number, not ours:
+ * it changes when the subscription changes, and a rebuild is the wrong price
+ * for reading a new value off a dashboard.
+ */
+export const AGNES_MAX_CONCURRENCY = Number(process.env.BHASKARA_AGNES_MAX_CONCURRENCY ?? 16);
 
 let agnesInFlight = 0;
-/** True when agnes has a free generation slot (<4 requests in flight). */
+/** True when agnes has a free generation slot. */
 export function agnesSlotFree(): boolean {
   return agnesInFlight < AGNES_MAX_CONCURRENCY;
 }
@@ -33,12 +39,16 @@ let deadStreak = 0;
 export function agnesEnabled(): boolean {
   return !!process.env.AGNES_API_KEY && Date.now() >= deadUntil;
 }
-export function markAgnesDead(): void {
+export function markAgnesDead(overrideMs?: number): void {
   deadStreak++;
   const base = 5 * 60 * 1000;
-  const cooldown = Math.min(base * Math.pow(3, deadStreak - 1), 2 * 60 * 60 * 1000);
+  const backoff = Math.min(base * Math.pow(3, deadStreak - 1), 2 * 60 * 60 * 1000);
+  // When the provider names its own reset, that beats any backoff we could
+  // invent — it is the actual moment the window reopens. The streak still
+  // advances, so a lane that keeps lying about its reset degrades on its own.
+  const cooldown = overrideMs && overrideMs > 0 ? overrideMs : backoff;
   deadUntil = Date.now() + cooldown;
-  console.log(`[agnes] marked dead (streak ${deadStreak}) — cooling ${Math.round(cooldown / 60000)}min`);
+  console.log(JSON.stringify({ ev: "agnes-cooldown", streak: deadStreak, cooldownSec: Math.round(cooldown / 1000), source: overrideMs ? "provider-reset" : "backoff" }));
 }
 /** Any successful response proves the lane is alive — clear the streak. */
 function agnesAlive(): void {

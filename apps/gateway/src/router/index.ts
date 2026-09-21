@@ -1,59 +1,191 @@
-// Router v0: decides which upstream model serves a request.
-// Decision rule: (prefix size, cache-eligibility, task hardness) → tier.
-// HARD CAP: 10% full-model share per user/week (spill → flash + fair-use nudge).
-// Session stickiness: once a session locks a workhorse model, it stays.
+// Router: decides which upstream lane serves a request.
+//
+// Two layers, deliberately separate:
+//
+//   tier    — capability. "Does this turn need the full model?" Answered by
+//             the skill router (cost-penalised capability distance) with the
+//             hard share cap applied as a pre-filter. Lives in lib/skill-decide.
+//   lane    — availability. "Which provider serves that tier right now?"
+//             Answered here, by walking the preference ladder in
+//             pricing.ts until a healthy lane is found.
+//
+// Keeping them apart is what makes the ladders safe to edit: adding a provider
+// changes capacity, never routing quality, and changing the router never
+// silently moves traffic onto a metered lane.
+//
+// This module is pure. Every health predicate arrives as a boolean from the
+// caller, so the whole decision is testable without a database or network.
 
-import { ROUTER, HYPER } from "@bhaskara/shared/pricing";
-import { FEIHOA_MODEL } from "../providers/feihoa";
-import { YOLO_MODEL } from "../providers/yolo";
-import { GENERALCOMPUTE_MODEL } from "../providers/generalcompute";
+import {
+  chainFor,
+  ROUTER,
+  type EndpointModel,
+  type Lane,
+  type ProviderId,
+} from "@bhaskara/shared/pricing";
+import { laneCooling } from "../lib/lane-slot";
 
 export type EffortLevel = "low" | "high" | "max";
+export type Tier = "full" | "flash";
 
 export interface RouterSignals {
-  endpointModel: "glm-5.3" | "qwen-3.8" | "theta";
-  prefixTokens: number;          // size of stable prefix (system+tools+history)
+  endpointModel: string;
+  prefixTokens: number; // size of the stable prefix (system + tools + history)
   isNewSession: boolean;
-  sessionLockedModel?: string;   // existing workhorse for this session, if any
-  fullShareThisWeek: number;     // 0..1 — user's full-model share so far
+  sessionLockedModel?: string;
+  fullShareThisWeek: number; // 0..1
   hardness: "routine" | "planning" | "debugging" | "architect";
-  userRequestedFull?: boolean;   // explicit user opt-in (future UI affordance)
-  failureSignal?: boolean;       // failing tests/compile in this request's live zone (escalation-on-failure)
+  userRequestedFull?: boolean;
+  failureSignal?: boolean; // failing tests/compile in this request's live zone
 }
 
 export interface RouterDecision {
-  provider: "hyper" | "devpass" | "agnes" | "stepfun" | "feihoa" | "yolo" | "llmgateway" | "camel" | "generalcompute";
+  provider: ProviderId;
   upstreamModel: string;
-  tier: "full" | "flash";
+  tier: Tier;
   effort: EffortLevel;
   reason: string;
   hardCapped: boolean;
-  /** Fair-use state for response nudges: near-cap (>=8% weekly full-share) or capped (>=10%). */
+  /** Fair-use state for response nudges. */
   fairUse?: "alert" | "capped";
-  /** User's weekly full-share when it was computed for this decision (0..1). */
   fairUseShare?: number;
+  /** Machine-readable input vector behind `reason`, persisted to the ledger so
+   *  skill-card calibration can regress on it. */
+  signals?: Record<string, unknown>;
 }
 
+/** Product endpoint → the full model it maps to. Both endpoints now resolve to
+ *  a single family; kept as a map so a third endpoint is a one-line change. */
+export const FULL_OF: Record<string, string> = {
+  "glm-5.3": "glm-5.3",
+};
+
+/** Full model id → its flash variant. The only place the pairing is written. */
 export const FLASH_OF: Record<string, string> = {
   "glm-5.3": "glm-5.3-flash",
-  "qwen3.8-max": "qwen3.8-flash",
 };
 
-const FULL_OF: Record<string, string> = {
-  "glm-5.3": "glm-5.3",
-  "qwen-3.8": "qwen3.8-max",
-};
+export function fullModelFor(endpointModel: string): string {
+  return FULL_OF[endpointModel] ?? "glm-5.3";
+}
 
-// Signals that justify the full model. Heuristics v0 — Needle2 replaces this post-beta.
-const HARD_PATTERNS: RegExp[] = [
+export function flashModelFor(endpointModel: string): string {
+  return FLASH_OF[fullModelFor(endpointModel)] ?? "glm-5.3-flash";
+}
+
+/**
+ * Model id → the product model it is a variant of.
+ *
+ * Providers spell plan variants into the id: `glm-5.3:dev` is GLM 5.3 served
+ * under Electron's flat DevPass plan — the endpoint's own catalogue gives it
+ * the same 1.4/4.4 reference rates as `glm-5.3`. Tier is a property of the
+ * weights, not of the allowance they are billed under, so the plan suffix is
+ * stripped before any family lookup.
+ *
+ * This is load-bearing rather than cosmetic. `tierOf` decides both the ledger's
+ * `routed_to` and which branch of the locked-session logic a turn takes, and the
+ * full-share cap counts `routed_to = 'full'`. A variant id that read as flash
+ * would be served on the full model while never consuming full-model budget —
+ * the cap would stop binding, silently, only for traffic on that lane.
+ */
+export function baseModelOf(model: string): string {
+  const colon = model.indexOf(":");
+  return colon === -1 ? model : model.slice(0, colon);
+}
+
+/** Tier of an upstream model id. Anything not recognised as the full model is
+ *  treated as flash, which is the safe direction: an unknown model can never
+ *  consume full-model budget. */
+export function tierOf(model: string): Tier {
+  return Object.values(FULL_OF).includes(baseModelOf(model)) ? "full" : "flash";
+}
+
+/** Health predicate map: provider id → may be used right now. A provider that
+ *  is absent from the map is treated as unavailable, so a new ladder entry is
+ *  inert until its health check is wired up. */
+export type LaneHealth = Record<string, boolean>;
+
+export function laneUsable(health: LaneHealth, provider: string): boolean {
+  return health[provider] === true;
+}
+
+/**
+ * Does this lane's declared input window hold the prefix?
+ *
+ * A lane that declares no window always fits. A lane that does is checked
+ * against the turn's own prefix estimate, so an oversized request skips it
+ * before a socket is opened — the alternative is an upstream 400 on a turn the
+ * ladder could have served from the next rung.
+ *
+ * Equal counts as fitting: providers reject on `> max`, not `>=`.
+ */
+export function fitsLane(lane: Lane, prefixTokens: number): boolean {
+  return lane.maxInputTokens === undefined || prefixTokens <= lane.maxInputTokens;
+}
+
+/**
+ * First healthy lane in an explicit ladder, skipping providers excluded for this
+ * turn and lanes whose window cannot hold the prefix.
+ *
+ * Exclusions are how failover works: a lane that just failed is added to the set
+ * and the next call walks past it instead of retrying it. Returns null when the
+ * ladder is exhausted — the caller decides what exhaustion means (for glm it
+ * degrades to flash; for theta it is a real outage).
+ *
+ * `prefixTokens` is deliberately required rather than optional. Leaving it out
+ * must not be the quiet default, because the failure it prevents is silent in
+ * development and expensive in production: a 400 from one lane, a failover to a
+ * dearer one, and a turn that still succeeds — so nothing looks broken while the
+ * cost line moves. Callers with no token count pass 0, which is a visible
+ * decision at the call site rather than an oversight.
+ */
+export function pickLane(
+  chain: readonly Lane[],
+  health: LaneHealth,
+  prefixTokens: number,
+  exclude: Set<string> = new Set(),
+): Lane | null {
+  return (
+    chain.find(
+      (lane) =>
+        !exclude.has(lane.provider) &&
+        !exclude.has(`${lane.provider}:${lane.model}`) &&
+        !laneCooling(lane.provider, lane.model) &&
+        laneUsable(health, lane.provider) &&
+        fitsLane(lane, prefixTokens),
+    ) ?? null
+  );
+}
+
+/** First healthy lane of a tier's configured ladder for an endpoint. */
+export function resolveLane(
+  endpoint: EndpointModel,
+  tier: Tier,
+  health: LaneHealth,
+  prefixTokens: number,
+  exclude: Set<string> = new Set(),
+): Lane | null {
+  return pickLane(chainFor(endpoint, tier), health, prefixTokens, exclude);
+}
+
+/** Every lane in a tier's ladder, healthy or not — for admin display and for
+ *  building the "why did we end up here" part of a decision reason. */
+export function lanesFor(endpoint: EndpointModel, tier: Tier): readonly Lane[] {
+  return chainFor(endpoint, tier);
+}
+
+// ── Hardness classification ──
+// Heuristics v0 — a trained classifier replaces this post-beta. Every pattern
+// below corresponds to an observed failure mode, not a guess.
+
+export const HARD_PATTERNS: RegExp[] = [
   /\b(architect|architecture|design\s+(a|the)\s+system)\b/i,
   /\b(why\s+(is|does|did)\b.{0,40}\b(fail|failing|broken|not\s+work))/i,
   /\b(root\s+cause|debug\s+this|mysterious|flaky\s+test)\b/i,
   /\b(security|race\s+condition|deadlock|memory\s+leak)\b/i,
   /\b(refactor.{0,30}(whole|entire|large)\b)/i,
-  // fix/repair turns — 27B models are weak at precise TS type-repair
-  // (observed: TS2339/TS2345 union-narrowing errors survived 8 fix rounds);
-  // route them to the frontier model.
+  // fix/repair turns — flash-class models were observed letting TS2339/TS2345
+  // union-narrowing errors survive 8 repair rounds.
   /\b(fix|repair|resolve)\b.{0,30}\b(error|errors|fail|fails|failing|broken|type|TS\d{3,5}|compile|compilation|build)\b/i,
   /\b(error|errors|fail|fails|failing|broken|type|TS\d{3,5}|compile|compilation|build)\b.{0,30}\b(fix|repair|resolve)\b/i,
   /\bTS\d{3,5}\b/,
@@ -65,222 +197,41 @@ export function classifyHardness(text: string): RouterSignals["hardness"] {
   return "routine";
 }
 
-export function route(signals: RouterSignals): RouterDecision {
-  // Fair-use nudge state: alert at 8% weekly full-share, hard cap at 10%.
-  const fairUse = signals.fullShareThisWeek >= ROUTER.fullShareCapPerUserPerWeek
-    ? "capped"
-    : signals.fullShareThisWeek >= ROUTER.fullShareAlertAt
-      ? "alert"
-      : undefined;
-
-  // Session stickiness — a locked session stays on its workhorse model.
-  if (!signals.isNewSession && signals.sessionLockedModel) {
-    const locked = signals.sessionLockedModel;
-    const tier = HYPER[locked] && !locked.includes("flash") ? "full" : "flash";
-    return {
-      provider: "hyper",
-      upstreamModel: locked,
-      tier,
-      effort: "low",
-      reason: "session-sticky",
-      hardCapped: false,
-      fairUse,
-      fairUseShare: signals.fullShareThisWeek,
-    };
-  }
-
-  const fullModel = signals.endpointModel === "qwen-3.8" ? "qwen3.8-max" : "glm-5.3";
-  const flashModel = FLASH_OF[fullModel];
-  const hardness = signals.hardness;
-
-  // HARD CAP: if user already burned their weekly full-share, force flash.
-  const capExceeded = signals.fullShareThisWeek >= ROUTER.fullShareCapPerUserPerWeek;
-
-  const wantsFull =
-    !capExceeded &&
-    (signals.userRequestedFull === true ||
-      hardness === "planning" ||
-      hardness === "debugging" ||
-      hardness === "architect" ||
-      signals.failureSignal === true); // escalation-on-failure: failing tests/compile → full
-
-  if (wantsFull) {
-    return {
-      provider: "hyper",
-      upstreamModel: fullModel,
-      tier: "full",
-      effort: "max",
-      reason: signals.failureSignal === true && hardness === "routine"
-        ? "failure-escalation"
-        : `hardness=${hardness}${signals.failureSignal === true ? "+failure-signal" : ""}`,
-      hardCapped: false,
-      fairUse,
-      fairUseShare: signals.fullShareThisWeek,
-    };
-  }
-
-  return {
-    provider: "hyper",
-    upstreamModel: flashModel,
-    tier: "flash",
-    effort: "low",
-    reason: `hardness=${hardness}, full-share ${(signals.fullShareThisWeek * 100).toFixed(1)}%`,
-    hardCapped: capExceeded,
-    fairUse,
-    fairUseShare: signals.fullShareThisWeek,
-  };
+export function isHard(h: RouterSignals["hardness"]): boolean {
+  return h === "planning" || h === "debugging" || h === "architect";
 }
 
-// theta routing (v2 redesign 2026-09-04): a full cheap-first chain.
-//   agnes (4 concurrent) → stepfun (8 concurrent) → yolo (free, pressure-gated)
-//   → glm-5.3-flash on Hyper (till $12.5/day) → glm-5.3-flash on llmgateway.
-// Concurrency semaphores + pressure/budget gates are caller-supplied booleans.
-export interface ThetaBackends {
-  camel: boolean;
-  camelFree: boolean;       // 1-slot semaphore (plan concurrency 1)
-  agnes: boolean;
-  agnesFree: boolean;       // 10-slot semaphore
-  stepfun: boolean;
-  stepfunFree: boolean;     // 8-slot semaphore
-  yolo: boolean;
-  yoloFree: boolean;
-  yoloPressureOk: boolean;
-  generalcompute: boolean;
-  generalcomputeFree: boolean; // 429-cooldown gate (no concurrency mirror v1)
-  hyperBudgetOk: boolean;
-  llmGatewayOn: boolean;
+/**
+ * Whether the full-model budget still allows an escalation.
+ *
+ * A HARD pre-filter, not a hint: once spent, the full tier leaves the candidate
+ * pool entirely, so capability decides which turns escalate but never how many.
+ * The cap is on the *share of glm calls*, so a user cannot reach it by making
+ * more cheap calls — the denominator moves with them.
+ */
+export function fullTierAllowed(fullShareThisWeek: number): boolean {
+  return fullShareThisWeek < ROUTER.fullModelShareCap;
 }
 
-export function routeTheta(text: string, backends: ThetaBackends, exclude: Set<string> = new Set()): RouterDecision {
-  const hardness = classifyHardness(text);
-  const hard = hardness === "debugging" || hardness === "planning";
-  // Chain order (founder-spec 2026-09-07, uniform for hard+routine, +generalcompute 2026-09-08):
-  //   camel → agnes → stepfun → yolo → generalcompute → hyper-flash → llmgateway-flash
-  // camel: metered gpt-5.6-luna class, slot=1 — busy → fall through.
-  // feihoa intentionally NOT in theta (backchannel/frontier-only lane).
-  // `exclude` skips lanes that just failed this turn, so failover walks the
-  // chain instead of re-picking the failed lane and jumping to paid hyper.
-  type Lane = { id: RouterDecision["provider"]; model: string; ok: boolean; why: string };
-  const chain: Lane[] = [
-    { id: "camel", model: "auto", ok: backends.camel && backends.camelFree, why: `theta-${hard ? "hard" : "routine"}=camel` },
-    { id: "agnes", model: "agnes-2.5-flash", ok: backends.agnes && backends.agnesFree, why: `theta-${hard ? "hard" : "routine"}=agnes` },
-    { id: "stepfun", model: "step-3.7-flash", ok: backends.stepfun && backends.stepfunFree, why: `theta-${hard ? "hard" : "routine"}=stepfun` },
-    { id: "yolo", model: YOLO_MODEL, ok: backends.yolo && backends.yoloFree && backends.yoloPressureOk, why: `theta-${hard ? "hard" : "routine"}=yolo` },
-    { id: "generalcompute", model: GENERALCOMPUTE_MODEL, ok: backends.generalcompute && backends.generalcomputeFree, why: `theta-${hard ? "hard" : "routine"}=generalcompute` },
-    { id: "hyper", model: "glm-5.3-flash", ok: backends.hyperBudgetOk, why: `theta-${hard ? "hard" : "routine"}=hyper-flash` },
-    { id: "llmgateway", model: "glm-5.3-flash", ok: backends.llmGatewayOn, why: `theta-${hard ? "hard" : "routine"}=llmgateway-flash` },
-  ];
-  const pick = chain.filter((lane) => !exclude.has(lane.id)).find((lane) => lane.ok);
-  if (!pick) {
-    return { provider: "hyper", upstreamModel: "glm-5.3-flash", tier: "flash", effort: "low", reason: "theta-no-backend(last-resort-hyper)", hardCapped: false };
-  }
+/** Fair-use nudge state from a user's trailing full-model share. */
+export function fairUseState(share: number): RouterDecision["fairUse"] {
+  if (share >= ROUTER.fullModelShareCap) return "capped";
+  if (share >= ROUTER.fullModelShareAlertAt) return "alert";
+  return undefined;
+}
+
+/** Failover decision: same turn, same (already window-fitted) messages, new lane. */
+export function failoverDecision(
+  d: RouterDecision,
+  to: ProviderId,
+  cause: string,
+  upstreamModel?: string,
+): RouterDecision {
   return {
-    provider: pick.id,
-    upstreamModel: pick.model,
-    tier: "flash",
-    effort: "low",
-    reason: pick.why,
+    ...d,
+    provider: to,
+    upstreamModel: upstreamModel ?? d.upstreamModel,
+    reason: `${d.reason} → failover-${to}(${cause})`,
     hardCapped: false,
   };
-}
-
-// ── Backchannel smart routing ──
-// Two OpenAI-compat backchannel lanes behind the frontier endpoints:
-//   feihoa — Qwen3.8-27B-Uncensored, 32K window, unlimited reqs, concurrency 1
-//   yolo   — qwen3.8-27b,           128K window, builder plan (no daily cap), concurrency 4
-// Lane selection is context-size aware: small contexts fit feihoa's 32K window
-// (the unlimited lane); large contexts route to yolo's 128K window so the
-// context engine doesn't have to compact as hard. Either lane fails over to
-// the other on capacity/provider errors. The router owns the policy; the
-// route handler only executes a hop.
-export const BACKCHANNEL_CHAIN = ["feihoa", "yolo"] as const;
-export type BackchannelLane = (typeof BACKCHANNEL_CHAIN)[number];
-
-/** Pick the primary backchannel lane by estimated context size. */
-export function backchannelPrimary(rawInTokens: number, feihoaBudget: number): BackchannelLane {
-  return rawInTokens <= feihoaBudget ? "feihoa" : "yolo";
-}
-
-/** Statuses that justify a backchannel hop (capacity / provider failure). */
-const FAILOVER_STATUSES = new Set([429, 409, 500, 502, 503]);
-
-/**
- * Next backchannel lane after a failed dispatch, or null (no hop).
- * feihoa → yolo always (yolo's 128K window fits anything).
- * yolo → feihoa only when the (already window-fitted) payload fits feihoa's
- * 32K budget — otherwise the hop would 400 on context length.
- */
-export function backchannelNext(
-  provider: RouterDecision["provider"],
-  status: number,
-  opts?: { fitsFeihoa?: boolean },
-): RouterDecision["provider"] | null {
-  if (!FAILOVER_STATUSES.has(status)) return null;
-  if (provider === "feihoa") return "yolo";
-  if (provider === "yolo") return opts?.fitsFeihoa ? "feihoa" : null;
-  return null;
-}
-
-
-/**
- * qwen-3.8 smart routing (v3 2026-09-05: feihoa primary after plan upgrade):
- *   routine: feihoa (free, 28-30 TPS upgraded, ctx ≤32K, concurrency-1)
- *            → yolo (free, concurrency-4, pressure+wedge gated)
- *            → qwen3.8-flash on Hyper (till $12.5/day)
- *            → qwen3.8-flash on llmgateway (paid fallback)
- *   hard:    qwen3.8-max on Hyper (till $12.5/day) → qwen3.8-max on llmgateway
- * Feihoa's upgrade (measured live: 3.4→28-30 TPS, ~8x) makes it the fastest
- * free lane; its concurrency-1 slot is the only constraint, so yolo
- * absorbs overflow. Gates evaluated by the caller — this stays pure.
- */
-export function routeQwenSmart(signals: {
-  hardness: RouterSignals["hardness"];
-  prefixTokens: number;
-  fullShareThisWeek: number;
-  feihoaOn: boolean;
-  feihoaFree: boolean;           // concurrency-1 semaphore
-  feihoaFits: boolean;           // ctx ≤ 32K budget
-  yoloOn: boolean;
-  yoloFree: boolean;             // semaphore: does yolo have a free slot (<4 in flight)?
-  yoloPressureOk: boolean;       // pressure tracker: below soft edge, and this turn won't overflow
-  hyperBudgetOk: boolean;         // $12.5/day global budget has headroom
-  llmGatewayOn: boolean;
-}): RouterDecision {
-  const hard = signals.hardness === "planning" || signals.hardness === "debugging" || signals.hardness === "architect";
-  if (hard && signals.fullShareThisWeek < ROUTER.fullShareCapPerUserPerWeek) {
-    if (signals.hyperBudgetOk) {
-      return { provider: "hyper", upstreamModel: "qwen3.8-max", tier: "full", effort: "max", reason: `smart-qwen=hard:${signals.hardness}`, hardCapped: false };
-    }
-    if (signals.llmGatewayOn) {
-      return { provider: "llmgateway", upstreamModel: "qwen3.8-max", tier: "full", effort: "max", reason: `smart-qwen=hard:${signals.hardness}(hyper-budget-out)`, hardCapped: false };
-    }
-  }
-  // Routine: feihoa primary (free, fastest single-stream after upgrade).
-  if (signals.feihoaOn && signals.feihoaFree && signals.feihoaFits) {
-    return { provider: "feihoa", upstreamModel: FEIHOA_MODEL, tier: "flash", effort: "low", reason: "smart-qwen=feihoa", hardCapped: false };
-  }
-  // Yolo secondary: concurrency-4 overflow lane (pressure + wedge gated).
-  if (signals.yoloOn && signals.yoloFree && signals.yoloPressureOk) {
-    return { provider: "yolo", upstreamModel: YOLO_MODEL, tier: "flash", effort: "low", reason: `smart-qwen=yolo(${signals.feihoaOn ? "feihoa-busy" : "feihoa-off"})`, hardCapped: false };
-  }
-  // Hyper flash backstop (cheap paid) while the daily budget holds.
-  if (signals.hyperBudgetOk) {
-    const why = !signals.yoloOn
-      ? "yolo-off"
-      : !signals.yoloFree
-        ? "yolo-cooling" // wedge cooldown / slots full — infra health, not pressure
-        : "yolo-pressured"; // account budget (130% soft edge)
-    return { provider: "hyper", upstreamModel: "qwen3.8-flash", tier: "flash", effort: "low", reason: `smart-qwen=flash(${why})`, hardCapped: false };
-  }
-  // llmgateway flash — final fallback (paid, no cache, but always available).
-  if (signals.llmGatewayOn) {
-    return { provider: "llmgateway", upstreamModel: "qwen3.8-flash", tier: "flash", effort: "low", reason: "smart-qwen=llmgateway-flash(hyper-budget-out)", hardCapped: false };
-  }
-  // Nothing else enabled — last resort on hyper even past budget (better an
-  // overage than a hard failure; admin alert covers the budget breach).
-  return { provider: "hyper", upstreamModel: "qwen3.8-flash", tier: "flash", effort: "low", reason: "smart-qwen=flash(no-alternative)", hardCapped: false };
-}
-/** Failover decision: same turn, same (already window-fitted) messages, new lane. */
-export function failoverDecision(d: RouterDecision, to: RouterDecision["provider"], cause: string): RouterDecision {
-  return { ...d, provider: to, reason: `${d.reason} → failover-${to}(${cause})`, hardCapped: false };
 }

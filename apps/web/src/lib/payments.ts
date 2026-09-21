@@ -8,7 +8,7 @@
 import { randomUUID } from "crypto";
 
 export type CheckoutIntent = {
-  plan: "basic" | "advanced";
+  plan: "starter" | "pro";
   currency: "usd" | "inr";
   amount: number; // in currency units, after discount
   userId: string;

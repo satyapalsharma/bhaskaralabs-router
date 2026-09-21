@@ -71,7 +71,7 @@ hello        →  [hello]                 (1 token)
       <Para>
         <strong>Fertility</strong> = tokens per word. English prose sits near
         1.3; code and non-Latin scripts run higher. When someone says a model
-        has a "200K context window," that is ~150K English words but far fewer
+        has a &ldquo;200K context window,&rdquo; that is ~150K English words but far fewer
         characters of dense code or Hindi text.
       </Para>
 

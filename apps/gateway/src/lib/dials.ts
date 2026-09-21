@@ -17,7 +17,7 @@ export function expandEnabled(headerValue: string | undefined | null): boolean {
 }
 
 /** Map a low-effort request onto the upstream body. QWEN-ONLY: Hyper accepts
- * reasoning_effort on qwen lanes (HTTP 200 on qwen3.8-max, probed 2026-09-08;
+ * reasoning_effort on the glm lanes (HTTP 200, probed 2026-09-08;
  * note reasoning still ran in that probe — savings UNPROVEN, measured via
  * completion_tokens_details.reasoning_tokens per effortRequested arm).
  * GLM untouched (unknown param risks a provider 400). Never overrides a

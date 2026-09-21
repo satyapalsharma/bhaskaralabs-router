@@ -49,7 +49,8 @@ export async function listArticles(): Promise<ArticleMeta[]> {
   const entries = await Promise.all(
     Object.entries(loaders).map(async ([, load]) => (await load()).meta),
   );
-  return entries.sort((a, b) => a.slug.localeCompare(b.slug));
+  // Registry order = curriculum order (module 1 runs tokenization → evals).
+  return entries;
 }
 
 export type RoadmapModule = {

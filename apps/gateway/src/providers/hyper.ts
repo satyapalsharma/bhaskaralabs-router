@@ -1,6 +1,9 @@
 // Hyper provider client [CORE] — OpenAI-compat + Anthropic-compat, streaming pass-through.
 // Hyper = our legitimate CORE provider. Team account, master/sub-keys, NO pooling (ToS).
 
+import { makeShadowRelease, SHADOW_HOLD_MS } from "../lib/shadow-release";
+import { laneAcquire, laneWeight, wrapLaneRelease } from "../lib/lane-slot";
+
 export const HYPER_BASE = process.env.HYPER_BASE_URL ?? "https://hyper.charm.land";
 
 export interface HyperKey {
@@ -25,31 +28,75 @@ export interface UpstreamRequest {
   signal?: AbortSignal;
 }
 
-/** POST to Hyper, return raw Response for streaming pass-through. Never buffers. */
-export async function hyperChat(req: UpstreamRequest): Promise<Response> {
-  return fetch(`${HYPER_BASE}/v1/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${req.apiKey}`,
-    },
-    body: JSON.stringify(req.body),
-    signal: req.signal,
-  });
+/**
+ * Lane admission for hyper.
+ *
+ * Hyper is dispatched outside the DB-fleet path, so it never reached the
+ * generic dispatcher's account semaphore and had no concurrency bound at all —
+ * every one of the operator key's open turns could land on it simultaneously.
+ * That is how a lane whose p90 generation is ~98s ends up being handed more
+ * work than it can drain, and why its long turns were arriving as 226s
+ * outliers. The budget lives in lib/lane-slot with the other lanes; this
+ * function is what takes it.
+ *
+ * `laneFree` is checked by the caller before dispatch (a saturated lane is
+ * skipped in favour of the next rung), so this acquire is enforcement, not the
+ * decision. Returns the release pair the body wrapper needs: a normal finish
+ * releases immediately, an abort shadow-holds for the zombie's estimated
+ * remaining generation.
+ */
+function hyperLaneAcquire(body: unknown): [() => void, () => void] {
+  const maxTokens =
+    typeof body === "object" && body !== null && typeof (body as { max_tokens?: unknown }).max_tokens === "number"
+      ? (body as { max_tokens: number }).max_tokens
+      : undefined;
+  const releaseLane = laneAcquire("hyper", laneWeight(maxTokens));
+  return makeShadowRelease(releaseLane, SHADOW_HOLD_MS.hyper ?? 15_000, "hyper");
 }
 
-/** Anthropic-compat variant for Claude Code / Crush clients. */
+/** POST to Hyper, return raw Response for streaming pass-through. Never buffers. */
+export async function hyperChat(req: UpstreamRequest): Promise<Response> {
+  const [release, shadowRelease] = hyperLaneAcquire(req.body);
+  try {
+    const res = await fetch(`${HYPER_BASE}/v1/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${req.apiKey}`,
+      },
+      body: JSON.stringify(req.body),
+      signal: req.signal,
+    });
+    return wrapLaneRelease(res, release, shadowRelease);
+  } catch (err) {
+    shadowRelease();
+    throw err;
+  }
+}
+
+/** Anthropic-compat variant for Claude Code / Crush clients.
+ * Lane-slot accounting is identical to hyperChat: the /v1/messages route
+ * occupies the same provider concurrency, and a dispatch that skipped the
+ * acquire would make the mirror undercount exactly the traffic that route
+ * carries. */
 export async function hyperMessages(req: UpstreamRequest): Promise<Response> {
-  return fetch(`${HYPER_BASE}/v1/messages`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": req.apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify(req.body),
-    signal: req.signal,
-  });
+  const [release, shadowRelease] = hyperLaneAcquire(req.body);
+  try {
+    const res = await fetch(`${HYPER_BASE}/v1/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": req.apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify(req.body),
+      signal: req.signal,
+    });
+    return wrapLaneRelease(res, release, shadowRelease);
+  } catch (err) {
+    shadowRelease();
+    throw err;
+  }
 }
 
 interface RawUsage {
@@ -101,10 +148,17 @@ export function parseUsageNonStream(json: unknown): HyperUsage {
 
 /** Accumulate usage from OpenAI-style SSE chunks (with stream_options.include_usage).
  * Also counts streamed content chars — zero-content completions feed the
- * escalation empty-output streak. */
+ * escalation empty-output streak.
+ *
+ * Tool calls are tracked separately because they do not arrive as content:
+ * OpenAI streams them as `delta.tool_calls[]`, leaving `contentChars` at 0 for
+ * a turn that is doing exactly what a coding agent should. Reading only
+ * contentChars made every tool-calling turn look like an empty response. */
 export class SseUsageAccumulator {
   usage: HyperUsage | null = null;
   contentChars = 0;
+  /** True once any chunk carried a non-empty `delta.tool_calls`. */
+  hasToolCalls = false;
 
   /** Returns parsed usage when a chunk carries it; else null. Call with every data line. */
   feed(sseData: string): HyperUsage | null {
@@ -118,8 +172,10 @@ export class SseUsageAccumulator {
         }
       }
       if (parsed && typeof parsed === "object" && Array.isArray((parsed as { choices?: unknown }).choices)) {
-        const delta = (parsed as { choices: Array<{ delta?: { content?: unknown } }> }).choices[0]?.delta?.content;
-        if (typeof delta === "string") this.contentChars += delta.length;
+        const delta = (parsed as { choices: Array<{ delta?: { content?: unknown; tool_calls?: unknown } }> }).choices[0]
+          ?.delta;
+        if (typeof delta?.content === "string") this.contentChars += delta.content.length;
+        if (Array.isArray(delta?.tool_calls) && delta.tool_calls.length > 0) this.hasToolCalls = true;
       }
     } catch {
       // non-JSON line, ignore

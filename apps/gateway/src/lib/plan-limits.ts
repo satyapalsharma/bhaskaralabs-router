@@ -1,5 +1,5 @@
 // Plan entitlements: per-plan, per-model, per-window caps (admin-managed).
-// E.g. bigpro → qwen-3.8: 100 requests / 5h; theta: 500 requests / 5h.
+// E.g. an enterprise plan → glm-5.3: 400 requests / 5h.
 // Counts come straight from usage_ledger aggregates (indexed user+time) —
 // no separate counters to drift. Rules cached 15s in-process.
 

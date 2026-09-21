@@ -2,22 +2,47 @@
 
 import { useState } from "react";
 
-export default function CopyCode({ lang, children }: { lang: string; children: string }) {
+/**
+ * Code on the machine face. The label and the copy control sit in
+ * the readout header, the code itself is the panel body.
+ */
+export default function CopyCode({
+  lang,
+  label,
+  children,
+}: {
+  lang: string;
+  label?: string;
+  children: string;
+}) {
   const [copied, setCopied] = useState(false);
+
   const copy = async () => {
-    await navigator.clipboard.writeText(children);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    try {
+      await navigator.clipboard.writeText(children);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch {
+      // Clipboard blocked (insecure origin, permissions). The text
+      // stays selectable, so this is not worth an error state.
+    }
   };
+
   return (
-    <div className="group relative mt-3">
-      <div className="flex items-center justify-between rounded-t-lg border border-b-0 border-zinc-800 bg-zinc-900/80 px-3 py-1.5">
-        <span className="text-[10px] uppercase tracking-widest text-zinc-500">{lang}</span>
-        <button onClick={copy} className="text-xs text-zinc-500 hover:text-zinc-200 transition-colors">
-          {copied ? "copied ✓" : "copy"}
+    <div className="machine my-4 overflow-hidden">
+      <div className="flex items-center justify-between gap-4 border-b border-machine-rule px-4 py-2">
+        <span className="label text-machine-mute">
+          {label ?? lang}
+        </span>
+        <button
+          type="button"
+          onClick={copy}
+          className="font-mono text-[0.6875rem] text-machine-mute transition-colors hover:text-machine-ink"
+        >
+          {copied ? "copied" : "copy"}
         </button>
       </div>
-      <pre className="overflow-x-auto rounded-b-lg border border-zinc-800 bg-zinc-950 p-4 text-xs leading-relaxed text-zinc-200">
+      <pre className="overflow-x-auto px-4 py-3.5 font-mono text-[0.75rem] leading-relaxed text-machine-soft">
         <code>{children}</code>
       </pre>
     </div>

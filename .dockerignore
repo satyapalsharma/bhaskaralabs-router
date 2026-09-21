@@ -9,3 +9,6 @@ dist
 *.sql
 build
 .DS_Store
+*.db
+keyss
+TUNNEL-ISSUES.md

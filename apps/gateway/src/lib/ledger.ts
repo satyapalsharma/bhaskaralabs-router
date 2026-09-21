@@ -18,6 +18,15 @@ export interface LedgerEntry {
   latencyMs?: number;
   ttftMs?: number;
   providerMeta?: Record<string, unknown>;
+  /** Router causality. `reason` is the human-readable why; `signals` is the
+   *  machine-readable input vector that produced it (capability distribution,
+   *  escalation counters, chosen r). Both feed skill-card calibration. */
+  routerReason?: string;
+  routerSignals?: Record<string, unknown>;
+  /** Whether the response asked for a tool. The dud rate cannot be computed
+   *  without it: a productive tool call and a model giving up have the same
+   *  token shape (large prompt, tiny completion). Undefined records "unknown". */
+  hasToolCalls?: boolean;
   /** Override computed costs (admin fleet models with DB pricing; unknown to the static rate card). */
   actualCostUsd?: number;
   userEquivUsd?: number;
@@ -52,6 +61,9 @@ export async function writeLedger(entry: LedgerEntry): Promise<void> {
     userEquivalentCostUsd: equiv.toFixed(6),
     actualCostUsd: real.toFixed(6),
     providerMeta: entry.providerMeta ? JSON.stringify(entry.providerMeta) : null,
+    hasToolCalls: entry.hasToolCalls ?? null,
+    routerReason: entry.routerReason ?? null,
+    routerSignals: entry.routerSignals ? JSON.stringify(entry.routerSignals) : null,
     latencyMs: entry.latencyMs,
     ttftMs: entry.ttftMs,
   });

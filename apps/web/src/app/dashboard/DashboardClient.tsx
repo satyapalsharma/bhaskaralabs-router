@@ -1,9 +1,17 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import type { QuotaSnapshot, DayUsage } from "@/lib/quota-snapshot";
+import {
+  PROFILE_FLAGS,
+  VALID_FLAGS,
+  type RoutingProfileName,
+} from "@bhaskara/shared/skill";
+import { compactTokens, tokens as fmtTokens, usd } from "@/lib/format";
+import { PLANS, type PlanId } from "@bhaskara/shared/pricing";
 
 interface KeyRow {
   id: string;
@@ -13,12 +21,24 @@ interface KeyRow {
   createdAt: string;
 }
 
-const KEY_FLAGS = [
-  { name: "compress", hint: "live-zone compression" },
-  { name: "compact", hint: "200K compact" },
-  { name: "shadow", hint: "shadow audit" },
-  { name: "docs", hint: "docs lookup" },
-] as const;
+const FLAG_HINTS: Record<string, string> = {
+  compress: "live-zone compression",
+  compact: "200K compaction",
+  shadow: "shadow audit",
+  docs: "docs lookup",
+  skill: "capability-aware routing",
+};
+
+const KEY_FLAGS = VALID_FLAGS.map((name) => ({
+  name,
+  hint: FLAG_HINTS[name] ?? "",
+}));
+
+const PROFILE_HINTS: Record<RoutingProfileName, string> = {
+  eco: "cheapest model that can carry the turn",
+  balanced: "quality where it matters, cost everywhere else",
+  pro: "strongest model whenever the turn looks hard",
+};
 
 const parseFlags = (csv: string | null | undefined): Record<string, true> => {
   const out: Record<string, true> = {};
@@ -37,34 +57,117 @@ interface Props {
   initialOptOut: boolean;
 }
 
-const fmtM = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : `${n}`);
-
-function QuotaCard({ label, used, cap, unit }: { label: string; used: number; cap: number; unit: "tokens" | "requests" }) {
-  const capAbs = unit === "tokens" ? cap * 1e6 : cap;
+/**
+ * A quota meter. State is carried by the numeric readout and a label,
+ * not by colour alone; the bar is a rule with a filled portion.
+ */
+function Meter({
+  label,
+  detail,
+  used,
+  cap,
+  unit,
+  /** Extra line shown under the bar, when a meter needs a caveat. */
+  note,
+}: {
+  label: string;
+  detail: string;
+  used: number;
+  cap: number | null;
+  unit: "tokens" | "requests";
+  note?: string;
+}) {
+  // null is a real value here: it means the plan has no cap on this window, and
+  // the throttle replaces it. Rendering it as 0 would read as "exhausted".
+  const unlimited = cap === null;
+  const capAbs = unlimited ? 0 : unit === "tokens" ? (cap as number) * 1e6 : (cap as number);
   const pct = capAbs > 0 ? Math.min(100, (used / capAbs) * 100) : 0;
-  const fmt = (n: number) => (unit === "tokens" ? fmtM(n) : `${n.toLocaleString("en-US")}`);
+  const shown = (n: number) =>
+    unit === "tokens" ? compactTokens(n) : n.toLocaleString("en-US");
+
+  const state =
+    unlimited
+      ? { label: "unlimited", tone: "text-ink-faint", bar: "bg-ink-faint" }
+      : capAbs === 0
+      ? { label: "unlimited", tone: "text-ink-faint", bar: "bg-ink-faint" }
+      : pct >= 90
+        ? { label: "at limit", tone: "text-danger", bar: "bg-danger" }
+        : pct >= 70
+          ? { label: "near limit", tone: "text-warn", bar: "bg-warn" }
+          : { label: "within quota", tone: "text-ink-mute", bar: "bg-ink" };
+
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
-      <div className="flex items-baseline justify-between">
-        <h3 className="text-sm font-medium text-zinc-400">{label}</h3>
-        <span className={`text-xs ${pct >= 90 ? "text-red-400" : pct >= 70 ? "text-amber-400" : "text-zinc-500"}`}>
-          {capAbs > 0 ? `${pct.toFixed(0)}%` : "—"}
-        </span>
-      </div>
-      <p className="mt-2 text-2xl font-semibold tabular-nums">
-        {fmt(used)} <span className="text-sm font-normal text-zinc-500">/ {capAbs > 0 ? fmt(capAbs) : "unlimited"}</span>
+    <div className="border-t-2 border-ink bg-panel px-4 py-4">
+      <p className="label text-ink-faint">{label}</p>
+      <p className="num mt-3 font-mono text-[1.375rem] font-medium leading-none text-ink">
+        {shown(used)}
       </p>
-      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-zinc-800">
+      <p className="num mt-2 font-mono text-[0.6875rem] text-ink-mute">
+        {unlimited ? "no cap" : `of ${shown(capAbs)}`} · {detail}
+      </p>
+      {note && (
+        <p className="mt-2 text-[0.6875rem] leading-snug text-ink-faint">{note}</p>
+      )}
+      <div
+        role="progressbar"
+        aria-valuenow={Math.round(pct)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={`${label} used`}
+        className="mt-4 h-[3px] w-full bg-fill-strong"
+      >
         <div
-          className={`h-full rounded-full ${pct >= 90 ? "bg-red-500" : pct >= 70 ? "bg-amber-500" : "bg-emerald-500"}`}
-          style={{ width: `${pct}%` }}
+          className={`h-full ${state.bar}`}
+          style={{ width: `${capAbs > 0 ? Math.max(pct, pct > 0 ? 1.5 : 0) : 0}%` }}
         />
       </div>
+      <p className={`mt-2.5 font-mono text-[0.6875rem] ${state.tone}`}>
+        {capAbs > 0 ? `${pct.toFixed(0)}% · ${state.label}` : state.label}
+      </p>
     </div>
   );
 }
 
-export default function DashboardClient({ user, initialSnapshot, initialUsage, initialKeys, initialOptOut }: Props) {
+function Switch({
+  on,
+  busy,
+  onToggle,
+  label,
+}: {
+  on: boolean;
+  busy: boolean;
+  onToggle: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      disabled={busy}
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      className={`relative h-6 w-11 shrink-0 rounded-sm border transition-colors disabled:opacity-50 ${
+        on ? "border-accent bg-accent" : "border-rule-strong bg-fill"
+      }`}
+    >
+      <span
+        aria-hidden
+        className={`absolute top-[3px] h-4 w-4 rounded-xs bg-panel transition-all ${
+          on ? "left-[25px]" : "left-[3px]"
+        }`}
+      />
+    </button>
+  );
+}
+
+export default function DashboardClient({
+  user,
+  initialSnapshot,
+  initialUsage,
+  initialKeys,
+  initialOptOut,
+}: Props) {
   const router = useRouter();
   const [snapshot] = useState(initialSnapshot);
   const [usage] = useState(initialUsage);
@@ -75,20 +178,39 @@ export default function DashboardClient({ user, initialSnapshot, initialUsage, i
   const [optOut, setOptOut] = useState(initialOptOut);
   const [optBusy, setOptBusy] = useState(false);
   const [flagBusy, setFlagBusy] = useState("");
+  const [flagError, setFlagError] = useState("");
 
-  // Hydrate per-key flags (server-rendered rows predate the flags column).
   useEffect(() => {
     if (initialKeys.some((k) => k.flags !== undefined)) return;
-    fetch("/api/keys").then((r) => r.json()).then((d: { keys?: KeyRow[] }) => {
-      if (d.keys) setKeys(d.keys);
-    }).catch(() => {});
+    fetch("/api/keys")
+      .then((r) => r.json())
+      .then((d: { keys?: KeyRow[] }) => {
+        if (d.keys) setKeys(d.keys);
+      })
+      .catch(() => {});
   }, [initialKeys]);
 
+  /**
+   * Persist a flag change. Profiles are mutually exclusive: selecting one
+   * replaces any other, selecting the active one clears it back to balanced.
+   * The server re-validates and returns the canonical CSV, which is what we
+   * store — never the string we optimistically built here.
+   */
   const toggleFlag = async (id: string, name: string) => {
     const key = keys.find((k) => k.id === id);
     if (!key || !key.active) return;
     const on = parseFlags(key.flags);
-    const next = KEY_FLAGS.map((f) => f.name).filter((f) => (f === name ? !on[f] : on[f])).join(",");
+    const isProfile = (PROFILE_FLAGS as readonly string[]).includes(name);
+
+    const next = KEY_FLAGS.map((f) => f.name)
+      .filter((f) => {
+        const isProfileFlag = (PROFILE_FLAGS as readonly string[]).includes(f);
+        if (f === name) return !on[f]; // toggling this one
+        if (isProfile && isProfileFlag) return false; // profiles replace each other
+        return on[f]; // everything else keeps its state
+      })
+      .join(",");
+
     setFlagBusy(`${id}:${name}`);
     try {
       const res = await fetch(`/api/keys/${id}`, {
@@ -96,9 +218,16 @@ export default function DashboardClient({ user, initialSnapshot, initialUsage, i
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ flags: next }),
       });
-      if (!res.ok) return;
+      if (!res.ok) {
+        const d = (await res.json().catch(() => ({}))) as { error?: string };
+        setFlagError(d.error ?? `Could not save (${res.status})`);
+        return;
+      }
       const data = (await res.json()) as { flags: string | null };
-      setKeys((ks) => ks.map((k) => (k.id === id ? { ...k, flags: data.flags } : k)));
+      setFlagError("");
+      setKeys((ks) =>
+        ks.map((k) => (k.id === id ? { ...k, flags: data.flags } : k)),
+      );
     } finally {
       setFlagBusy("");
     }
@@ -128,7 +257,8 @@ export default function DashboardClient({ user, initialSnapshot, initialUsage, i
 
   const revokeKey = async (id: string) => {
     const res = await fetch(`/api/keys/${id}`, { method: "DELETE" });
-    if (res.ok) setKeys((ks) => ks.map((k) => (k.id === id ? { ...k, active: false } : k)));
+    if (res.ok)
+      setKeys((ks) => ks.map((k) => (k.id === id ? { ...k, active: false } : k)));
   };
 
   const toggleOptOut = async () => {
@@ -150,201 +280,472 @@ export default function DashboardClient({ user, initialSnapshot, initialUsage, i
     router.push("/");
   };
 
+  const activeKeys = keys.filter((k) => k.active);
   const maxReq = Math.max(1, ...usage.map((u) => u.requests));
   const totalSaved = usage.reduce((s, u) => s + u.savedUsd, 0);
+  const periodStart =
+    usage.length > 0
+      ? new Date(usage[0].date).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        })
+      : null;
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-12">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+    <main className="mx-auto max-w-6xl px-5 py-10 sm:px-6">
+      {/* ── Header ────────────────────────────────────────────── */}
+      <header className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
+        <div className="flex items-center gap-3.5">
           {user.image ? (
-            <img src={user.image} alt="" className="h-10 w-10 rounded-full border border-zinc-700" />
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={user.image}
+              alt=""
+              className="h-10 w-10 rounded-sm border border-rule object-cover"
+            />
           ) : (
-            <div className="h-10 w-10 rounded-full bg-zinc-800" />
-          )}
-          <div>
-            <h1 className="text-xl font-semibold">Hey {user.name}</h1>
-            <p className="text-sm text-zinc-500">{user.email}</p>
-          </div>
-          {snapshot && (
-            <span className="ml-2 rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-xs font-medium uppercase tracking-wide text-amber-400">
-              {snapshot.plan}
+            <span
+              aria-hidden
+              className="flex h-10 w-10 items-center justify-center rounded-sm border border-rule bg-sunken font-mono text-[0.8125rem] text-ink-mute"
+            >
+              {(user.name || user.email).slice(0, 1).toUpperCase()}
             </span>
           )}
-        </div>
-        <div className="flex items-center gap-3 text-sm">
-          {snapshot?.subRenews && (
-            <span className="text-zinc-500">renews {new Date(snapshot.subRenews).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+          <div>
+            <h1 className="subhead">{user.name}</h1>
+            <p className="mt-1 font-mono text-[0.75rem] text-ink-mute">
+              {user.email}
+            </p>
+          </div>
+          {snapshot && (
+            <span className="tag tag-accent ml-1">{snapshot.plan}</span>
           )}
-          <button onClick={signOut} className="text-zinc-400 hover:text-zinc-100 transition-colors">
+        </div>
+
+        <div className="flex items-center gap-4">
+          {snapshot?.subRenews && (
+            <span className="font-mono text-[0.75rem] text-ink-mute">
+              renews{" "}
+              {new Date(snapshot.subRenews).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+              })}
+            </span>
+          )}
+          <button type="button" onClick={signOut} className="btn btn-quiet btn-sm">
             Sign out
           </button>
         </div>
-      </div>
+      </header>
 
-      {snapshot && (
-        <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          <QuotaCard label="Frontier input / month" used={snapshot.frontierInUsed} cap={snapshot.limits.frontierInputM} unit="tokens" />
-          <QuotaCard label="Frontier output / month" used={snapshot.frontierOutUsed} cap={snapshot.limits.frontierOutputM} unit="tokens" />
-          <QuotaCard label="theta · last 5 h" used={snapshot.thetaLast5h} cap={snapshot.limits.thetaPer5h} unit="requests" />
-          <QuotaCard label="theta · month" used={snapshot.thetaThisMonth} cap={snapshot.limits.thetaMonthly} unit="requests" />
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
-            <h3 className="text-sm font-medium text-zinc-400">Plan days left</h3>
-            <p className="mt-2 text-2xl font-semibold tabular-nums">
-              {snapshot.subRenews
-                ? Math.max(0, Math.ceil((new Date(snapshot.subRenews).getTime() - Date.now()) / 86_400_000))
-                : "—"}
-            </p>
-            <p className="mt-3 text-xs text-zinc-600">{snapshot.subRenews ? "current cycle" : "no active subscription"}</p>
-          </div>
-        </section>
-      )}
-      {snapshot && (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-800 bg-zinc-900/60 px-5 py-4">
-          <p className="text-sm text-zinc-300">
-            This month at direct API list rates you would have paid{" "}
-            <span className="font-semibold text-zinc-100">${snapshot.equivCostMonthUsd.toFixed(2)}</span>
-            {snapshot.plan !== "free" && (
-              <>
-                {" "}
-                — on <span className="capitalize font-medium text-amber-400">{snapshot.plan}</span>:{" "}
-                <span className="font-semibold">${snapshot.plan === "basic" ? 15 : 30}/mo</span>
-              </>
-            )}
-          </p>
-          <span className="text-xs text-zinc-600">frontier at full-model list rates · theta at $0.20/$0.04/$0.40 per 1M</span>
-        </div>
+      {/* ── Quotas ────────────────────────────────────────────── */}
+      {snapshot ? (
+        <>
+          <section aria-labelledby="quotas" className="mt-10">
+            <div className="flex flex-wrap items-baseline justify-between gap-4">
+              <h2 id="quotas" className="label text-ink-faint">
+                Quotas this cycle
+              </h2>
+              <p className="font-mono text-[0.6875rem] text-ink-faint">
+                resets 00:00 UTC on the 1st · theta windows roll continuously
+              </p>
+            </div>
+            <div className="mt-4 grid gap-px bg-rule sm:grid-cols-2 lg:grid-cols-4">
+              <Meter
+                label="theta requests"
+                detail="rolling 5h"
+                used={snapshot.thetaThisWindow}
+                cap={snapshot.limits.thetaPer5h}
+                unit="requests"
+                note={
+                  snapshot.unlimitedTheta
+                    ? `One request at a time. ${snapshot.limits.thetaExtraMonthly.toLocaleString("en-US")} extra requests/month unlock up to 5.`
+                    : undefined
+                }
+              />
+              <Meter
+                label="glm-5.3 requests"
+                detail="rolling 5h"
+                used={snapshot.glmThisWindow}
+                cap={snapshot.limits.glmPer5h}
+                unit="requests"
+              />
+              <Meter
+                label="glm-5.3 tokens"
+                detail="rolling 5h"
+                used={snapshot.glmTokensThisWindow}
+                cap={snapshot.limits.glmTokensPer5h}
+                unit="tokens"
+                note="A single call can carry a million tokens, so requests alone would not bound the window."
+              />
+              <div className="border-t-2 border-ink bg-panel px-4 py-4">
+                <p className="label text-ink-faint">Plan days left</p>
+                <p className="num mt-3 font-mono text-[1.375rem] font-medium leading-none text-ink">
+                  {snapshot.daysLeft ?? "—"}
+                </p>
+                <p className="mt-2 font-mono text-[0.6875rem] text-ink-mute">
+                  {snapshot.subRenews ? "current cycle" : "no subscription"}
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {/* ── The value story ─────────────────────────────────── */}
+          <section className="machine mt-8 overflow-hidden">
+            <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-4 px-5 py-4">
+              <div>
+                <p className="label text-machine-mute">
+                  This cycle at direct list rates
+                </p>
+                <p className="num mt-3 font-mono text-[1.75rem] font-medium leading-none text-machine-ink">
+                  {usd(snapshot.equivCostMonthUsd)}
+                </p>
+              </div>
+              {snapshot.plan !== "trial" && (
+                <div className="text-right">
+                  <p className="label text-machine-mute">
+                    You paid
+                  </p>
+                  <p className="num mt-3 font-mono text-[1.75rem] font-medium leading-none text-m-ok">
+                    {usd(PLANS[snapshot.plan as PlanId]?.priceUsd ?? 0)}
+                  </p>
+                </div>
+              )}
+            </div>
+            <div className="machine-row flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-5 py-3">
+              <span className="font-mono text-[0.6875rem] text-machine-mute">
+                glm-5.3 valued at full-model list rates, no cache discount
+              </span>
+              <span className="font-mono text-[0.6875rem] text-machine-mute">
+                theta at its display rates
+              </span>
+            </div>
+          </section>
+        </>
+      ) : (
+        <p className="panel mt-10 p-6 text-[0.9375rem] text-ink-mute">
+          No quota record yet for this account.
+        </p>
       )}
 
-      <section className="mt-10 grid gap-6 lg:grid-cols-2">
+      {/* ── Keys + usage ──────────────────────────────────────── */}
+      <section className="mt-12 grid gap-10 lg:grid-cols-12">
         {/* API keys */}
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold">API keys</h2>
+        <div className="min-w-0 lg:col-span-7">
+          <div className="flex items-baseline justify-between gap-4 border-t-2 border-ink pt-5">
+            <h2 className="subhead">API keys</h2>
             <button
+              type="button"
               onClick={issueKey}
               disabled={issuing}
-              className="rounded-md bg-amber-500 px-3 py-1.5 text-sm font-medium text-zinc-950 hover:bg-amber-400 disabled:opacity-50 transition-colors"
+              className="btn btn-primary btn-sm"
             >
               {issuing ? "Issuing…" : "New key"}
             </button>
           </div>
 
           {freshKey && (
-            <div className="mt-4 rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-4">
-              <p className="text-xs text-emerald-300">Copy now — this is the only time it will be shown.</p>
-              <div className="mt-2 flex items-center gap-2">
-                <code className="flex-1 truncate rounded bg-zinc-950 px-2 py-1.5 text-xs text-zinc-200">{freshKey}</code>
-                <button onClick={copyKey} className="shrink-0 rounded bg-zinc-800 px-2.5 py-1.5 text-xs hover:bg-zinc-700 transition-colors">
-                  {copied ? "Copied ✓" : "Copy"}
+            <div className="mt-5 border border-ok bg-ok-soft p-4">
+              <p className="flex items-center gap-2 text-[0.8125rem] font-medium text-ok">
+                <span className="dot" />
+                Copy this now. It is not shown again.
+              </p>
+              <div className="mt-3 flex items-center gap-2">
+                <code className="min-w-0 flex-1 truncate rounded-xs border border-rule bg-panel px-2.5 py-2 font-mono text-[0.75rem] text-ink">
+                  {freshKey}
+                </code>
+                <button
+                  type="button"
+                  onClick={copyKey}
+                  className="btn btn-outline btn-sm"
+                >
+                  {copied ? "Copied" : "Copy"}
                 </button>
               </div>
             </div>
           )}
 
-          <ul className="mt-4 space-y-2">
-            {keys.length === 0 && <li className="text-sm text-zinc-500">No keys yet — issue one to start calling the gateway.</li>}
-            {keys.map((k) => (
-              <li key={k.id} className="flex items-center justify-between rounded-lg border border-zinc-800 px-3 py-2 text-sm">
-                <span className="font-mono text-zinc-300">
-                  {k.keyPrefix}…
-                  {!k.active && <span className="ml-2 text-xs text-red-400">revoked</span>}
-                </span>
-                <span className="flex items-center gap-3">
-                  <span className="text-xs text-zinc-600">{new Date(k.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
-                  {k.active && (
-                    <button onClick={() => revokeKey(k.id)} className="text-xs text-zinc-500 hover:text-red-400 transition-colors">
-                      Revoke
-                    </button>
-                  )}
-                </span>
-              </li>
-            ))}
-          </ul>
-
-          <p className="mt-4 text-xs text-zinc-600">
-            Point your agent at <code className="text-zinc-400">POST /v1/messages</code> (Anthropic-style) or{" "}
-            <code className="text-zinc-400">/v1/chat/completions</code> with <code className="text-zinc-400">Authorization: Bearer &lt;key&gt;</code>. Endpoint
-            names: <code className="text-zinc-400">glm-5.3 · qwen-3.8 · theta</code> — the router picks the variant. Details:{" "}
-            <a href="/docs" className="text-amber-400/80 underline hover:text-amber-300">docs</a>
-          </p>
-        </div>
-
-        {/* Usage */}
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
-          <div className="flex items-baseline justify-between">
-            <h2 className="font-semibold">Last 7 days</h2>
-            {totalSaved > 0 && <span className="text-sm text-emerald-400">${totalSaved.toFixed(2)} saved vs API rates</span>}
-          </div>
-          {usage.length === 0 ? (
-            <p className="mt-6 text-sm text-zinc-500">No requests yet. Your agent traffic will appear here.</p>
+          {keys.length === 0 ? (
+            <p className="measure mt-5 text-[0.9375rem] text-ink-mute">
+              No keys yet. Issue one to point an agent at the gateway.
+            </p>
           ) : (
-            <div className="mt-6 flex h-32 items-end gap-2">
-              {usage.map((u) => (
-                <div key={u.date} className="flex flex-1 flex-col items-center gap-1" title={`${u.requests} req · ${fmtM(u.tokens)} tok`}>
-                  <div className="w-full rounded-t bg-amber-500/70" style={{ height: `${Math.max(4, (u.requests / maxReq) * 100)}%` }} />
-                  <span className="text-[10px] text-zinc-600">{u.date.slice(5)}</span>
-                </div>
+            <ul className="mt-5">
+              {keys.map((k) => (
+                <li
+                  key={k.id}
+                  className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-rule py-3"
+                >
+                  <span className="flex items-center gap-3">
+                    <code className="font-mono text-[0.8125rem] text-ink">
+                      {k.keyPrefix}…
+                    </code>
+                    {k.active ? (
+                      <span className="tag tag-ok">
+                        <span className="dot" />
+                        Active
+                      </span>
+                    ) : (
+                      <span className="tag">Revoked</span>
+                    )}
+                  </span>
+                  <span className="flex items-center gap-4">
+                    <span className="font-mono text-[0.6875rem] text-ink-faint">
+                      {new Date(k.createdAt).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </span>
+                    {k.active && (
+                      <button
+                        type="button"
+                        onClick={() => revokeKey(k.id)}
+                        className="font-mono text-[0.6875rem] text-ink-mute transition-colors hover:text-danger"
+                      >
+                        revoke
+                      </button>
+                    )}
+                  </span>
+                </li>
               ))}
-            </div>
+            </ul>
           )}
 
-          <div className="mt-6 border-t border-zinc-800 pt-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-medium">Train on my traffic</h3>
-                <p className="text-xs text-zinc-500">Help build domain-specific small models. Off = zero retention on your requests.</p>
+          <div className="mt-6 border-t border-rule-faint pt-4">
+            <p className="text-[0.8125rem] leading-relaxed text-ink-mute">
+              Point an agent at{" "}
+              <code className="font-mono text-[0.75rem] text-ink">
+                POST /v1/messages
+              </code>{" "}
+              or{" "}
+              <code className="font-mono text-[0.75rem] text-ink">
+                /v1/chat/completions
+              </code>{" "}
+              with{" "}
+              <code className="font-mono text-[0.75rem] text-ink">
+                Authorization: Bearer &lt;key&gt;
+              </code>
+              . Endpoint names:{" "}
+              <code className="font-mono text-[0.75rem] text-ink">
+                theta · glm-5.3
+              </code>
+              .{" "}
+              <Link href="/docs#quickstart" className="prose-link">
+                Quick start
+              </Link>
+            </p>
+          </div>
+        </div>
+
+        {/* Usage + training */}
+        <div className="min-w-0 lg:col-span-5">
+          <div className="flex items-baseline justify-between gap-4 border-t-2 border-ink pt-5">
+            <h2 className="subhead">Last 7 days</h2>
+            {totalSaved > 0 && (
+              <span className="num font-mono text-[0.75rem] text-ok">
+                {usd(totalSaved)} saved
+              </span>
+            )}
+          </div>
+
+          {usage.length === 0 ? (
+            <p className="measure mt-5 text-[0.9375rem] text-ink-mute">
+              No requests yet. Agent traffic appears here as soon as a key is
+              used.
+            </p>
+          ) : (
+            <figure className="mt-6">
+              <div className="flex h-28 items-end gap-1.5">
+                {usage.map((u) => (
+                  <div
+                    key={u.date}
+                    className="group flex h-full flex-1 flex-col justify-end"
+                    title={`${u.date} · ${u.requests} requests · ${fmtTokens(u.tokens)} tokens`}
+                  >
+                    <div
+                      className="w-full bg-accent transition-colors group-hover:bg-accent-deep"
+                      style={{
+                        height: `${Math.max(3, (u.requests / maxReq) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                ))}
               </div>
-              <button
-                onClick={toggleOptOut}
-                disabled={optBusy}
-                role="switch"
-                aria-checked={!optOut}
-                className={`relative h-6 w-11 rounded-full transition-colors ${optOut ? "bg-zinc-700" : "bg-emerald-500"}`}
-              >
-                <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-zinc-100 transition-all ${optOut ? "left-0.5" : "left-[22px]"}`} />
-              </button>
+              <div className="mt-2 flex gap-1.5 border-t border-rule pt-1.5">
+                {usage.map((u) => (
+                  <span
+                    key={u.date}
+                    className="num flex-1 text-center font-mono text-[0.625rem] text-ink-faint"
+                  >
+                    {u.date.slice(8)}
+                  </span>
+                ))}
+              </div>
+              <figcaption className="mt-3 font-mono text-[0.6875rem] text-ink-faint">
+                requests per day{periodStart ? ` · from ${periodStart}` : ""}
+              </figcaption>
+            </figure>
+          )}
+
+          <div className="mt-8 border-t border-rule pt-5">
+            <div className="flex items-start justify-between gap-6">
+              <div>
+                <h3 className="text-[0.9375rem] font-medium text-ink">
+                  Train on my traffic
+                </h3>
+                <p className="mt-2 text-[0.8125rem] leading-relaxed text-ink-mute">
+                  Off means requests are not stored for training at all. The
+                  next request after switching is already excluded.
+                </p>
+              </div>
+              <Switch
+                on={!optOut}
+                busy={optBusy}
+                onToggle={toggleOptOut}
+                label="Train on my traffic"
+              />
             </div>
-            <p className="mt-2 text-xs text-zinc-600">{optOut ? "Opted out — we never store your prompts." : "Opted in — traffic may train our models."}</p>
+            <p className="mt-3 font-mono text-[0.6875rem] text-ink-faint">
+              {optOut
+                ? "opted out · nothing retained"
+                : "opted in · traffic may train our models"}
+            </p>
           </div>
         </div>
       </section>
 
-      {/* Per-key context-engine flags (api_keys.flags CSV; header overrides apply per request) */}
-      {keys.filter((k) => k.active).length > 0 && (
-        <section className="mt-6 rounded-xl border border-zinc-800 bg-zinc-900/60 p-5">
-          <h2 className="font-semibold">Context-engine flags</h2>
-          <p className="mt-1 text-xs text-zinc-500">Per-key defaults — request headers (<code className="text-zinc-400">x-bhaskara-compress</code>, <code className="text-zinc-400">x-bhaskara-compact</code>, <code className="text-zinc-400">x-bhaskara-shadow</code>) override per call.</p>
-          <ul className="mt-4 space-y-3">
-            {keys.filter((k) => k.active).map((k) => {
+      {/* ── Context engine flags ──────────────────────────────── */}
+      {activeKeys.length > 0 && (
+        <section className="mt-12">
+          <div className="flex flex-wrap items-baseline justify-between gap-4 border-t-2 border-ink pt-5">
+            <h2 className="subhead">Context-engine flags</h2>
+            <p className="font-mono text-[0.6875rem] text-ink-faint">
+              per-key defaults · request headers override
+            </p>
+          </div>
+
+          <div className="mt-6 space-y-8">
+            {activeKeys.map((k) => {
               const on = parseFlags(k.flags);
               return (
-                <li key={k.id} className="rounded-lg border border-zinc-800 px-3 py-2.5">
-                  <p className="font-mono text-sm text-zinc-300">{k.keyPrefix}…</p>
-                  <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2">
-                    {KEY_FLAGS.map((f) => (
-                      <label key={f.name} className="flex cursor-pointer items-center gap-2 text-sm text-zinc-300">
-                        <input
-                          type="checkbox"
-                          checked={!!on[f.name]}
-                          disabled={flagBusy === `${k.id}:${f.name}`}
-                          onChange={() => toggleFlag(k.id, f.name)}
-                          className="h-4 w-4 accent-amber-500"
-                        />
-                        <span>{f.name} <span className="text-xs text-zinc-600">· {f.hint}</span></span>
-                      </label>
-                    ))}
+                <div key={k.id}>
+                  <code className="font-mono text-[0.8125rem] text-ink">
+                    {k.keyPrefix}…
+                  </code>
+                  <div className="mt-3 grid gap-px bg-rule sm:grid-cols-2 lg:grid-cols-4">
+                    {KEY_FLAGS.map((f) => {
+                      const enabled = !!on[f.name];
+                      return (
+                        <label
+                          key={f.name}
+                          className={`flex cursor-pointer items-start gap-3 bg-panel px-4 py-3.5 transition-colors hover:bg-sunken ${
+                            flagBusy === `${k.id}:${f.name}`
+                              ? "opacity-50"
+                              : ""
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={enabled}
+                            disabled={flagBusy === `${k.id}:${f.name}`}
+                            onChange={() => toggleFlag(k.id, f.name)}
+                            className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--color-accent)]"
+                          />
+                          <span className="min-w-0">
+                            <span className="block font-mono text-[0.8125rem] text-ink">
+                              {f.name}
+                            </span>
+                            <span className="mt-1 block text-[0.75rem] leading-snug text-ink-faint">
+                              {f.hint}
+                            </span>
+                          </span>
+                        </label>
+                      );
+                    })}
                   </div>
-                </li>
+
+                  {/* Routing preference knob. Only meaningful with `skill` on;
+                      shown alongside it because the two are one decision. */}
+                  <div className="mt-5">
+                    <div className="flex flex-wrap items-baseline justify-between gap-3">
+                      <p className="label text-ink-faint">
+                        Routing preference
+                      </p>
+                      <p className="font-mono text-[0.6875rem] text-ink-faint">
+                        header <code className="text-ink-mute">x-bhaskara-r</code>{" "}
+                        overrides per request
+                      </p>
+                    </div>
+                    <div className="mt-3 grid gap-px bg-rule sm:grid-cols-3">
+                      {PROFILE_FLAGS.map((p) => {
+                        const enabled = !!on[p];
+                        const active = enabled && !!on.skill;
+                        return (
+                          <button
+                            key={p}
+                            type="button"
+                            aria-pressed={enabled}
+                            disabled={flagBusy === `${k.id}:${p}`}
+                            onClick={() => toggleFlag(k.id, p)}
+                            className={`px-4 py-3.5 text-left transition-colors ${
+                              active
+                                ? "bg-accent-soft"
+                                : "bg-panel hover:bg-sunken"
+                            } ${flagBusy === `${k.id}:${p}` ? "opacity-50" : ""}`}
+                          >
+                            <span className="flex items-baseline gap-2">
+                              <span className="font-mono text-[0.8125rem] text-ink">
+                                {p}
+                              </span>
+                              {enabled && (
+                                <span className="tag tag-accent">
+                                  {on.skill ? "Active" : "Skill off"}
+                                </span>
+                              )}
+                            </span>
+                            <span className="mt-1 block text-[0.75rem] leading-snug text-ink-faint">
+                              {PROFILE_HINTS[p]}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {!on.skill && (
+                      <p className="mt-3 text-[0.75rem] leading-relaxed text-ink-faint">
+                        The knob only applies when <code className="font-mono">skill</code>{" "}
+                        is on for this key. Without it, routing uses the heuristic
+                        tier gate as before.
+                      </p>
+                    )}
+                  </div>
+                </div>
               );
             })}
-          </ul>
+          </div>
+
+          <p className="measure mt-5 text-[0.75rem] leading-relaxed text-ink-faint">
+            These set per-key defaults for the context engine. Sending{" "}
+            <code className="font-mono text-ink-mute">x-bhaskara-compress</code>,{" "}
+            <code className="font-mono text-ink-mute">x-bhaskara-compact</code> or{" "}
+            <code className="font-mono text-ink-mute">x-bhaskara-shadow</code> on
+            a request overrides the stored value for that call only.
+          </p>
+          {flagError && (
+            <p role="alert" className="mt-2 text-[0.75rem] text-danger">
+              {flagError}
+            </p>
+          )}
         </section>
       )}
 
       {snapshot && (
-        <p className="mt-8 text-xs text-zinc-600">
-          Member since {new Date(snapshot.memberSince).toLocaleDateString("en-US", { month: "long", year: "numeric" })} · cohort #{snapshot.cohort}
+        <p className="mt-12 border-t border-rule pt-5 font-mono text-[0.6875rem] text-ink-faint">
+          member since{" "}
+          {new Date(snapshot.memberSince).toLocaleDateString("en-US", {
+            month: "long",
+            year: "numeric",
+          })}{" "}
+          · cohort #{snapshot.cohort}
         </p>
       )}
     </main>
