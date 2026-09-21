@@ -200,4 +200,29 @@ if (assembled9.messages.length !== 100) {
 }
 console.log(`  ✓ Large message array handled: ${assembled9.messages.length} messages`);
 
+// Test 16: the `developer` role — OpenAI's successor to `system`, sent by
+// Codex-style agents. It must arrive as a system-tier message, not be demoted
+// to a user turn (the bug: a developer message became a user message whose
+// content was the whole raw object — instructions the model read as noise).
+console.log("\nTest 16: developer role normalizes to system");
+const developerBody = {
+  model: "glm-5.3",
+  messages: [
+    { role: "developer", content: "You are a coding agent. Follow the repo conventions strictly." },
+    { role: "user", content: "Fix the failing test in auth.ts" },
+  ],
+};
+const assembled10 = assemble(developerBody);
+const devMsg = assembled10.messages[0];
+if (devMsg.role !== "system") {
+  throw new Error(`developer should map to system, got '${devMsg.role}'`);
+}
+if (devMsg.content !== "You are a coding agent. Follow the repo conventions strictly.") {
+  throw new Error(`developer content must pass through as the text, got: ${JSON.stringify(devMsg.content).slice(0, 80)}`);
+}
+if (assembled10.messages[1].role !== "user") {
+  throw new Error("the user turn after a developer turn must stay a user turn");
+}
+console.log("  ✓ developer → system, content intact, order preserved");
+
 console.log("\n✅ All prefix assembly tests passed!");

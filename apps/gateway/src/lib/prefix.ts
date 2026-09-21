@@ -83,8 +83,15 @@ export function assemble(
     if (m && typeof m === "object" && "role" in m) {
       const mm = m as Record<string, unknown>;
       const role = mm.role;
-      if (role === "system" || role === "user" || role === "assistant" || role === "tool") {
-        const cm: ChatMessage = { role, content: mm.content };
+      if (role === "system" || role === "developer" || role === "user" || role === "assistant" || role === "tool") {
+        // `developer` is OpenAI's successor to `system` (same instruction tier,
+        // sent by Codex-style agents). Normalize to system: the identity
+        // block, compaction and docs splicing all target system messages, and
+        // every upstream accepts system while none is guaranteed to know the
+        // newer role. Before this, a developer message fell to the catch-all
+        // below — demoted to a user turn whose content was the whole raw
+        // object, which read to the model as noise instead of instructions.
+        const cm: ChatMessage = { role: role === "developer" ? "system" : role, content: mm.content };
         if (role === "assistant" && Array.isArray(mm.tool_calls)) cm.tool_calls = mm.tool_calls;
         if (role === "tool" && typeof mm.tool_call_id === "string") cm.tool_call_id = mm.tool_call_id;
         return cm;
