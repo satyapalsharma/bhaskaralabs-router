@@ -16,7 +16,7 @@
 //
 // Needs a database: considerUpgrade reads the lane rate and writes the lock.
 
-import { considerUpgrade, cacheSwitchPenaltyUsd } from "../lib/decision";
+import { considerUpgrade, cacheSwitchPenaltyUsd, shareCapBinds } from "../lib/decision";
 import { ROUTER, GLM_FULL_CHAIN } from "@bhaskara/shared/pricing";
 import type { LaneHealth } from "../router";
 import type { SessionLock } from "../lib/session-lock";
@@ -39,7 +39,9 @@ const HARD = "## Problem\nVerification gate still reports: the build is failing 
 
 const auth: AuthContext = {
   userId: "test-upgrade-fallthrough",
-  plan: "super",
+  // "pro", not "super": the operator plan is exempt from the share cap, and
+  // this file's cap assertions need a plan the cap actually binds.
+  plan: "pro",
   apiKeyId: "test-key",
   sessionId: "test-upgrade-fallthrough",
   flags: "skill",
@@ -89,6 +91,10 @@ console.log("Test 1: the gates this depends on are actually open");
   check("a fresh lock has switches left", lock.switchCount < ROUTER.reeval.maxSwitchesPerSession);
   const penalty = cacheSwitchPenaltyUsd(0.16, 0, 24_863);
   check("a flat full lane carries no penalty", penalty <= ROUTER.reeval.maxPenaltyUsd, String(penalty));
+  // The operator account is contractually cap-free ("No caps of any kind") —
+  // the share cap must not de-escalate its traffic to the cheap lane.
+  check("the share cap binds a paying plan at the cap", shareCapBinds("pro", ROUTER.fullModelShareCap));
+  check("the share cap does not bind the operator plan", !shareCapBinds("super", 1));
 }
 
 console.log("\nTest 2: skill ON must not veto escalation on a cold matrix");

@@ -19,7 +19,7 @@
 import { db } from "../db";
 import { usageLedger } from "../db/schema";
 import { and, eq, gte, sql } from "drizzle-orm";
-import { ROUTER, TIER_RATES, chainFor, type EndpointModel, type Lane } from "@bhaskara/shared/pricing";
+import { ROUTER, TIER_RATES, chainFor, PLANS, type EndpointModel, type Lane, type PlanId } from "@bhaskara/shared/pricing";
 import type { AuthContext } from "./auth";
 import { estimateTokens, type ChatMessage } from "./prefix";
 import { capabilityArray, capabilityVector } from "../router/capability";
@@ -200,6 +200,18 @@ async function lockedOnFreeLane(lockedModel: string): Promise<boolean> {
     if (p.models.some((m) => m.modelId === lockedModel || baseModelOf(m.modelId) === base)) return true;
   }
   return false;
+}
+
+/**
+ * Share-cap gate with the operator exemption folded in. The super plan's own
+ * contract is "No caps of any kind" — but the full-share cap was binding it
+ * too, which de-escalated the operator's bench traffic to flash at 25% and
+ * made multi-thousand-token turns crawl on the cheapest lane. Paying plans
+ * keep the cap; the operator account does not.
+ */
+export function shareCapBinds(plan: string, share: number): boolean {
+  if (PLANS[plan as PlanId]?.unlimited) return false;
+  return !fullTierAllowed(share);
 }
 
 /**
@@ -447,7 +459,7 @@ async function decideGlm(
     // No hysteresis band is needed to keep this from flapping: considerUpgrade
     // refuses at `!fullTierAllowed(share)`, which is exactly the complement of
     // this condition, so at any given share only one of the two can fire.
-    if (!fullTierAllowed(share)) {
+    if (shareCapBinds(auth.plan, share)) {
       await setLock(sessionId, auth.userId, endpointModel, flashModel, { bumpSwitch: true, routine: false });
       console.log(JSON.stringify({
         ev: "de-escalation",
@@ -525,7 +537,7 @@ async function decideGlm(
   const share = await weeklyFullShare(auth.userId);
   const failSig = scanFailureSignals(messages);
   const failureSignal = failSig.testFailBlocks > 0 || failSig.toolLoopRepeats >= TOOL_LOOP_ESCALATE_AT;
-  const capped = !fullTierAllowed(share);
+  const capped = shareCapBinds(auth.plan, share);
   const base = { fairUse: fairUseState(share), fairUseShare: share, signals };
 
   // Skill router: a continuous, cost-penalised capability-distance argmin in
@@ -651,7 +663,7 @@ export async function considerUpgrade(input: SwitchInput): Promise<RouterDecisio
   };
 
   // The cap is a hard pre-filter: no amount of quality argument outranks it.
-  if (!fullTierAllowed(share)) return decline("full-share-cap", { share: Number(share.toFixed(4)) });
+  if (shareCapBinds(auth.plan, share)) return decline("full-share-cap", { share: Number(share.toFixed(4)) });
 
   // The switch budget is checked here rather than left to the caller, matching
   // considerDowngrade. The caller happens to gate it too, but a gate that lives
