@@ -140,6 +140,7 @@ export const TEAMOROUTER: Record<string, RateCard> = {
  */
 export const FLAT_PROVIDERS: readonly string[] = [
   "agnes",
+  "agnes2",
   "camel",
   "electronhub",
   "openference",
@@ -419,8 +420,16 @@ export type Lane = {
  */
 export const THETA_CHAIN: readonly Lane[] = [
   { provider: "camel", model: "auto" },
+  // Staged-agnes TEST (2026-09-23): agnes serves at concurrency 4 first; when
+  // those slots are full the walk reaches pareto, and only when pareto is also
+  // saturated does it return to agnes — as the DB-fleet provider "agnes2", the
+  // SAME subscription under a second lane with its own 8-slot semaphore (the
+  // plan's real cap is 16, so 4+8 never overbooks the account). "Same provider
+  // twice" is otherwise impossible: health is a single provider-keyed boolean,
+  // and both entries would share one predicate.
   { provider: "agnes", model: "agnes-2.5-flash" },
   { provider: "pareto", model: "glm-5.3-flash" },
+  { provider: "agnes2", model: "agnes-2.5-flash" },
   { provider: "stepfun", model: "step-5-preview" },
   { provider: "teamorouter", model: "glm-5.3-flash-free" },
   // Paid sibling directly behind the free rung: when the free tier is
@@ -528,6 +537,7 @@ export const PROVIDER_CLASS: Record<string, "core" | "flat" | "bootstrap"> = {
   hyper: "core",
   camel: "flat",
   agnes: "flat",
+  agnes2: "flat",
   electronhub: "flat",
   openference: "flat",
   stepfun: "bootstrap",
