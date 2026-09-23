@@ -145,14 +145,14 @@ export const FLAT_PROVIDERS: readonly string[] = [
   "openference",
 ];
 
-/** Agnes 2.5 Flash — flat plan, tokens included. Concurrency 10 (plan's
- * number, operator-confirmed 2026-09-23; overridable via
- * BHASKARA_AGNES_MAX_CONCURRENCY without a rebuild). */
+/** Agnes 2.5 Flash — flat plan, tokens included. Concurrency 8 (lowered from
+ * the plan's 10 on 2026-09-23 to stretch quota under heavy parallel load;
+ * overridable via BHASKARA_AGNES_MAX_CONCURRENCY without a rebuild). */
 export const AGNES = {
   planUsd: 10.0,
   requestsPer5h: 7_500,
   requestsPerWeek: 75_000,
-  maxConcurrent: 10,
+  maxConcurrent: 8,
 };
 
 /** CamelAI — billed per stream (one concurrent request slot), not per call. */
