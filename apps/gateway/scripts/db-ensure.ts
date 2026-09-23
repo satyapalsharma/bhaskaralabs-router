@@ -74,6 +74,7 @@ await sql`CREATE INDEX IF NOT EXISTS lessons_user_idx ON learned_lessons (user_i
 // nothing could be calibrated from traffic. These two columns unblock it.
 await sql`ALTER TABLE usage_ledger ADD COLUMN IF NOT EXISTS router_reason TEXT`;
 await sql`ALTER TABLE usage_ledger ADD COLUMN IF NOT EXISTS router_signals TEXT`;
+await sql`ALTER TABLE usage_ledger ADD COLUMN IF NOT EXISTS has_tool_calls BOOLEAN`;
 await sql`CREATE INDEX IF NOT EXISTS usage_endpoint_created_idx ON usage_ledger (endpoint_model, created_at)`;
 
 // Skill cards: measured per-model per-capability success rates (routing asset).
