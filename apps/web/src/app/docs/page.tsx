@@ -126,6 +126,7 @@ const SECTIONS = [
   ["headers", "Quotas & errors"],
   ["streaming", "Streaming"],
   ["terse", "Terse mode"],
+  ["sessions", "Parallel projects"],
 ] as const;
 
 const INTEGRATIONS = [
@@ -579,9 +580,60 @@ const msg = await anthropic.messages.create({
                 </Note>
               </div>
             </section>
-          </div>
+            {/* 09 Parallel projects */}
+          <section className="scroll-mt-20" id="sessions">
+            <div className="border-t border-ink pt-5">
+              <p className="label text-accent-deep">09 Parallel projects</p>
+              <h2 className="claim mt-5">
+                One key, many projects — give each a session.
+              </h2>
+            </div>
+            <div className="mt-9 space-y-3">
+              <P>
+                Sessions derive from your key by default, which is right for one
+                project. Run several against the same key and they would share a
+                session lock and fight over one provider cache. Send{" "}
+                <Inline>x-bhaskara-session</Inline> with a stable value per
+                project — the repo or folder name is enough — and each gets its
+                own routing lock, cache line and compaction window.
+              </P>
+              <Code lang="bash" label="per project">{`# project A
+export BHASKARA_SESSION="api-redesign"
 
-          <p className="mt-20 border-t border-rule pt-6 text-[0.875rem] text-ink-mute">
+curl -s $BHASKARA_BASE_URL/chat/completions \\
+  -H "Authorization: Bearer $BHASKARA_API_KEY" \\
+  -H "x-bhaskara-session: $BHASKARA_SESSION" \\
+  -H "Content-Type: application/json" \\
+  -d '{"model":"glm-5.3","messages":[…]}'`}</Code>
+              <P>
+                In agent CLIs, set it once as an environment variable or in the
+                same config block as the base URL — the header rides on every
+                request of the session. Keep the value byte-stable for the life
+                of the project; a new value is a new session, with a cold cache.
+              </P>
+              <Rows
+                head={["Value", "Behaviour"]}
+                rows={[
+                  [
+                    "x-bhaskara-session: my-project",
+                    "Routing lock, cache line and compaction are scoped to this key + value pair.",
+                  ],
+                  [
+                    "(not sent)",
+                    "Session defaults to the key itself — correct for single-project use.",
+                  ],
+                ]}
+              />
+              <Note>
+                Parallel streams are bounded per plan, not per session. A single
+                project with many agents counts the same as many projects: every
+                in-flight request holds one slot.
+              </Note>
+            </div>
+          </section>
+        </div>
+
+        <p className="mt-20 border-t border-rule pt-6 text-[0.875rem] text-ink-mute">
             Stuck? The <Link href="/faq" className="prose-link">FAQ</Link> covers
             quotas and billing, and the{" "}
             <Link href="/plans#calculator" className="prose-link">
