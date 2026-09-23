@@ -203,8 +203,8 @@ const FLEET: ProviderSpec[] = [
     // daily allowance rather than each getting the full amount.
     notes: "Prepaid credits. Accepts both `glm-5.3-flash` and `z-ai/glm-5.3-flash`; /models advertises the z-ai/ form. Two accounts, shared balance. Carries DeepSeek V4.1 Flash for theta's third rung.",
     accounts: [
-      { label: "pareto-1", env: "PARETO_API_KEY", limits: { dailyCostUsd: 20 } },
-      { label: "pareto-2", env: "PARETO_API_KEY_2", limits: { dailyCostUsd: 20 } },
+      { label: "pareto-1", env: "PARETO_API_KEY", limits: { dailyCostUsd: 20, maxConcurrent: 6 } },
+      { label: "pareto-2", env: "PARETO_API_KEY_2", limits: { dailyCostUsd: 20, maxConcurrent: 6 } },
     ],
     models: [
       {

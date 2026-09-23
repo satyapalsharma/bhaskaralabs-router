@@ -2,19 +2,19 @@
 // Verified live 2026-09-04: base https://apihub.agnes-ai.com/v1, Bearer auth.
 // Per-request COGS = 0 (flat plan); ledger tracks request count.
 // Key rotated 2026-09-05 (cpk-WvNL..., renewed subscription): plan
-// concurrency is 16 — confirmed by the user from the Agnes dashboard.
+// concurrency is 10 — operator-confirmed from the Agnes dashboard, 2026-09-23.
 
 import { makeShadowRelease, SHADOW_HOLD_MS } from "../lib/shadow-release";
 export const AGNES_BASE = process.env.AGNES_BASE_URL ?? "https://apihub.agnes-ai.com/v1";
 
 /**
- * Agnes concurrency cap — the paid plan allows 16 concurrent.
+ * Agnes concurrency cap — the paid plan allows 10 concurrent.
  *
  * Overridable without a rebuild because this is the plan's number, not ours:
  * it changes when the subscription changes, and a rebuild is the wrong price
  * for reading a new value off a dashboard.
  */
-export const AGNES_MAX_CONCURRENCY = Number(process.env.BHASKARA_AGNES_MAX_CONCURRENCY ?? 16);
+export const AGNES_MAX_CONCURRENCY = Number(process.env.BHASKARA_AGNES_MAX_CONCURRENCY ?? 10);
 
 let agnesInFlight = 0;
 /** True when agnes has a free generation slot. */

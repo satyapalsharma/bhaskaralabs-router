@@ -77,9 +77,12 @@ export const TIER_RATES: Record<string, RateCard> = {
   "glm-5.3-flash": HYPER["glm-5.3-flash"],
 };
 
-/** StepFun 3.7 Flash — metered, sits late in the theta chain. */
+/** StepFun Step Plan — metered. step-5-preview is the server's stated price
+ * ($1.00 miss / $0.05 hit / $2.70 out per 1M); the plan allows 8 concurrent
+ * calls, mirrored at 6 in the provider module. */
 export const STEPFUN: Record<string, RateCard> = {
   "step-3.7-flash": { input: 0.04, output: 0.1, cacheHit: 0.008 },
+  "step-5-preview": { input: 1.0, output: 2.7, cacheHit: 0.05 },
 };
 
 /** Pareto Inference — bills at list inside a $20/day token allowance per
@@ -142,12 +145,14 @@ export const FLAT_PROVIDERS: readonly string[] = [
   "openference",
 ];
 
-/** Agnes 2.5 Flash — flat plan, tokens included. */
+/** Agnes 2.5 Flash — flat plan, tokens included. Concurrency 10 (plan's
+ * number, operator-confirmed 2026-09-23; overridable via
+ * BHASKARA_AGNES_MAX_CONCURRENCY without a rebuild). */
 export const AGNES = {
   planUsd: 10.0,
   requestsPer5h: 7_500,
   requestsPerWeek: 75_000,
-  maxConcurrent: 16,
+  maxConcurrent: 10,
 };
 
 /** CamelAI — billed per stream (one concurrent request slot), not per call. */
@@ -407,18 +412,16 @@ export type Lane = {
  * the ladder pays StepFun's metered rate for traffic the allowance would have
  * covered.
  *
- * Pareto's DeepSeek lane sits directly after Agnes, ahead of both. It is the
- * cheapest metered option on the ladder at $0.15/$0.60 — half of GLM flash's
- * effective rate and well under StepFun's — and, at a 1M window, it is the only
- * theta lane that never needs a long prompt turned away. Placing it third means
- * that once the two flat lanes are saturated, the next-cheapest capacity is the
- * one that gets used.
+ * Pareto's lane was switched from deepseek/deepseek-v4-flash to glm-5.3-flash
+ * (operator decision, 2026-09-23): the theta product speaks the GLM family, and
+ * at $0.163/$0.544 the flash card sits within a rounding error of the DeepSeek
+ * rung it replaced ($0.15/$0.60) — same 1M window, no ordering consequence.
  */
 export const THETA_CHAIN: readonly Lane[] = [
   { provider: "camel", model: "auto" },
   { provider: "agnes", model: "agnes-2.5-flash" },
-  { provider: "pareto", model: "deepseek/deepseek-v4-flash" },
-  { provider: "stepfun", model: "step-3.7-flash" },
+  { provider: "pareto", model: "glm-5.3-flash" },
+  { provider: "stepfun", model: "step-5-preview" },
   { provider: "teamorouter", model: "glm-5.3-flash-free" },
   // Paid sibling directly behind the free rung: when the free tier is
   // unavailable (402 free_request_quota_exhausted — an availability refusal,
