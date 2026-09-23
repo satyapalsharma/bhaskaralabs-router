@@ -9,7 +9,7 @@
 // deliberate — a ladder entry whose health check has not been wired up is inert
 // rather than accidentally live.
 
-import { getFleet, pickAccount, type UpstreamProviderConfig } from "./upstream-config";
+import { getFleet, type UpstreamProviderConfig } from "./upstream-config";
 import { accountSlotFreeFor } from "../providers/generic";
 import { camelEnabled, camelSlotFree } from "../providers/camel";
 import { agnesEnabled, agnesSlotFree } from "../providers/agnes";
@@ -48,13 +48,21 @@ export async function buildLaneHealth(opts: LaneHealthOptions = {}): Promise<Lan
   // empty account is not an overage, it is a guaranteed 402 round-trip.
   set("hyper", (opts.ignoreHyperBudget ? true : await hyperBudgetAvailable()) && hyperAlive());
 
-  // DB-registered providers: healthy when the provider exists and at least one
-  // of its accounts is out of cooldown with a free concurrency slot.
+  // DB-registered providers: healthy when at least one account is out of
+  // cooldown, enabled, AND holding a free concurrency slot.
+  //
+  // It must be ANY account, not the rotation's pick: pickAccount's cursor
+  // lands on one account per call, and when that one is slot-full the lane
+  // read as unhealthy while a sibling account sat idle — a two-account
+  // provider effectively got the concurrency of one (observed on pareto:
+  // "full" at 4 in-flight with 3+3 configured).
   const fleet = await getFleet().catch(() => new Map<string, UpstreamProviderConfig>());
+  const now = Date.now();
   for (const [id, cfg] of fleet) {
     if (exclude.has(id)) continue;
-    const account = pickAccount(id, cfg.accounts);
-    health[id] = account !== null && accountSlotFreeFor(account);
+    health[id] = cfg.accounts.some(
+      (a) => !a.disabled && (a.cooldownUntil ?? 0) <= now && accountSlotFreeFor(a),
+    );
   }
 
   return health;
