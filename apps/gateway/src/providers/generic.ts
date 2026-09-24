@@ -100,10 +100,13 @@ export async function genericChat(opts: GenericChatOpts): Promise<Response> {
     if (provider.protocol === "anthropic") {
       headers["anthropic-version"] = "2023-06-01";
       if (provider.authStyle === "x-api-key") headers["x-api-key"] = account.apiKey;
-      else headers["Authorization"] = `Bearer ${account.apiKey}`;
+      // "none": anonymous endpoints (opencode zen). Sending a placeholder
+      // Bearer there draws a 401 — anonymous is a real auth mode, not a missing
+      // key, so it must actually omit the header.
+      else if (provider.authStyle !== "none") headers["Authorization"] = `Bearer ${account.apiKey}`;
     } else {
       if (provider.authStyle === "x-api-key") headers["x-api-key"] = account.apiKey;
-      else headers["Authorization"] = `Bearer ${account.apiKey}`;
+      else if (provider.authStyle !== "none") headers["Authorization"] = `Bearer ${account.apiKey}`;
     }
     // A stream-only lane is asked for a stream even when the client asked for a
     // single body; the fold below turns it back into one. The client's shape is
