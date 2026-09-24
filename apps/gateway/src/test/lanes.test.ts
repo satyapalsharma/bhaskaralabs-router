@@ -53,7 +53,7 @@ function check(name: string, cond: boolean, detail = "") {
 
 const allHealthy = (): LaneHealth => {
   const h: LaneHealth = {};
-  for (const p of ["hyper", "agnes", "stepfun", "camel", "llmgateway", "electronhub", "openference", "pareto", "teamorouter"]) {
+  for (const p of ["hyper", "agnes", "stepfun", "camel", "llmgateway", "electronhub", "openference", "pareto", "teamorouter", "opencode", "agnes2"]) {
     h[p] = true;
   }
   return h;
