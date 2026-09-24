@@ -50,7 +50,7 @@ export interface UpstreamProviderConfig {
   id: string;
   baseUrl: string;
   protocol: "openai" | "anthropic";
-  authStyle: "bearer" | "x-api-key";
+  authStyle: "bearer" | "x-api-key" | "none";
   billing: "flat" | "metered" | "credits";
   accounts: UpstreamAccount[];
   models: UpstreamModel[];
@@ -77,7 +77,7 @@ export async function getFleet(force = false): Promise<Map<string, UpstreamProvi
       id: p.id,
       baseUrl: p.baseUrl,
       protocol: p.protocol === "anthropic" ? "anthropic" : "openai",
-      authStyle: p.authStyle === "x-api-key" ? "x-api-key" : "bearer",
+      authStyle: p.authStyle === "x-api-key" ? "x-api-key" : p.authStyle === "none" ? "none" : "bearer",
       billing: (p.billing as UpstreamProviderConfig["billing"]) ?? "flat",
       accounts: [],
       models: [],

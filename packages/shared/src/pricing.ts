@@ -103,6 +103,11 @@ export const PARETO: Record<string, RateCard> = {
   "deepseek/deepseek-v4-flash": { input: 0.15, output: 0.6, cacheHit: 0.003 },
 };
 
+/** OpenCode zen — anonymous passthrough. The free models are genuinely $0. */
+export const OPENCODE: Record<string, RateCard> = {
+  "space-bunny-free": { input: 0, output: 0 },
+};
+
 /** LLMGateway — 3× allowance on the dev plan, so the effective rate is 1/3. */
 export const LLMGATEWAY: Record<string, RateCard> = {
   "glm-5.3": {
@@ -174,6 +179,7 @@ export const UPSTREAM_RATES: Record<string, Record<string, RateCard>> = {
   pareto: PARETO,
   llmgateway: LLMGATEWAY,
   teamorouter: TEAMOROUTER,
+  opencode: OPENCODE,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -431,6 +437,13 @@ export const THETA_CHAIN: readonly Lane[] = [
   // twice" is otherwise impossible: health is a single provider-keyed boolean,
   // and both entries would share one predicate.
   { provider: "agnes", model: "agnes-2.5-flash" },
+  // OpenCode zen anonymous free lane (added 2026-09-24). space-bunny-free is
+  // the one free model that serves without the OpenCode client gate (the rest
+  // 403 "free tier can only be used from within OpenCode" — client-gated, not
+  // key-gated; we do not spoof). Verified: tool calls, 8/8 parallel. Anonymous
+  // shared pool, no published rate limit — capped at 6 and expected to
+  // fluctuate with their catalogue.
+  { provider: "opencode", model: "space-bunny-free" },
   { provider: "pareto", model: "glm-5.3-flash" },
   { provider: "agnes2", model: "agnes-2.5-flash" },
   // qwen3.8-flash on hyper: a cheaper metered rung than step-5-preview, so the
@@ -550,6 +563,7 @@ export const PROVIDER_CLASS: Record<string, "core" | "flat" | "bootstrap"> = {
   openference: "flat",
   stepfun: "bootstrap",
   pareto: "bootstrap",
+  opencode: "bootstrap",
   llmgateway: "bootstrap",
   teamorouter: "bootstrap",
 };
