@@ -62,6 +62,9 @@ export const THETA_DISPLAY: RateCard = {
 export const HYPER: Record<string, RateCard> = {
   "glm-5.3": { input: 1.52432, output: 4.79072, cacheHit: 0.283088 },
   "glm-5.3-flash": { input: 0.16332, output: 0.5444, cacheHit: 0.0315752 },
+  // Sits ahead of stepfun in the theta chain (added 2026-09-24): a cheaper
+  // metered rung than step-5-preview for turns the flat lanes cannot absorb.
+  "qwen3.8-flash": { input: 0.1, output: 0.4 },
 };
 
 /**
@@ -430,6 +433,11 @@ export const THETA_CHAIN: readonly Lane[] = [
   { provider: "agnes", model: "agnes-2.5-flash" },
   { provider: "pareto", model: "glm-5.3-flash" },
   { provider: "agnes2", model: "agnes-2.5-flash" },
+  // qwen3.8-flash on hyper: a cheaper metered rung than step-5-preview, so the
+  // walk stops here before paying stepfun's rate (added 2026-09-24). Hyper's
+  // own health gate still applies; the last-resort glm-5.3-flash rung on hyper
+  // below is untouched and remains the exhaustion fallback.
+  { provider: "hyper", model: "qwen3.8-flash" },
   { provider: "stepfun", model: "step-5-preview" },
   { provider: "teamorouter", model: "glm-5.3-flash-free" },
   // Paid sibling directly behind the free rung: when the free tier is
