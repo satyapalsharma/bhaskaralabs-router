@@ -177,6 +177,7 @@ export const TEAMOROUTER: Record<string, RateCard> = {
 export const FLAT_PROVIDERS: readonly string[] = [
   "agnes",
   "agnes2",
+  "agnes3",
   "camel",
   "electronhub",
   "openference",
@@ -500,6 +501,9 @@ export const THETA_CHAIN: readonly Lane[] = [
   // shares the key's ~20 RPM with the ultra rung above.
   { provider: "openrouter2", model: "qwen/qwen3.8-27b:free" },
   { provider: "agnes2", model: "agnes-2.5-flash" },
+  // Agnes on a SECOND subscription (2026-09-26): its own key, its own 16
+  // concurrent (capped 15). Flat lanes end here — everything below is paid.
+  { provider: "agnes3", model: "agnes-2.5-flash" },
   // qwen3.8-flash on hyper: a cheaper metered rung than step-5-preview, so the
   // walk stops here before paying stepfun's rate (added 2026-09-24). Hyper's
   // own health gate still applies; the last-resort glm-5.3-flash rung on hyper
@@ -618,6 +622,7 @@ export const PROVIDER_CLASS: Record<string, "core" | "flat" | "bootstrap"> = {
   camel: "flat",
   agnes: "flat",
   agnes2: "flat",
+  agnes3: "flat",
   electronhub: "flat",
   openference: "flat",
   stepfun: "bootstrap",
