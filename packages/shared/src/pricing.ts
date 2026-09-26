@@ -136,6 +136,23 @@ export const ORCA2: Record<string, RateCard> = {
   "orcarouter/auto": { input: 0, output: 0 },
 };
 
+/** TokenHarbor free allowances — :free models never charge the wallet. */
+export const TOKENHARBOR: Record<string, RateCard> = {
+  "deepseek-v4.1-flash:free": { input: 0, output: 0 },
+};
+
+/** TokenHarbor #2/#4 — qwen3.8-flash free (limited-time), split across two
+ *  provider ids so the theta and glm ladders each get their own budget. */
+export const TOKENHARBOR2: Record<string, RateCard> = {
+  "qwen3.8-flash:free": { input: 0, output: 0 },
+};
+
+/** TokenHarbor #3 — agent-quota glm-5.3-flash (plan-included, verified 200
+ *  with tools). Flat to the ledger: the quota is prepaid, not per-token. */
+export const TOKENHARBOR3: Record<string, RateCard> = {
+  "glm-5.3-flash": { input: 0, output: 0 },
+};
+
 /** LLMGateway — 3× allowance on the dev plan, so the effective rate is 1/3. */
 export const LLMGATEWAY: Record<string, RateCard> = {
   "glm-5.3": {
@@ -214,6 +231,10 @@ export const UPSTREAM_RATES: Record<string, Record<string, RateCard>> = {
   claudin: CLAUDIN,
   orca: ORCA,
   orca2: ORCA2,
+  tokenharbor: TOKENHARBOR,
+  tokenharbor2: TOKENHARBOR2,
+  tokenharbor3: TOKENHARBOR3,
+  tokenharbor4: TOKENHARBOR2,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -504,6 +525,11 @@ export const THETA_CHAIN: readonly Lane[] = [
   // Agnes on a SECOND subscription (2026-09-26): its own key, its own 16
   // concurrent (capped 15). Flat lanes end here — everything below is paid.
   { provider: "agnes3", model: "agnes-2.5-flash" },
+  // TokenHarbor free allowances (2026-09-26): deepseek-v4.1-flash:free and the
+  // limited-time qwen3.8-flash:free, each on its own provider id so one
+  // allowance's exhaustion cannot cool the other's lane. Flat lanes end here.
+  { provider: "tokenharbor", model: "deepseek-v4.1-flash:free" },
+  { provider: "tokenharbor2", model: "qwen3.8-flash:free" },
   // qwen3.8-flash on hyper: a cheaper metered rung than step-5-preview, so the
   // walk stops here before paying stepfun's rate (added 2026-09-24). Hyper's
   // own health gate still applies; the last-resort glm-5.3-flash rung on hyper
@@ -600,6 +626,14 @@ export const GLM_FULL_CHAIN: readonly Lane[] = [
  */
 export const GLM_FLASH_CHAIN: readonly Lane[] = [
   { provider: "pareto", model: "glm-5.3-flash" },
+  // TokenHarbor agent-quota glm-5.3-flash (2026-09-26): plan-included flash,
+  // verified 200 with tools. Sits before the metered rungs so quota turns are
+  // free; own provider id (tokenharbor3) so theta cannot starve it.
+  { provider: "tokenharbor3", model: "glm-5.3-flash" },
+  // TokenHarbor limited-time qwen3.8-flash:free — a flash-capable fallback
+  // ahead of every metered lane. Split from tokenharbor2 on purpose: this
+  // ladder and theta each draw from their own concurrency budget.
+  { provider: "tokenharbor4", model: "qwen3.8-flash:free" },
   { provider: "hyper", model: "glm-5.3-flash" },
   { provider: "llmgateway", model: "glm-5.3-flash" },
   { provider: "teamorouter", model: "glm-5.3-flash" },
@@ -633,6 +667,10 @@ export const PROVIDER_CLASS: Record<string, "core" | "flat" | "bootstrap"> = {
   claudin: "bootstrap",
   orca: "bootstrap",
   orca2: "bootstrap",
+  tokenharbor: "bootstrap",
+  tokenharbor2: "bootstrap",
+  tokenharbor3: "bootstrap",
+  tokenharbor4: "bootstrap",
   llmgateway: "bootstrap",
   teamorouter: "bootstrap",
 };
