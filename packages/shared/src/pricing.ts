@@ -429,12 +429,6 @@ export type Lane = {
  */
 export const THETA_CHAIN: readonly Lane[] = [
   { provider: "camel", model: "auto" },
-  // Pareto moved up to slot 2 (2026-09-26): its $20/day token allowance per
-  // account was going unspent at the old #4 position — the walk rarely got
-  // past camel+agnes+opencode. One slow-ish lane (TTFT p50 ~16s) is the price
-  // of actually spending a prepaid budget; camel still catches the first
-  // turn while pareto's six slots absorb the bulk.
-  { provider: "pareto", model: "glm-5.3-flash" },
   // Staged-agnes TEST (2026-09-23): agnes serves at concurrency 4 first; when
   // those slots are full the walk reaches pareto, and only when pareto is also
   // saturated does it return to agnes — as the DB-fleet provider "agnes2", the
@@ -450,6 +444,12 @@ export const THETA_CHAIN: readonly Lane[] = [
   // shared pool, no published rate limit — capped at 6 and expected to
   // fluctuate with their catalogue.
   { provider: "opencode", model: "space-bunny-free" },
+  // Pareto back at slot 4 (moved up to 2 for budget-burn on 2026-09-26, moved
+  // BACK the same day): at slot 2 every peak turn hammered its ~6-concurrent
+  // API limit — 300+ 429s/45min, cooldown cascades, and with the opencode
+  // lane's free pool also exhausted the ladder bottomed out into client
+  // 502s. Slot 4 gives it overflow load it can actually serve.
+  { provider: "pareto", model: "glm-5.3-flash" },
   { provider: "agnes2", model: "agnes-2.5-flash" },
   // qwen3.8-flash on hyper: a cheaper metered rung than step-5-preview, so the
   // walk stops here before paying stepfun's rate (added 2026-09-24). Hyper's
