@@ -113,6 +113,11 @@ export const OPENROUTER: Record<string, RateCard> = {
   "nvidia/nemotron-3.5-lightning:free": { input: 0, output: 0 },
 };
 
+/** Claudin.io — user plan key (flat); claudinio is their coding model. */
+export const CLAUDIN: Record<string, RateCard> = {
+  claudinio: { input: 0, output: 0 },
+};
+
 /** LLMGateway — 3× allowance on the dev plan, so the effective rate is 1/3. */
 export const LLMGATEWAY: Record<string, RateCard> = {
   "glm-5.3": {
@@ -186,6 +191,7 @@ export const UPSTREAM_RATES: Record<string, Record<string, RateCard>> = {
   teamorouter: TEAMOROUTER,
   opencode: OPENCODE,
   openrouter: OPENROUTER,
+  claudin: CLAUDIN,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -443,12 +449,13 @@ export const THETA_CHAIN: readonly Lane[] = [
   // twice" is otherwise impossible: health is a single provider-keyed boolean,
   // and both entries would share one predicate.
   { provider: "agnes", model: "agnes-2.5-flash" },
-  // OpenCode zen anonymous free lane (added 2026-09-24). space-bunny-free is
-  // the one free model that serves without the OpenCode client gate (the rest
-  // 403 "free tier can only be used from within OpenCode" — client-gated, not
-  // key-gated; we do not spoof). Verified: tool calls, 8/8 parallel. Anonymous
-  // shared pool, no published rate limit — capped at 6 and expected to
-  // fluctuate with their catalogue.
+  // Claudin.io plan lane (added 2026-09-26): fast (~2.3s TTFT), tool-capable,
+  // 6/6 parallel verified. Sits right after agnes as an early flat rung.
+  { provider: "claudin", model: "claudinio" },
+  // OpenCode zen lane: authenticated key (2026-09-26) lifts the anonymous IP
+  // throttle that FreeUsageLimitError'd the lane at ~47% theta share. Only
+  // space-bunny-free serves outside the OpenCode client (the rest are
+  // client-gated, and we do not spoof). Tool-capable, 8/8 parallel.
   { provider: "opencode", model: "space-bunny-free" },
   // OpenRouter free tier (added 2026-09-26): authenticated key, nemotron
   // 1M-context lightning as the second free rung. Rate limits bind per key
@@ -581,6 +588,7 @@ export const PROVIDER_CLASS: Record<string, "core" | "flat" | "bootstrap"> = {
   pareto: "bootstrap",
   opencode: "bootstrap",
   openrouter: "bootstrap",
+  claudin: "bootstrap",
   llmgateway: "bootstrap",
   teamorouter: "bootstrap",
 };
