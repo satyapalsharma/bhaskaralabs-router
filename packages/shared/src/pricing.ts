@@ -110,7 +110,7 @@ export const OPENCODE: Record<string, RateCard> = {
 
 /** OpenRouter free tier — :free models are $0 (20 RPM, daily cap per key). */
 export const OPENROUTER: Record<string, RateCard> = {
-  "nvidia/nemotron-3.5-lightning:free": { input: 0, output: 0 },
+  "nvidia/nemotron-3-ultra-550b-a55b:free": { input: 0, output: 0 },
 };
 
 /** Claudin.io — user plan key (flat); claudinio is their coding model. */
@@ -464,11 +464,11 @@ export const THETA_CHAIN: readonly Lane[] = [
   // space-bunny-free serves outside the OpenCode client (the rest are
   // client-gated, and we do not spoof). Tool-capable, 8/8 parallel.
   { provider: "opencode", model: "space-bunny-free" },
-  // OpenRouter free tier (added 2026-09-26): authenticated key, nemotron
-  // 1M-context lightning as the second free rung. Rate limits bind per key
-  // (~20 RPM), so the account cap keeps this lane a supplement, not a
-  // primary absorber.
-  { provider: "openrouter", model: "nvidia/nemotron-3.5-lightning:free" },
+  // OpenRouter free tier (2026-09-26): nemotron-3-ULTRA 550b-a55b — 55B active
+  // (lightning's 3B was too light for agent turns), 1M ctx, 1.3s with tools
+  // verified. Rate limits bind per key (~20 RPM), so the account cap keeps
+  // this lane a supplement, not a primary absorber.
+  { provider: "openrouter", model: "nvidia/nemotron-3-ultra-550b-a55b:free" },
   { provider: "agnes2", model: "agnes-2.5-flash" },
   // qwen3.8-flash on hyper: a cheaper metered rung than step-5-preview, so the
   // walk stops here before paying stepfun's rate (added 2026-09-24). Hyper's
