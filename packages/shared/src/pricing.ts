@@ -124,6 +124,18 @@ export const CLAUDIN: Record<string, RateCard> = {
   claudinio: { input: 0, output: 0 },
 };
 
+/** OrcaRouter — free lane. The 402 free_quota_exhausted is an availability
+ *  refusal (cool + retry), not a permanent state. */
+export const ORCA: Record<string, RateCard> = {
+  "orcarouter/free": { input: 0, output: 0 },
+};
+
+/** OrcaRouter #2 — the paid "auto" router under wallet billing. Per-token burn
+ *  is metered on orca's side (their dashboard); the ledger card is 0/0. */
+export const ORCA2: Record<string, RateCard> = {
+  "orcarouter/auto": { input: 0, output: 0 },
+};
+
 /** LLMGateway — 3× allowance on the dev plan, so the effective rate is 1/3. */
 export const LLMGATEWAY: Record<string, RateCard> = {
   "glm-5.3": {
@@ -199,6 +211,8 @@ export const UPSTREAM_RATES: Record<string, Record<string, RateCard>> = {
   openrouter: OPENROUTER,
   openrouter2: OPENROUTER2,
   claudin: CLAUDIN,
+  orca: ORCA,
+  orca2: ORCA2,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -463,6 +477,10 @@ export const THETA_CHAIN: readonly Lane[] = [
   // burns, the walk skips pareto on its own. (Slot 2 earlier caused 429
   // storms; slot 6 left the budget unspent. Slot 3 is the middle.)
   { provider: "pareto", model: "glm-5.3-flash" },
+  // OrcaRouter free allowance (added 2026-09-26). 402 free_quota_exhausted is
+  // treated like teamorouter's free rung: cool briefly, retry later — when the
+  // allowance resets this is a full free rung between pareto and claudin.
+  { provider: "orca", model: "orcarouter/free" },
   // Claudin.io plan lane (added 2026-09-26): fast (~2.3s TTFT), tool-capable,
   // 6/6 parallel verified. Sits right after agnes as an early flat rung.
   { provider: "claudin", model: "claudinio" },
@@ -489,6 +507,11 @@ export const THETA_CHAIN: readonly Lane[] = [
   { provider: "hyper", model: "qwen3.8-flash" },
   { provider: "stepfun", model: "step-5-preview" },
   { provider: "teamorouter", model: "glm-5.3-flash-free" },
+  // OrcaRouter "auto" — their paid router under wallet billing (added
+  // 2026-09-26). Sits between the free and paid teamorouter rungs: when the
+  // free tier 402s, the walk pays the wallet before paying teamorouter's
+  // topped-up balance.
+  { provider: "orca2", model: "orcarouter/auto" },
   // Paid sibling directly behind the free rung: when the free tier is
   // unavailable (402 free_request_quota_exhausted — an availability refusal,
   // not a daily quota) the lane cools briefly and the walk lands here, on the
@@ -603,6 +626,8 @@ export const PROVIDER_CLASS: Record<string, "core" | "flat" | "bootstrap"> = {
   openrouter: "bootstrap",
   openrouter2: "bootstrap",
   claudin: "bootstrap",
+  orca: "bootstrap",
+  orca2: "bootstrap",
   llmgateway: "bootstrap",
   teamorouter: "bootstrap",
 };
