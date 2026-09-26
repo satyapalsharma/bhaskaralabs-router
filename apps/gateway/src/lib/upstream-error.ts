@@ -168,7 +168,32 @@ export function retryAfterFromBody(body: string, now: number = Date.now()): numb
     /(?:try\s*again|retry|available\s*again|resets?(?:\s*at)?|reset\s*at|comes?\s*back)\s*(?:after|at|on|in)?\s*[*`"'\s]*([0-9]{4}-[0-9]{2}-[0-9]{2}[T ][0-9]{2}:[0-9]{2}(?::[0-9]{2})?(?:\s*(?:Z|UTC|GMT|[+-][0-9]{2}:?[0-9]{2}))?)/i.exec(
       body,
     );
-  if (!m) return null;
+  if (!m) {
+    // "retry in 30 seconds" / "try again in 5 minutes" / "resets in 1 hour" —
+    // a relative DURATION rather than an absolute stamp. Providers that cap
+    // spend per hour (Claudin's $1/hour) word the 429 this way, and any
+    // backoff shorter than the named window just burns a request per minute
+    // against a limit that is not coming back sooner.
+    const d =
+      /(?:retry|try\s*again|resets?|reset|wait|back\s*off|available\s*again)\s*(?:after|in)?\s*(\d+(?:\.\d+)?)\s*(milliseconds?|ms|seconds?|secs?|minutes?|mins?|hours?|hrs?|days?|s|m|h|d)\b/i.exec(
+        body,
+      );
+    if (d) {
+      const n = Number(d[1]);
+      const unit = d[2].toLowerCase();
+      const mult = unit.startsWith("milli") || unit === "ms"
+        ? 1
+        : /^s|sec/.test(unit)
+          ? 1000
+          : /^m|min/.test(unit)
+            ? 60_000
+            : /^h|hr/.test(unit)
+              ? 3_600_000
+              : 86_400_000;
+      return saneReset(n * mult);
+    }
+    return null;
+  }
   const raw = m[1].replace(/\s+/, " ").trim();
   // A bare "YYYY-MM-DD HH:MM" has no zone; providers that write one mean UTC,
   // and reading it as local would shift the cooldown by the offset — five and a

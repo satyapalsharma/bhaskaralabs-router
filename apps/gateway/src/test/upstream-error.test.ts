@@ -185,6 +185,19 @@ console.log("Test 4: request-counted lanes are counted, not weighed");
   check("a body with no time yields null", retryAfterFromBody("API usage limit reached.", now) === null);
   check("an empty body yields null", retryAfterFromBody("", now) === null);
 
+  // Relative durations — providers that cap spend per hour (Claudin's $1/hour)
+  // word their 429 as a duration, not a stamp. The parsed duration must beat
+  // the class default, or the lane re-probes every 60s against a window that
+  // will not reopen for however long the provider said.
+  check("retry in 5 minutes is 5 minutes", retryAfterFromBody("rate limited — retry in 5 minutes", now) === 5 * 60_000);
+  check("a duration under the 60s floor falls back (null)", retryAfterFromBody("please try again in 30 seconds", now) === null, String(retryAfterFromBody("please try again in 30 seconds", now)));
+  check("resets in 2 hours is 2 hours", retryAfterFromBody("hourly limit reached, resets in 2 hours", now) === 2 * 3_600_000);
+  check("a duration under the 60s floor falls back (null)", retryAfterFromBody("retry in 45 seconds", now) === null, String(retryAfterFromBody("retry in 45 seconds", now)));
+  check("a duration beyond a day is ignored", retryAfterFromBody("retry in 3 days", now) === null);
+  // A stamp still beats a duration when both appear.
+  const both = retryAfterFromBody("retry in 5 minutes, or try again after **2026-09-13 19:00 UTC**.", now);
+  check("an explicit stamp beats a duration when both are present", both === 1_543_000, `${both}ms`);
+
   // The request id in Agnes's body carries a date — 20260913 — and must not be
   // mistaken for the reset. Anchoring on the phrasing is what prevents it.
   check(
