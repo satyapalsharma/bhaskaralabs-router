@@ -103,9 +103,14 @@ export const PARETO: Record<string, RateCard> = {
   "deepseek/deepseek-v4-flash": { input: 0.15, output: 0.6, cacheHit: 0.003 },
 };
 
-/** OpenCode zen — anonymous passthrough. The free models are genuinely $0. */
+/** OpenCode zen — the authenticated key lifts the anonymous IP throttle. */
 export const OPENCODE: Record<string, RateCard> = {
   "space-bunny-free": { input: 0, output: 0 },
+};
+
+/** OpenRouter free tier — :free models are $0 (20 RPM, daily cap per key). */
+export const OPENROUTER: Record<string, RateCard> = {
+  "nvidia/nemotron-3.5-lightning:free": { input: 0, output: 0 },
 };
 
 /** LLMGateway — 3× allowance on the dev plan, so the effective rate is 1/3. */
@@ -180,6 +185,7 @@ export const UPSTREAM_RATES: Record<string, Record<string, RateCard>> = {
   llmgateway: LLMGATEWAY,
   teamorouter: TEAMOROUTER,
   opencode: OPENCODE,
+  openrouter: OPENROUTER,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -444,6 +450,11 @@ export const THETA_CHAIN: readonly Lane[] = [
   // shared pool, no published rate limit — capped at 6 and expected to
   // fluctuate with their catalogue.
   { provider: "opencode", model: "space-bunny-free" },
+  // OpenRouter free tier (added 2026-09-26): authenticated key, nemotron
+  // 1M-context lightning as the second free rung. Rate limits bind per key
+  // (~20 RPM), so the account cap keeps this lane a supplement, not a
+  // primary absorber.
+  { provider: "openrouter", model: "nvidia/nemotron-3.5-lightning:free" },
   // Pareto back at slot 4 (moved up to 2 for budget-burn on 2026-09-26, moved
   // BACK the same day): at slot 2 every peak turn hammered its ~6-concurrent
   // API limit — 300+ 429s/45min, cooldown cascades, and with the opencode
@@ -569,6 +580,7 @@ export const PROVIDER_CLASS: Record<string, "core" | "flat" | "bootstrap"> = {
   stepfun: "bootstrap",
   pareto: "bootstrap",
   opencode: "bootstrap",
+  openrouter: "bootstrap",
   llmgateway: "bootstrap",
   teamorouter: "bootstrap",
 };
