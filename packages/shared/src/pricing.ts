@@ -449,6 +449,13 @@ export const THETA_CHAIN: readonly Lane[] = [
   // twice" is otherwise impossible: health is a single provider-keyed boolean,
   // and both entries would share one predicate.
   { provider: "agnes", model: "agnes-2.5-flash" },
+  // Pareto at slot 3 (2026-09-26, final): user wants the $40/day allowance
+  // actually spent — camel+agnes absorb ~10/min first, then pareto takes the
+  // bulk until its 6 slots fill; overflow continues to the free lanes. The
+  // per-account dailyCostUsd window is the hard stop: once the $20/account
+  // burns, the walk skips pareto on its own. (Slot 2 earlier caused 429
+  // storms; slot 6 left the budget unspent. Slot 3 is the middle.)
+  { provider: "pareto", model: "glm-5.3-flash" },
   // Claudin.io plan lane (added 2026-09-26): fast (~2.3s TTFT), tool-capable,
   // 6/6 parallel verified. Sits right after agnes as an early flat rung.
   { provider: "claudin", model: "claudinio" },
@@ -462,12 +469,6 @@ export const THETA_CHAIN: readonly Lane[] = [
   // (~20 RPM), so the account cap keeps this lane a supplement, not a
   // primary absorber.
   { provider: "openrouter", model: "nvidia/nemotron-3.5-lightning:free" },
-  // Pareto back at slot 4 (moved up to 2 for budget-burn on 2026-09-26, moved
-  // BACK the same day): at slot 2 every peak turn hammered its ~6-concurrent
-  // API limit — 300+ 429s/45min, cooldown cascades, and with the opencode
-  // lane's free pool also exhausted the ladder bottomed out into client
-  // 502s. Slot 4 gives it overflow load it can actually serve.
-  { provider: "pareto", model: "glm-5.3-flash" },
   { provider: "agnes2", model: "agnes-2.5-flash" },
   // qwen3.8-flash on hyper: a cheaper metered rung than step-5-preview, so the
   // walk stops here before paying stepfun's rate (added 2026-09-24). Hyper's
