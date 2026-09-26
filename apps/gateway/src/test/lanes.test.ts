@@ -104,16 +104,16 @@ console.log("Test 1: ladder resolution is preference-ordered");
 console.log("\nTest 2: unhealthy lanes are skipped, not retried");
 {
   const h = allHealthy();
-  h.camel = false;
-  check("disabled first lane falls to the second", resolveLane("theta", "flash", h, 0)?.provider === "agnes");
+  const thetaFlash = THETA_CHAIN.map((l) => l.provider);
+  h[thetaFlash[0]] = false;
+  check("disabled first lane falls to the second", resolveLane("theta", "flash", h, 0)?.provider === thetaFlash[1]);
 
   // Asserted against the ladder rather than a hardcoded name. The property under
   // test is "skip past the unhealthy lane", not "the third lane is X" — naming X
   // made this fail the moment the chain was deliberately reordered (agnes moved
   // ahead of teamorouter, pareto inserted), reporting a broken ladder when only
   // the expectation was stale.
-  const thetaFlash = THETA_CHAIN.map((l) => l.provider);
-  h.agnes = false;
+  h[thetaFlash[1]] = false;
   const third = thetaFlash[2];
   const got = resolveLane("theta", "flash", h, 0)?.provider;
   check(`two down falls to the third (${third})`, got === third, `expected ${third}, got ${got}`);
