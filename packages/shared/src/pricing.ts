@@ -113,6 +113,12 @@ export const OPENROUTER: Record<string, RateCard> = {
   "nvidia/nemotron-3-ultra-550b-a55b:free": { input: 0, output: 0 },
 };
 
+/** OpenRouter #2 — same key under a second provider id (agnes2 pattern) so
+ *  the chain can hold a second OpenRouter rung. */
+export const OPENROUTER2: Record<string, RateCard> = {
+  "qwen/qwen3.8-27b:free": { input: 0, output: 0 },
+};
+
 /** Claudin.io — user plan key (flat); claudinio is their coding model. */
 export const CLAUDIN: Record<string, RateCard> = {
   claudinio: { input: 0, output: 0 },
@@ -191,6 +197,7 @@ export const UPSTREAM_RATES: Record<string, Record<string, RateCard>> = {
   teamorouter: TEAMOROUTER,
   opencode: OPENCODE,
   openrouter: OPENROUTER,
+  openrouter2: OPENROUTER2,
   claudin: CLAUDIN,
 };
 
@@ -469,6 +476,11 @@ export const THETA_CHAIN: readonly Lane[] = [
   // verified. Rate limits bind per key (~20 RPM), so the account cap keeps
   // this lane a supplement, not a primary absorber.
   { provider: "openrouter", model: "nvidia/nemotron-3-ultra-550b-a55b:free" },
+  // Qwen3.8-27b on the same OpenRouter key under a SECOND provider id — the
+  // chain can only hold one rung per provider (health is provider-keyed),
+  // so openrouter2 mirrors the agnes2 pattern. 256k ctx, tools verified;
+  // shares the key's ~20 RPM with the ultra rung above.
+  { provider: "openrouter2", model: "qwen/qwen3.8-27b:free" },
   { provider: "agnes2", model: "agnes-2.5-flash" },
   // qwen3.8-flash on hyper: a cheaper metered rung than step-5-preview, so the
   // walk stops here before paying stepfun's rate (added 2026-09-24). Hyper's
@@ -589,6 +601,7 @@ export const PROVIDER_CLASS: Record<string, "core" | "flat" | "bootstrap"> = {
   pareto: "bootstrap",
   opencode: "bootstrap",
   openrouter: "bootstrap",
+  openrouter2: "bootstrap",
   claudin: "bootstrap",
   llmgateway: "bootstrap",
   teamorouter: "bootstrap",
