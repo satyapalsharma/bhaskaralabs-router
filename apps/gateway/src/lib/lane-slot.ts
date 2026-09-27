@@ -43,6 +43,13 @@ export const LANE_BUDGET: Record<string, number> = {
   // Override per deployment without a rebuild: BHASKARA_LANE_BUDGET_PARETO.
   pareto: Number(process.env.BHASKARA_LANE_BUDGET_PARETO ?? 8),
   hyper: 8,
+  // Agnes fleet lanes: each account carries 15 concurrent slots but the
+  // default budget of 8 (≈4 in-flight at weight 2) was the binding constraint —
+  // at sustained load the walk read "Lane saturated" and dropped the overflow
+  // onto stepfun while the subscription's own slots sat half idle. 30 matches
+  // the account caps (15 slots × weight 2), shadow-hold included.
+  agnes2: Number(process.env.BHASKARA_LANE_BUDGET_AGNES2 ?? 30),
+  agnes3: Number(process.env.BHASKARA_LANE_BUDGET_AGNES3 ?? 30),
   // Counted in REQUESTS, not weight — see LANE_COUNTS_REQUESTS. The plan allows
   // ONE concurrent request, whatever the size, so a weighted budget here was a
   // category error: with a typical weight of 3, a budget of 2 admitted nothing
