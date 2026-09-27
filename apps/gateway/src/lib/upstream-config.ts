@@ -189,7 +189,13 @@ export async function markAccountCooldown(accountId: string, providerId: string,
     .set({ cooldownUntil: new Date(Date.now() + ms) })
     .where(eq(upstreamAccounts.id, accountId));
   if (snapshot) snapshot.at = 0; // force refresh on next read
-  rrCursor.delete(providerId);
+  // NOTE: deliberately NOT resetting the round-robin cursor here. Resetting it
+  // on every cooldown re-anchored the rotation on accounts[0]: a provider whose
+  // accounts 429 often (pareto's 3-slot cap) spent most of its life with the
+  // cursor at zero, so accounts[0] got every pick and its sibling sat idle no
+  // matter how healthy it was. The cursor is taken modulo the healthy-weight
+  // total at pick time, so letting it run is safe — cooling accounts are
+  // filtered before the weighted walk either way.
 }
 
 /** Clear cooldown on success (lane proven alive). */
