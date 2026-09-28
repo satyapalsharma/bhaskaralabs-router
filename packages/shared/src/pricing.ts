@@ -642,6 +642,12 @@ export const GLM_FULL_CHAIN: readonly Lane[] = [
  * TeamoRouter.
  */
 export const GLM_FLASH_CHAIN: readonly Lane[] = [
+  // Agnes first (2026-09-28, operator trial): the flash ladder's metered rungs
+  // were carrying everything while agnes capacity sat idle on theta — testing
+  // whether an agnes subscription is worth buying DEDICATED for glm. Note the
+  // shared lane budget: theta traffic on agnes4 can starve this entry, and
+  // that starvation is itself the answer to "do we need a separate account?"
+  { provider: "agnes4", model: "agnes-3.0-flash" },
   { provider: "pareto", model: "glm-5.3-flash" },
   // TokenHarbor agent-quota glm-5.3-flash (2026-09-26): plan-included flash,
   // verified 200 with tools. Sits before the metered rungs so quota turns are
