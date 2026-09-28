@@ -443,8 +443,10 @@ export const CONCURRENCY = {
    * in-flight bursts crossed 32, and every rejection above it surfaced as a
    * client retry (4,032 in one 12h window). The per-provider lane budgets are
    * the real shape now — this cap only needs to sit above genuine bursts.
+   * 64 → 128 same day: operator's choice — headroom for the agnes-expanded
+   * fleet; lane budgets remain the binding per-provider shape either way.
    */
-  superTier: 64,
+  superTier: 128,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
