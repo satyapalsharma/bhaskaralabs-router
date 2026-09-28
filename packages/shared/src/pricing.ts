@@ -437,8 +437,13 @@ export const CONCURRENCY = {
    * queued. Setting this number without those budgets is what let one operator
    * key hand a single lane more concurrent long generations than it could
    * drain — see the tuning history on LANE_BUDGET.
+   *
+   * 32 → 64 (2026-09-28): at sustained 75 turns/min the 60-project fleet's
+   * in-flight bursts crossed 32, and every rejection above it surfaced as a
+   * client retry (4,032 in one 12h window). The per-provider lane budgets are
+   * the real shape now — this cap only needs to sit above genuine bursts.
    */
-  superTier: 32,
+  superTier: 64,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -535,7 +540,12 @@ export const THETA_CHAIN: readonly Lane[] = [
   // own health gate still applies; the last-resort glm-5.3-flash rung on hyper
   // below is untouched and remains the exhaustion fallback.
   { provider: "hyper", model: "qwen3.8-flash" },
-  { provider: "stepfun", model: "step-5-preview" },
+  // Stepfun rung switched step-5-preview → step-3.7-flash (2026-09-28): the
+  // preview model's p50 turn was 119s — past Cloudflare's 100s origin wait,
+  // so those turns died as non-JSON 502s after the client had already timed
+  // out, and the metered spend went with them. step-3.7-flash runs p50 ~11s
+  // and costs 25x less per token; as an emergency rung it actually delivers.
+  { provider: "stepfun", model: "step-3.7-flash" },
   { provider: "teamorouter", model: "glm-5.3-flash-free" },
   // OrcaRouter "auto" — their paid router under wallet billing (added
   // 2026-09-26). Sits between the free and paid teamorouter rungs: when the
