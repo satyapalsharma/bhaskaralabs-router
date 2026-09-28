@@ -195,6 +195,7 @@ export const FLAT_PROVIDERS: readonly string[] = [
   "agnes",
   "agnes2",
   "agnes3",
+  "agnes4",
   "camel",
   "electronhub",
   "openference",
@@ -496,7 +497,7 @@ export const THETA_CHAIN: readonly Lane[] = [
   // plan's real cap is 16, so 4+8 never overbooks the account). "Same provider
   // twice" is otherwise impossible: health is a single provider-keyed boolean,
   // and both entries would share one predicate.
-  { provider: "agnes", model: "agnes-2.5-flash" },
+  { provider: "agnes", model: "agnes-3.0-flash" },
   // Pareto at slot 3 (2026-09-26, final): user wants the $40/day allowance
   // actually spent — camel+agnes absorb ~10/min first, then pareto takes the
   // bulk until its 6 slots fill; overflow continues to the free lanes. The
@@ -516,6 +517,10 @@ export const THETA_CHAIN: readonly Lane[] = [
   // space-bunny-free serves outside the OpenCode client (the rest are
   // client-gated, and we do not spoof). Tool-capable, 8/8 parallel.
   { provider: "opencode", model: "space-bunny-free" },
+  // Agnes on a THIRD subscription (2026-09-28): its own key and 16 concurrent
+  // (capped 15), placed right after opencode so the two fastest lanes carry
+  // the walk before it pays anything. Same agnes2/agnes3 pattern.
+  { provider: "agnes4", model: "agnes-3.0-flash" },
   // OpenRouter free tier (2026-09-26): nemotron-3-ULTRA 550b-a55b — 55B active
   // (lightning's 3B was too light for agent turns), 1M ctx, 1.3s with tools
   // verified. Rate limits bind per key (~20 RPM), so the account cap keeps
@@ -526,10 +531,10 @@ export const THETA_CHAIN: readonly Lane[] = [
   // so openrouter2 mirrors the agnes2 pattern. 256k ctx, tools verified;
   // shares the key's ~20 RPM with the ultra rung above.
   { provider: "openrouter2", model: "qwen/qwen3.8-27b:free" },
-  { provider: "agnes2", model: "agnes-2.5-flash" },
+  { provider: "agnes2", model: "agnes-3.0-flash" },
   // Agnes on a SECOND subscription (2026-09-26): its own key, its own 16
   // concurrent (capped 15). Flat lanes end here — everything below is paid.
-  { provider: "agnes3", model: "agnes-2.5-flash" },
+  { provider: "agnes3", model: "agnes-3.0-flash" },
   // TokenHarbor free allowances (2026-09-26): deepseek-v4.1-flash:free and the
   // limited-time qwen3.8-flash:free, each on its own provider id so one
   // allowance's exhaustion cannot cool the other's lane. Flat lanes end here.
@@ -667,6 +672,7 @@ export const PROVIDER_CLASS: Record<string, "core" | "flat" | "bootstrap"> = {
   agnes: "flat",
   agnes2: "flat",
   agnes3: "flat",
+  agnes4: "flat",
   electronhub: "flat",
   openference: "flat",
   stepfun: "bootstrap",
