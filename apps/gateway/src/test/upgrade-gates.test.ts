@@ -164,7 +164,13 @@ console.log("Test 7: a leaked session can never land on a metered full lane");
   // flash. If it always returned a lane, the restriction would be decorative.
   const noFlat = await freeLanesOf(GLM_FLASH_CHAIN);
   check("a ladder with no flat lane filters to nothing (caller then degrades to flash)", noFlat.length === 0, noFlat.map((l) => l.provider).join(","));
-  check("the flash fallback is reachable and metered", GLM_FLASH_CHAIN[0].provider === "pareto");
+  // The flat agnes trial lane (2026-09-28) leads the flash ladder now; the
+  // property that still matters is that metered rungs remain reachable behind
+  // it for when the trial ends or the flat lane is busy.
+  check(
+    "the flash fallback stays reachable behind the trial lane",
+    GLM_FLASH_CHAIN.some((l) => l.provider === "hyper") && GLM_FLASH_CHAIN.some((l) => l.provider === "llmgateway"),
+  );
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

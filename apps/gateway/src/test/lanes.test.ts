@@ -63,7 +63,9 @@ console.log("Test 1: ladder resolution is preference-ordered");
 {
   const h = allHealthy();
   check("theta starts at camel (the flat lane)", resolveLane("theta", "flash", h, 0)?.provider === "camel");
-  check("glm flash starts at pareto", resolveLane("glm-5.3", "flash", h, 0)?.provider === "pareto");
+  // glm flash leads with the agnes trial lane (operator, 2026-09-28) — asserted
+  // against the ladder head so the trial can end without this going stale.
+  check("glm flash starts at the ladder head", resolveLane("glm-5.3", "flash", h, 0)?.provider === GLM_FLASH_CHAIN[0].provider);
   check("glm full starts at electronhub", resolveLane("glm-5.3", "full", h, 0)?.provider === "electronhub");
 
   // Flat lanes before metered ones: this ordering IS the cost model.
@@ -436,7 +438,7 @@ console.log("\nTest 13: a lane whose window cannot hold the prefix is skipped");
   );
   check(
     "glm flash is unaffected — no flash lane declares a window",
-    resolveLane("glm-5.3", "flash", h, 5_000_000)?.provider === "pareto",
+    resolveLane("glm-5.3", "flash", h, 5_000_000)?.provider === GLM_FLASH_CHAIN[0].provider,
   );
 }
 
