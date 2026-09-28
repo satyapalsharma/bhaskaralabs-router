@@ -473,6 +473,15 @@ app.post("/v1/chat/completions", async (c) => {
   setNudgeHeader(c, decision);
   // Dispatch hardening (ops finding: hyper drops 4–5min generations):
   // 1 retry pre-stream (no client bytes yet), then full→flash degrade for full-tier turns.
+  // Pre-flush wrapper (ops finding: CF kills a silent origin at ~100s). For
+  // streaming turns the dispatch walk — decide, lane failovers, and the
+  // upstream's own accept time — happens BEFORE the first client byte; a
+  // 100s+ first-token prompt therefore dies at the edge as a non-JSON 502.
+  // runTurn below is the handler's whole turn body (walk + response shaping);
+  // for streams it runs INSIDE an already-flushed SSE response whose keepalive
+  // pings bridge the walk. Non-stream turns call it directly and keep their
+  // exact-error semantics.
+  const runTurn = async (): Promise<Response> => {
   let upstream: Response;
   let usedDecision = decision;
   const terseArm = terseArmOf(c.req.header("x-bhaskara-terse"));
@@ -790,6 +799,78 @@ app.post("/v1/chat/completions", async (c) => {
       // release the upstream reader on ANY exit path (normal, error, abort)
       // — this fires wrapRelease.cancel() which releases the lane slot.
       pendingRead = null;
+      await reader.cancel().catch(() => {});
+    }
+  });
+  }; // end runTurn
+
+  if (obj.stream !== true) {
+    return runTurn();
+  }
+  // ── Streaming pre-flush ──
+  // 200 + SSE headers go out NOW; the walk runs behind them with a `: ping`
+  // comment every 25s (SSE spec ignores comments, so client parsing is
+  // untouched) until the walk resolves and the (already-SSE) body pipes
+  // through. After headers are flushed no status code can change: a failed
+  // walk is reported as an in-stream error event, not an HTTP error.
+  c.header("Content-Type", "text/event-stream");
+  c.header("Cache-Control", "no-cache");
+  c.header("Connection", "keep-alive");
+  return streamText(c, async (stream) => {
+    let pinging = true;
+    const pinger = (async () => {
+      while (pinging) {
+        await new Promise<void>((r) => setTimeout(r, 25_000));
+        if (!pinging) return;
+        try {
+          await stream.write(": ping\n\n");
+        } catch {
+          return; // client gone — the walk's abort signal handles cleanup
+        }
+      }
+    })();
+    const writeErr = async (message: string) => {
+      await stream.write(`data: ${JSON.stringify({ error: { message, type: "api_error" } })}\n\n`);
+      await stream.write("data: [DONE]\n\n");
+    };
+    let res: Response;
+    try {
+      res = await runTurn();
+    } catch {
+      pinging = false;
+      await pinger;
+      await writeErr("upstream dispatch failed");
+      return;
+    }
+    pinging = false;
+    await pinger;
+    if (!res.ok || !res.body) {
+      // runTurn returned an error Response (JSON) or a bare status — surface
+      // its payload in-stream since the 200 is already committed.
+      const text = await res.text().catch(() => "");
+      let message = `upstream error (${res.status})`;
+      try {
+        const j = JSON.parse(text) as { error?: { message?: string } };
+        if (j.error?.message) message = j.error.message;
+      } catch {
+        if (text) message = text.slice(0, 300);
+      }
+      await writeErr(message);
+      return;
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        try {
+          await stream.write(decoder.decode(value, { stream: true }));
+        } catch {
+          break; // client gone
+        }
+      }
+    } finally {
       await reader.cancel().catch(() => {});
     }
   });
