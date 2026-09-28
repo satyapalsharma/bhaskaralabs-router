@@ -837,13 +837,15 @@ app.post("/v1/chat/completions", async (c) => {
     try {
       res = await runTurn();
     } catch {
+      // Do NOT await pinger here or below: its in-flight 25s timer resolves
+      // on its own and the loop exits on the pinging flag WITHOUT writing.
+      // Awaiting it stalls the first data chunk by up to 25s — measured as
+      // every lane's p50 pinning at ~25.7s.
       pinging = false;
-      await pinger;
       await writeErr("upstream dispatch failed");
       return;
     }
     pinging = false;
-    await pinger;
     if (!res.ok || !res.body) {
       // runTurn returned an error Response (JSON) or a bare status — surface
       // its payload in-stream since the 200 is already committed.
