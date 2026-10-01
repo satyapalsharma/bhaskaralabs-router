@@ -22,6 +22,7 @@ import { OPENCODE_FREE_UA, mintOpencodeMsgId, pickOpencodeSession } from "../lib
 import { costOnLane, laneAcquire, wrapLaneRelease, markLaneCooldown } from "../lib/lane-slot";
 import { COOLDOWN_MS, classifyUpstreamError, peekBody, retryAfterFrom } from "../lib/upstream-error";
 import { foldSseCompletion } from "../lib/stream-to-json";
+import { sanitizeOpenAiResponse } from "../lib/sanitize";
 
 /**
  * Providers that only expose a streaming endpoint.
@@ -227,7 +228,12 @@ export async function genericChat(opts: GenericChatOpts): Promise<Response> {
     // receives one JSON body and none of them has to know this lane is special.
     try {
       const folded = await foldSseCompletion(wrapped);
-      return new Response(JSON.stringify(folded), {
+      // The fold carries the upstream's model id in `model` — the client must
+      // never see the lane's real upstream identity, so the same whitelist
+      // the routed path applies runs here (opts.body.model is the client's
+      // own requested model string, which is exactly the endpoint model).
+      const sanitized = sanitizeOpenAiResponse(folded, String(opts.body.model ?? modelId));
+      return new Response(JSON.stringify(sanitized), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       });
