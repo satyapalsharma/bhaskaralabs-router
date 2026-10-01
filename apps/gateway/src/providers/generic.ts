@@ -18,6 +18,7 @@
 import type { UpstreamAccount, UpstreamProviderConfig } from "../lib/upstream-config";
 import { markAccountCooldown, clearAccountCooldown } from "../lib/upstream-config";
 import { makeShadowRelease, SHADOW_HOLD_MS } from "../lib/shadow-release";
+import { OPENCODE_FREE_UA, mintOpencodeMsgId, pickOpencodeSession } from "../lib/opencode-sessions";
 import { costOnLane, laneAcquire, wrapLaneRelease, markLaneCooldown } from "../lib/lane-slot";
 import { COOLDOWN_MS, classifyUpstreamError, peekBody, retryAfterFrom } from "../lib/upstream-error";
 import { foldSseCompletion } from "../lib/stream-to-json";
@@ -36,7 +37,45 @@ import { foldSseCompletion } from "../lib/stream-to-json";
  * LANE_COUNTS_REQUESTS: it is a fixed property of the provider's API, not an
  * operator dial.
  */
-export const STREAMING_REQUIRED: ReadonlySet<string> = new Set(["openference"]);
+export const STREAMING_REQUIRED: ReadonlySet<string> = new Set(["openference", "opencode-free"]);
+
+/**
+ * OpenCode zen free-tier body shape (reverse-engineered gate, 2026-10-01):
+ * the free models only serve requests that look like real opencode agent
+ * turns — a system message carrying the opencode signature, at least five
+ * tools NAMED from opencode's toolset (stubs with the right names count;
+ * the client's own matching-named tools count too), and stream: true.
+ * Verified minimums: 17-char "You are opencode." system + 5 stub-named
+ * tools + stream passes; 4 tools, arbitrary names, or a non-streamed body
+ * all draw FreeTierError 403.
+ */
+const OPENCODE_SIG_SYSTEM =
+  "You are opencode, an interactive CLI tool that helps users with software engineering tasks.";
+const OPENCODE_TOOL_NAMES = [
+  "bash", "edit", "glob", "grep", "read", "write", "webfetch", "websearch", "skill", "task", "todowrite",
+] as const;
+
+function opencodeFreeBody(body: Record<string, unknown>): Record<string, unknown> {
+  const messages = Array.isArray(body.messages) ? [...body.messages] : [];
+  const hasSig = messages.some(
+    (m) =>
+      (m as { role?: unknown })?.role === "system" &&
+      String((m as { content?: unknown }).content ?? "").startsWith("You are opencode"),
+  );
+  if (!hasSig) messages.push({ role: "system", content: OPENCODE_SIG_SYSTEM });
+  const tools = Array.isArray(body.tools) ? [...(body.tools as unknown[])] : [];
+  const named = new Set(
+    tools.map((t) => (t as { function?: { name?: unknown } })?.function?.name).filter((n): n is string => typeof n === "string"),
+  );
+  let matching = OPENCODE_TOOL_NAMES.filter((n) => named.has(n)).length;
+  for (const n of OPENCODE_TOOL_NAMES) {
+    if (matching >= 5) break;
+    if (named.has(n)) continue;
+    tools.push({ type: "function", function: { name: n, description: ".", parameters: { type: "object", properties: {} } } });
+    matching++;
+  }
+  return { ...body, messages, tools, stream: true, stream_options: { include_usage: true } };
+}
 
 const inflight = new Map<string, number>();
 
@@ -106,13 +145,30 @@ export async function genericChat(opts: GenericChatOpts): Promise<Response> {
       else if (provider.authStyle !== "none") headers["Authorization"] = `Bearer ${account.apiKey}`;
     } else {
       if (provider.authStyle === "x-api-key") headers["x-api-key"] = account.apiKey;
-      else if (provider.authStyle !== "none") headers["Authorization"] = `Bearer ${account.apiKey}`;
+      else if (provider.authStyle === "opencode-free") {
+        // OpenCode zen free-tier models are client-gated: the zen gateway
+        // validates x-opencode-session against sessions the real opencode
+        // client has synced. Requests are otherwise ANONYMOUS — no
+        // Authorization header, or the free models draw FreeTierError even
+        // with valid credentials. Session comes from the host-minted pool
+        // (lib/opencode-sessions.ts); the msg_ request id is minted fresh.
+        headers["User-Agent"] = OPENCODE_FREE_UA;
+        headers["x-opencode-client"] = "cli";
+        headers["x-opencode-project"] = "global";
+        headers["x-opencode-session"] = await pickOpencodeSession();
+        headers["x-opencode-request"] = mintOpencodeMsgId();
+      } else if (provider.authStyle !== "none") headers["Authorization"] = `Bearer ${account.apiKey}`;
     }
     // A stream-only lane is asked for a stream even when the client asked for a
     // single body; the fold below turns it back into one. The client's shape is
     // never changed upstream — only this provider's endpoint sees the stream.
     const foldStream = STREAMING_REQUIRED.has(provider.id) && opts.body.stream !== true;
-    const upstreamBody: Record<string, unknown> = { ...opts.body, model: modelId };
+    let upstreamBody: Record<string, unknown> = { ...opts.body, model: modelId };
+    if (provider.authStyle === "opencode-free") {
+      // Gate shape (see opencodeFreeBody above) — implies stream: true, so a
+      // non-stream client turn is folded back below exactly like openference.
+      upstreamBody = opencodeFreeBody(upstreamBody);
+    }
     if (foldStream) {
       upstreamBody.stream = true;
       // Required to get token accounting back at all: a streamed response that

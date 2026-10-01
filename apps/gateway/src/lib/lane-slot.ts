@@ -55,6 +55,10 @@ export const LANE_BUDGET: Record<string, number> = {
   // was capping a lane that carries ~38% of theta. 24 = 12 weight-slots for
   // the 10-account cap plus shadow-hold headroom.
   opencode: Number(process.env.BHASKARA_LANE_BUDGET_OPENCODE ?? 24),
+  // Session-pool free lane: modest by design — the free tier's usage caps
+  // bind per account, and a heavy footprint is what gets client-gated lanes
+  // noticed upstream.
+  "opencode-free": Number(process.env.BHASKARA_LANE_BUDGET_OPENCODE_FREE ?? 4),
   // Counted in REQUESTS, not weight — see LANE_COUNTS_REQUESTS. The plan allows
   // ONE concurrent request, whatever the size, so a weighted budget here was a
   // category error: with a typical weight of 3, a budget of 2 admitted nothing

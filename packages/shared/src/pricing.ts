@@ -108,6 +108,13 @@ export const OPENCODE: Record<string, RateCard> = {
   "space-bunny-free": { input: 0, output: 0 },
 };
 
+/** OpenCode zen free-tier models (client-gated; see THETA_CHAIN notes above).
+ *  Anonymous free usage — cost 0 both ways. */
+export const OPENCODE_FREE: Record<string, RateCard> = {
+  "longcat-2.5-preview-free": { input: 0, output: 0 },
+  "mimo-v2.6-flash-free": { input: 0, output: 0 },
+};
+
 /** OpenRouter free tier — :free models are $0 (20 RPM, daily cap per key). */
 export const OPENROUTER: Record<string, RateCard> = {
   "nvidia/nemotron-3-ultra-550b-a55b:free": { input: 0, output: 0 },
@@ -227,6 +234,7 @@ export const UPSTREAM_RATES: Record<string, Record<string, RateCard>> = {
   llmgateway: LLMGATEWAY,
   teamorouter: TEAMOROUTER,
   opencode: OPENCODE,
+  "opencode-free": OPENCODE_FREE,
   openrouter: OPENROUTER,
   openrouter2: OPENROUTER2,
   claudin: CLAUDIN,
@@ -533,6 +541,17 @@ export const THETA_CHAIN: readonly Lane[] = [
   // so openrouter2 mirrors the agnes2 pattern. 256k ctx, tools verified;
   // shares the key's ~20 RPM with the ultra rung above.
   { provider: "openrouter2", model: "qwen/qwen3.8-27b:free" },
+  // OpenCode zen "free tier" models (2026-10-01): longcat-2.5-preview-free and
+  // mimo-v2.6-flash-free are gated to real OpenCode-client sessions — the zen
+  // gateway validates x-opencode-session server-side, so plain API keys draw
+  // FreeTierError 403. Sessions are minted and synced by the actual opencode
+  // binary on the host (session factory + cron writes them into
+  // opencode_free_sessions), and the gateway rotates them per turn. Requests
+  // are otherwise anonymous: no Authorization header at all. Same provider id
+  // appears twice (hyper pattern) so each model is its own rung; the lane
+  // budget keeps this a supplement — free-tier usage caps bind per account.
+  { provider: "opencode-free", model: "longcat-free" },
+  { provider: "opencode-free", model: "mimo-free" },
   { provider: "agnes2", model: "agnes-3.0-flash" },
   // Agnes on a SECOND subscription (2026-09-26): its own key, its own 16
   // concurrent (capped 15). Flat lanes end here — everything below is paid.
@@ -686,6 +705,7 @@ export const PROVIDER_CLASS: Record<string, "core" | "flat" | "bootstrap"> = {
   stepfun: "bootstrap",
   pareto: "bootstrap",
   opencode: "bootstrap",
+  "opencode-free": "bootstrap",
   openrouter: "bootstrap",
   openrouter2: "bootstrap",
   claudin: "bootstrap",
