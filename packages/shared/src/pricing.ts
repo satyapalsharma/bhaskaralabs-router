@@ -550,8 +550,8 @@ export const THETA_CHAIN: readonly Lane[] = [
   // are otherwise anonymous: no Authorization header at all. Same provider id
   // appears twice (hyper pattern) so each model is its own rung; the lane
   // budget keeps this a supplement — free-tier usage caps bind per account.
-  { provider: "opencode-free", model: "longcat-free" },
-  { provider: "opencode-free", model: "mimo-free" },
+  { provider: "opencode-free", model: "longcat-2.5-preview-free" },
+  { provider: "opencode-free", model: "mimo-v2.6-flash-free" },
   { provider: "agnes2", model: "agnes-3.0-flash" },
   // Agnes on a SECOND subscription (2026-09-26): its own key, its own 16
   // concurrent (capped 15). Flat lanes end here — everything below is paid.
