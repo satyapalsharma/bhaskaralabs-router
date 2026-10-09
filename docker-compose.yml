@@ -1,6 +1,18 @@
+# Container stdout/stderr is bounded on two layers: this default (json-file
+# 100m × 3 per container) and the cron + retention SQL in ~/retention.sh on
+# the host. Without the cap a sustained batch run grows gateway logs without
+# limit — the disk (45G) hit 100% on 2026-10-02 and took postgres WAL writes
+# with it. daemon.json holds the same caps for anything compose-created.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "100m"
+    max-file: "3"
+
 services:
   postgres:
     image: postgres:16-alpine
+    logging: *default-logging
     environment:
       POSTGRES_USER: bhaskara
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set in .env.deploy}
@@ -13,6 +25,7 @@ services:
     build:
       context: .
       dockerfile: apps/gateway/Dockerfile
+    logging: *default-logging
     env_file:
       - .env.deploy
     environment:
@@ -27,6 +40,7 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+    logging: *default-logging
       args:
         # Build-time only. If `next build` prerenders DB-backed pages, rebuild
         # with the real DATABASE_URL (same box, safe).
@@ -42,6 +56,7 @@ services:
 
   caddy:
     image: caddy:2-alpine
+    logging: *default-logging
     ports:
       - "80:80"
       - "443:443"
