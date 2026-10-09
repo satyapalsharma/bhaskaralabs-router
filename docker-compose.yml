@@ -40,11 +40,11 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
-    logging: *default-logging
       args:
         # Build-time only. If `next build` prerenders DB-backed pages, rebuild
         # with the real DATABASE_URL (same box, safe).
         DATABASE_URL: ${DATABASE_URL_BUILD:-postgres://build:build@localhost:5432/build}
+    logging: *default-logging
     env_file:
       - .env.deploy
     environment:
