@@ -121,9 +121,13 @@ export const OPENROUTER: Record<string, RateCard> = {
 };
 
 /** OpenRouter #2 — same key under a second provider id (agnes2 pattern) so
- *  the chain can hold a second OpenRouter rung. */
+ *  the chain can hold a second OpenRouter rung. qwen3.8-27b:free was retired
+ *  upstream (2026-10-02, "unavailable for free — paid version only"), so this
+ *  rung now carries nemotron-3-super-120b-a12b:free — the ultra rung's
+ *  smaller sibling (12B active vs 55B), verified listed; quality check pends
+ *  the key's daily free-models cap resetting. */
 export const OPENROUTER2: Record<string, RateCard> = {
-  "qwen/qwen3.8-27b:free": { input: 0, output: 0 },
+  "nvidia/nemotron-3-super-120b-a12b:free": { input: 0, output: 0 },
 };
 
 /** Claudin.io — user plan key (flat); claudinio is their coding model. */
@@ -536,11 +540,11 @@ export const THETA_CHAIN: readonly Lane[] = [
   // verified. Rate limits bind per key (~20 RPM), so the account cap keeps
   // this lane a supplement, not a primary absorber.
   { provider: "openrouter", model: "nvidia/nemotron-3-ultra-550b-a55b:free" },
-  // Qwen3.8-27b on the same OpenRouter key under a SECOND provider id — the
-  // chain can only hold one rung per provider (health is provider-keyed),
-  // so openrouter2 mirrors the agnes2 pattern. 256k ctx, tools verified;
-  // shares the key's ~20 RPM with the ultra rung above.
-  { provider: "openrouter2", model: "qwen/qwen3.8-27b:free" },
+  // Second OpenRouter free rung on the same key (agnes2 pattern — health is
+  // provider-keyed). Was qwen3.8-27b:free until OpenRouter retired it
+  // (2026-10-02); now nemotron-3-super-120b-a12b — 12B active of 120B, 262k
+  // ctx. Shares the key's ~20 RPM and daily free-models cap with ultra.
+  { provider: "openrouter2", model: "nvidia/nemotron-3-super-120b-a12b:free" },
   // OpenCode zen "free tier" models (2026-10-01): longcat-2.5-preview-free and
   // mimo-v2.6-flash-free are gated to real OpenCode-client sessions — the zen
   // gateway validates x-opencode-session server-side, so plain API keys draw
