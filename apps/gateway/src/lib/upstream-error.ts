@@ -33,6 +33,14 @@ export type UpstreamErrorClass =
   | "auth"
   /** The model produced something the provider could not parse. Account is healthy. */
   | "model-quality"
+  /** A specific model has been retired, renamed, or removed upstream (404, or a
+   *  body saying so). A MODEL problem, not an account problem — the same
+   *  account can still serve its other models (tokenharbor serves
+   *  deepseek-v4.1-flash:free fine while qwen3.8-flash:free 404s on "The free
+   *  offer ... has ended"), so only the LANE cools. Long cooldown, because
+   *  unlike free-quota's availability refusal, a retired model is not coming
+   *  back in a minute. */
+  | "model-gone"
   /** Provider is up but overloaded or timing out. Short cooldown. */
   | "overload"
   /** Anything else. */
@@ -49,6 +57,10 @@ export const COOLDOWN_MS: Record<UpstreamErrorClass, number | null> = {
   quota: 30 * 60_000,
   "free-quota": 60_000,
   auth: 30 * 60_000,
+  // Long, unlike free-quota's 60s: a 404'd model is gone, not momentarily out
+  // of availability, so there is nothing to gain by re-probing it in a minute.
+  // Applied to the LANE only — see the class doc.
+  "model-gone": 30 * 60_000,
   // Deliberately null: cooling the account would be wrong, because the account
   // is not the problem — the model is. Cooling it also has a cost beyond being
   // wrong: it would rotate the *next* request to a sibling account that runs
@@ -234,6 +246,19 @@ const FREE_QUOTA = [
   /free\s+(quota|tier|allowance|plan)[^.]*(exhaust|reached|limit|spent)/i,
 ];
 
+/** A specific model id is gone upstream — retired, renamed, or never existed
+ *  under that name — rather than the account being unauthorized or out of
+ *  funds. Tokenharbor words it "The free offer for this model has ended";
+ *  other providers answer a plain 404 with "model not found" / "does not
+ *  exist" / "no longer available" / "retired". */
+const MODEL_GONE = [
+  /\bhas\s*ended\b/i,
+  /model\s*not\s*found/i,
+  /does\s*not\s*exist/i,
+  /no\s*longer\s*available/i,
+  /\bretired\b/i,
+];
+
 export function classifyUpstreamError(status: number, body: string): UpstreamErrorClass {
   const text = (body || "").slice(0, 2000);
 
@@ -243,6 +268,7 @@ export function classifyUpstreamError(status: number, body: string): UpstreamErr
   if (MODEL_QUALITY.some((re) => re.test(text))) return "model-quality";
   if (THROTTLE.some((re) => re.test(text))) return "throttle";
   if (FREE_QUOTA.some((re) => re.test(text))) return "free-quota";
+  if (MODEL_GONE.some((re) => re.test(text))) return "model-gone";
   if (QUOTA.some((re) => re.test(text))) return "quota";
   if (AUTH.some((re) => re.test(text))) return "auth";
   if (OVERLOAD.some((re) => re.test(text))) return "overload";
@@ -256,11 +282,30 @@ export function classifyUpstreamError(status: number, body: string): UpstreamErr
       return "auth";
     case 402:
       return "quota";
+    case 404:
+      // No body signal, and the provider said "not found": the model id
+      // itself is the problem, same as the worded cases above.
+      return "model-gone";
     case 408:
     case 500:
     case 502:
     case 503:
     case 504:
+    // 520-529: Cloudflare's extended "unknown/origin" error family, seen on
+    // fleet lanes sitting behind a CF proxy (520 unknown error, 522 connection
+    // timed out, 524 a timeout occurred, 529 site overloaded, etc.). Every one
+    // of them is the edge or origin being momentarily unhappy, not a credential
+    // or model problem — same bucket as the plain 5xx cases above.
+    case 520:
+    case 521:
+    case 522:
+    case 523:
+    case 524:
+    case 525:
+    case 526:
+    case 527:
+    case 528:
+    case 529:
       return "overload";
     default:
       return "unknown";

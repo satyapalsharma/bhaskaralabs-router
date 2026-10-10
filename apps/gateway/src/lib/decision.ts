@@ -368,31 +368,24 @@ async function decideTheta(
 }
 
 /**
- * Dud rescue ladder — quality-first, and ordered by measured dud rate.
+ * Dud rescue ladder — quality-first.
  *
- * Both lanes stay metered: a rescue is the one turn where paying per token is
- * the point, because the cheap lane just demonstrated it cannot finish the
- * job. That part is unchanged.
+ * Stays metered: a rescue is the one turn where paying per token is the
+ * point, because the cheap lane just demonstrated it cannot finish the job.
  *
- * The ORDER changed after reading 30 days of ledger traffic at matched prompt
- * sizes (~52k tokens in, tool schemas present):
+ * 2026-10-11: removed stepfun (step-3.7-flash) — dead in production (429
+ * "you have no left credit for step plan", zero successful turns over the
+ * last ~29h). It used to lead this ladder on a measured ~5% dud rate against
+ * hyper's ~29% (agnes sits at ~17% but was never a member of this chain).
+ * Until stepfun has credit again, hyper is the whole rescue ladder. Provider
+ * definition is kept; restore `{ provider: "stepfun", model: "step-3.7-flash" }`
+ * ahead of hyper once topped up.
  *
- *   stepfun  ~5% dud
- *   agnes   ~17% dud
- *   hyper   ~29% dud
- *
- * Hyper was first on the strength of a 2026-09-08 minimax measurement that no
- * longer describes this fleet — minimax (generalcompute) has since been
- * retired, and the note that survived into the comment ("56% working vs 8%")
- * was about that lane, not about hyper. On the current fleet stepfun is the
- * better long-context finisher by roughly 6×, so it leads and hyper backs it up.
- *
- * The absolute rates are inflated by a detector bug fixed alongside this
- * change (short tool calls were scored as duds); the RANKING is what matters
- * here and it is the same signal the rescue responds to.
+ * The absolute dud rates above are inflated by a detector bug fixed alongside
+ * the original reordering (short tool calls were scored as duds); the RANKING
+ * is what matters and it is the same signal the rescue responds to.
  */
 const RESCUE_CHAIN: readonly Lane[] = [
-  { provider: "stepfun", model: "step-3.7-flash" },
   { provider: "hyper", model: "glm-5.3-flash" },
 ];
 

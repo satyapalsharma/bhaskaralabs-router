@@ -936,10 +936,11 @@ async function dispatchUpstream(
   // even on non-stream turns. That makes this two rules, not one: add it when we
   // stream, AND drop any client-supplied copy when we do not. Omitting our own
   // is not enough — the payload is built by spreading the client body, so their
-  // copy would ride along untouched. Either way Pareto answers 400
-  // ("stream_options requires stream=true"), and Pareto leads GLM_FLASH_CHAIN,
-  // so the turn fails over to Hyper and pays metered rates for a request the
-  // cheap lane would have served.
+  // copy would ride along untouched. A mismatch risks a 400
+  // ("stream_options requires stream=true") from whichever lane leads
+  // GLM_FLASH_CHAIN (observed on Pareto, previously the leader; removed
+  // 2026-10-11, dead — no credit), failing the turn over to a metered rate for
+  // a request the cheap lane would have served.
   const bodyIn = { ...originalBody };
   delete bodyIn.stream_options;
   const streamOptions = bodyIn.stream === true ? { stream_options: { include_usage: true } } : {};
@@ -994,8 +995,10 @@ async function dispatchUpstream(
     return llmGatewayChat({ model: decision.upstreamModel, body: payload, apiKey, signal }).finally(clearTtft);
   }
   if (decision.provider === "camel") {
-    // Camel Stream — theta FIRST lane. Metered (usage.cost_details lands in
-    // ledger via providerMeta); concurrency 1 guarded inside camelChat.
+    // Camel Stream. Metered (usage.cost_details lands in ledger via
+    // providerMeta); concurrency 1 guarded inside camelChat. Removed from
+    // THETA_CHAIN 2026-10-11 (dead — no credit); this dispatch branch stays
+    // so the lane can be restored by re-adding its chain entry.
     // TTFT ceiling: metered lane aborts save money (no zombie risk — the
     // server-side generation is billed only if completed and doesn't hold
     // flat-plan slots), but "auto" routes to frontier-class models whose
@@ -1042,10 +1045,38 @@ async function dispatchUpstream(
       // full account now moves to the next instead of ending the turn.
       const first = pickAccount(provider.id, provider.accounts)?.id;
       const ordered = [...candidates.filter((a) => a.id === first), ...candidates.filter((a) => a.id !== first)];
-      for (const account of ordered) {
+      for (let i = 0; i < ordered.length; i++) {
+        const account = ordered[i];
         try {
           const res = await genericChat({ provider, account, modelId: decision.upstreamModel, body: payload, signal });
+          // genericChat RESOLVES on a 4xx/5xx (that's what lets the cooldown
+          // classification above inspect the response) — it does not throw —
+          // so a bad status here never reaches the catch below. Returning it
+          // immediately used to end the turn on the first account's failure
+          // and leave every sibling account of the same provider untried,
+          // which is exactly the "zero successes, no failover" pattern seen in
+          // production. Fall through to the next account instead, unless this
+          // was the last one, in which case its response is the best we have.
+          if (!res.ok && i < ordered.length - 1) {
+            // The body must be drained before moving on: for statuses
+            // generic.ts classifies (429/401/402/403/404/5xx) the
+            // account/lane slot is already released synchronously, but for an
+            // unclassified non-ok response the slot rides wrapLaneRelease and
+            // is only freed once the body reaches `done` — skip that and the
+            // slot leaks for as long as the process runs. Read-to-completion
+            // (not `.cancel()`) on purpose: cancelling routes through
+            // wrapLaneRelease's shadow-hold, which exists for a generation
+            // that may still be running server-side after we gave up on it —
+            // irrelevant here, since the upstream already sent a complete
+            // (if unwelcome) response. Draining it gets the immediate release
+            // instead of an idle 15s+ hold on every failover hop.
+            await res.text().catch(() => {});
+            continue;
+          }
           clearTtft();
+          // Only the account whose response is actually returned gets
+          // recorded — a skipped account's id must not overwrite this on a
+          // later, successful iteration.
           if (fleetMeta) fleetMeta.accountId = account.id;
           return res;
         } catch (err) {

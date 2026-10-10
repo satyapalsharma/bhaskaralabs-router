@@ -210,15 +210,15 @@ console.log("\nTest 7: chains");
       GLM_FLASH_CHAIN.some((l) => l.provider === "hyper"),
   );
 
-  // Electron and Openference both meter something scarce, so neither may be
-  // reachable from a flash call. Electron's case is newer than the original
-  // reasoning and was measured, not assumed: its Coding Plan allows only two
+  // Electron meters something scarce, so it may not be reachable from a flash
+  // call. This was measured, not assumed: its Coding Plan allows only two
   // concurrent requests (its own 429 states the number), which cannot carry the
   // tier that sees ~99% of traffic, and the lane is ~2.4x slower than Pareto
   // even when it answers at all. See GLM_FLASH_CHAIN for the full numbers.
   check(
-    "electronhub/openference are full-tier only",
-    !GLM_FLASH_CHAIN.some((l) => l.provider === "electronhub" || l.provider === "openference"),
+    "electronhub is full-tier only",
+    !GLM_FLASH_CHAIN.some((l) => l.provider === "electronhub") &&
+      !THETA_CHAIN.some((l) => l.provider === "electronhub"),
   );
 
   // Every LANE must have an upstream rate card, or its cost silently reads 0.
@@ -231,6 +231,17 @@ console.log("\nTest 7: chains");
     missingRates.length === 0,
     missingRates.map((l) => `${l.provider}:${l.model}`).join(", "),
   );
+
+  // 2026-10-11: camel, pareto, orca, orca2, tokenharbor2, stepfun, and
+  // openference were dropped from every chain — dead in production over the
+  // last ~29h (exclusively errors: free offer ended / no credit). Their
+  // provider definitions and PROVIDER_CLASS entries stay; only chain
+  // membership changed, and that must stay true. (agnes and agnes2 were
+  // investigated for the same symptom but are NOT dead, so they are
+  // deliberately absent from this list.)
+  const removedLanes = ["camel", "pareto", "orca", "orca2", "tokenharbor2", "stepfun", "openference"];
+  const stillPresent = removedLanes.filter((p) => allLanes.some((l) => l.provider === p));
+  check("none of the removed lanes remain in any chain", stillPresent.length === 0, stillPresent.join(", "));
 
   // Duplicate lanes would make preference order ambiguous.
   for (const [name, chain] of [["theta", THETA_CHAIN], ["glm-full", GLM_FULL_CHAIN], ["glm-flash", GLM_FLASH_CHAIN]] as const) {

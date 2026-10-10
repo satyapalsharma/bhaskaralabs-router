@@ -62,18 +62,19 @@ const allHealthy = (): LaneHealth => {
 console.log("Test 1: ladder resolution is preference-ordered");
 {
   const h = allHealthy();
-  check("theta starts at camel (the flat lane)", resolveLane("theta", "flash", h, 0)?.provider === "camel");
+  check("theta starts at agnes (the flat lane)", resolveLane("theta", "flash", h, 0)?.provider === "agnes");
   // glm flash leads with the agnes trial lane (operator, 2026-09-28) — asserted
   // against the ladder head so the trial can end without this going stale.
   check("glm flash starts at the ladder head", resolveLane("glm-5.3", "flash", h, 0)?.provider === GLM_FLASH_CHAIN[0].provider);
   check("glm full starts at electronhub", resolveLane("glm-5.3", "full", h, 0)?.provider === "electronhub");
 
   // Flat lanes before metered ones: this ordering IS the cost model.
+  // (camel used to be checked here too; removed from THETA_CHAIN 2026-10-11,
+  // dead — no credit.)
   const thetaOrder = THETA_CHAIN.map((l) => l.provider);
   check(
     "flat lanes precede the meter in the theta ladder",
-    thetaOrder.indexOf("camel") < thetaOrder.indexOf("hyper") &&
-      thetaOrder.indexOf("agnes") < thetaOrder.indexOf("hyper"),
+    thetaOrder.indexOf("agnes") < thetaOrder.indexOf("hyper"),
   );
 
   // The full ladder leads with the flat lane: its plan allows two concurrent
@@ -85,7 +86,9 @@ console.log("Test 1: ladder resolution is preference-ordered");
   const fullOrder = GLM_FULL_CHAIN.map((l) => l.provider);
   // Pareto's full rung is out while pareto has glm-5.3 full paused on their
   // side (2026-09-18); restore it here when the rung returns to the chain.
-  const meteredFull = ["openference", "hyper", "llmgateway"];
+  // Openference removed 2026-10-11 (dead: 402 window_quota_exceeded, no
+  // credit) — see packages/shared/src/pricing.ts.
+  const meteredFull = ["hyper", "llmgateway"];
   check("the full ladder leads with electronhub", fullOrder[0] === "electronhub");
   check(
     "every metered full lane sits behind the flat one",
@@ -136,14 +139,14 @@ console.log("\nTest 2: unhealthy lanes are skipped, not retried");
     "agnes precedes teamorouter in the theta ladder",
     thetaFlash.indexOf("agnes") < thetaFlash.indexOf("teamorouter"),
   );
-  check("camel still leads the theta ladder", thetaFlash[0] === "camel");
+  check("agnes still leads the theta ladder", thetaFlash[0] === "agnes");
 }
 
 console.log("\nTest 3: exclusions drive failover");
 {
   const h = allHealthy();
   const thetaFlash = THETA_CHAIN.map((l) => l.provider);
-  const exclude = new Set(["camel", "agnes"]);
+  const exclude = new Set(["agnes", "claudin"]);
   const expected = thetaFlash.find((p) => !exclude.has(p));
   const got = resolveLane("theta", "flash", h, 0, exclude)?.provider;
   check(
@@ -155,7 +158,7 @@ console.log("\nTest 3: exclusions drive failover");
   check("excluding the whole ladder yields null", resolveLane("theta", "flash", h, 0, all) === null);
   check(
     "an empty exclusion set changes nothing",
-    resolveLane("theta", "flash", h, 0, new Set())?.provider === "camel",
+    resolveLane("theta", "flash", h, 0, new Set())?.provider === "agnes",
   );
 
   // Lane-level exclusion (`provider:model`) blocks one model without locking
@@ -408,7 +411,7 @@ console.log("\nTest 13: a lane whose window cannot hold the prefix is skipped");
   );
   check(
     "a prefix over the window skips electronhub",
-    resolveLane("glm-5.3", "full", h, 300_000)?.provider === "openference",
+    resolveLane("glm-5.3", "full", h, 300_000)?.provider === "hyper",
   );
   check(
     "exactly the window still fits",
@@ -416,13 +419,15 @@ console.log("\nTest 13: a lane whose window cannot hold the prefix is skipped");
   );
   check(
     "one token past it does not",
-    resolveLane("glm-5.3", "full", h, 262_001)?.provider === "openference",
+    resolveLane("glm-5.3", "full", h, 262_001)?.provider === "hyper",
   );
 
-  // The ladder degrades, it does not fail. Openference declares an 899k window
-  // and Hyper and LLMGateway declare none, so a prefix past even that still
-  // resolves somewhere instead of turning into an outage. (While pareto's full
-  // rung is paused, hyper is the first windowless lane.)
+  // The ladder degrades, it does not fail. Hyper and LLMGateway declare no
+  // window at all, so a prefix past Electron's 262k still resolves somewhere
+  // instead of turning into an outage. Hyper is the first windowless lane.
+  // (Openference used to sit here with an 899k window; it was removed from
+  // GLM_FULL_CHAIN 2026-10-11 — dead, no credit. Pareto's full rung has been
+  // paused on their side since 2026-09-18 and was never in this chain.)
   const huge = resolveLane("glm-5.3", "full", h, 2_000_000);
   check("an enormous prefix still resolves a lane", huge !== null);
   check("...and lands on a lane with no declared window", huge?.provider === "hyper");
@@ -434,7 +439,7 @@ console.log("\nTest 13: a lane whose window cannot hold the prefix is skipped");
   // Resolution must not change for the tiers that declare nothing.
   check(
     "theta is unaffected — no theta lane declares a window",
-    resolveLane("theta", "flash", h, 5_000_000)?.provider === "camel",
+    resolveLane("theta", "flash", h, 5_000_000)?.provider === "agnes",
   );
   check(
     "glm flash is unaffected — no flash lane declares a window",

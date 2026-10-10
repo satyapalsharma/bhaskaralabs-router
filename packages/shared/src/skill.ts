@@ -239,13 +239,19 @@ export type PoolModel = {
  *
  * theta has no pool — it is a single capability class served by a flat ladder,
  * so there is no tier decision to make. Its ladder is resolved directly.
+ *
+ * 2026-10-11: dropped pareto (both tiers) and openference (full tier) from
+ * these preference lists — dead in production (402/429, zero successful
+ * turns over the last ~29h, no credit). resolveLaneFor skips any provider
+ * here that the ladder in pricing.ts no longer carries, so leaving them would
+ * just be dead weight; put a lane back here once its chain entry is restored.
  */
 export const SKILL_POOLS: Record<string, PoolModel[]> = {
   "glm-5.3": [
     {
       modelId: "glm-5.3-flash",
       tier: "flash",
-      providers: ["pareto", "hyper", "llmgateway", "teamorouter"],
+      providers: ["hyper", "llmgateway", "teamorouter"],
       inputUsdPerM: 0.16332,
       // 80% input-weighted blend at the observed cache-heavy mix
       blendedUsdPerM: 0.24,
@@ -253,7 +259,7 @@ export const SKILL_POOLS: Record<string, PoolModel[]> = {
     {
       modelId: "glm-5.3",
       tier: "full",
-      providers: ["electronhub", "openference", "pareto", "hyper", "llmgateway"],
+      providers: ["electronhub", "hyper", "llmgateway"],
       inputUsdPerM: 1.52432,
       blendedUsdPerM: 2.18,
     },

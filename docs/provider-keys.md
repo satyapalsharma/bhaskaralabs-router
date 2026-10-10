@@ -88,10 +88,13 @@ Electron Hub Coding Plan… use your DevPass API key`, so the key must come from
 the lane fails fast on every full turn and the ladder walks past it — same
 observable cost as the 402 it replaced, so swapping the key in is the whole fix.
 
-The 262k window is the narrowest in the full ladder (openference accepts 899k,
-and pareto/hyper/llmgateway declare none), so it is carried as
-`maxInputTokens` on the lane and an oversized turn skips Electron for
-openference instead of collecting a 400.
+The 262k window is the narrowest in the full ladder — hyper and llmgateway
+declare none — so it is carried as `maxInputTokens` on the lane and an
+oversized turn skips Electron for the next lane instead of collecting a 400.
+(Openference used to be that next lane, with an 899k window; it was removed
+from `GLM_FULL_CHAIN` on 2026-10-11 — dead, no credit — so an oversized turn
+currently lands on hyper. Restore openference's chain entry once it has
+credit again.)
 
 **Three behaviours worth knowing before debugging a lane that "looks up":**
 

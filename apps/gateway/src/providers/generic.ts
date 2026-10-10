@@ -80,6 +80,19 @@ function opencodeFreeBody(body: Record<string, unknown>): Record<string, unknown
 
 const inflight = new Map<string, number>();
 
+/**
+ * Consecutive 5xx per account. A single 502/520 is routine on the busiest
+ * lanes and must not bench them, so an account only cools (60s, `overload`)
+ * after this many 5xx in a row; any successful response resets the streak.
+ */
+export const FIVE_XX_STREAK_LIMIT = Number(process.env.BHASKARA_5XX_STREAK_LIMIT ?? 5);
+const fiveXxStreak = new Map<string, number>();
+
+/** Test hook: clear the in-memory 5xx streaks. */
+export function resetFiveXxStreaks(): void {
+  fiveXxStreak.clear();
+}
+
 function slotFree(accountId: string, max: number): boolean {
   return (inflight.get(accountId) ?? 0) < max;
 }
@@ -184,7 +197,20 @@ export async function genericChat(opts: GenericChatOpts): Promise<Response> {
       body: JSON.stringify(upstreamBody),
       signal: opts.signal,
     });
-    if (res.status === 429 || res.status === 401 || res.status === 402 || res.status === 403) {
+    if (
+      res.status === 429 ||
+      res.status === 401 ||
+      res.status === 402 ||
+      res.status === 403 ||
+      // A model retired/renamed upstream (404) used to fall straight through
+      // this branch: no classification, no cooldown, lane health stayed
+      // green, and every turn re-paid the round trip to fail the same way
+      // (tokenharbor2's ended free offer: 13,368 404s in ~29h, 2026-10-11).
+      // 5xx is handled below by a consecutive-failure streak instead: the
+      // busiest lanes (agnes4, claudin) throw occasional 502/520s, and cooling
+      // a whole account on a single transient 5xx costs more than it saves.
+      res.status === 404
+    ) {
       // Classify from the BODY, not the status. A provider is free to express
       // "slow down" as a 401, and pareto does — under a hard throttle both of
       // its accounts came back 401 and the old status-only rule cooled each one
@@ -201,10 +227,11 @@ export async function genericChat(opts: GenericChatOpts): Promise<Response> {
       // providers state it that ignoring it means cooling for the wrong duration
       // on the lanes that are most specific about their limits.
       const ms = retryAfterFrom(res, body) ?? COOLDOWN_MS[kind];
-      // free-quota cools the LANE only: the account still has credit and its
-      // paid sibling model must keep serving (an account cooldown would kill
-      // exactly the fallback the topped-up balance exists for).
-      if (kind === "free-quota") {
+      // free-quota and model-gone cool the LANE only: the account itself is
+      // fine (free-quota has credit; model-gone can still serve its other
+      // models), so an account-wide cooldown would also silence a sibling
+      // lane that has nothing wrong with it.
+      if (kind === "free-quota" || kind === "model-gone") {
         if (ms !== null) markLaneCooldown(provider.id, modelId, ms);
       } else if (ms !== null) {
         await markAccountCooldown(account.id, provider.id, ms).catch(() => {});
@@ -216,7 +243,23 @@ export async function genericChat(opts: GenericChatOpts): Promise<Response> {
       );
       return res;
     }
-    if (res.ok) await clearAccountCooldown(account.id).catch(() => {});
+    if (res.status >= 500 && res.status <= 599) {
+      const streak = (fiveXxStreak.get(account.id) ?? 0) + 1;
+      if (streak >= FIVE_XX_STREAK_LIMIT) {
+        fiveXxStreak.delete(account.id);
+        const ms = COOLDOWN_MS.overload ?? 60_000;
+        await markAccountCooldown(account.id, provider.id, ms).catch(() => {});
+        console.log(
+          JSON.stringify({ ev: "account-error", provider: provider.id, account: account.label, status: res.status, class: "5xx-streak", streak, cooldownSec: Math.round(ms / 1000) }),
+        );
+      } else {
+        fiveXxStreak.set(account.id, streak);
+      }
+    }
+    if (res.ok) {
+      fiveXxStreak.delete(account.id);
+      await clearAccountCooldown(account.id).catch(() => {});
+    }
     // The slot must outlive the fetch (the upstream is busy for the whole
     // generation), so the release rides the body rather than the request.
     const wrapped = wrapLaneRelease(res, releaseNow, shadowRelease);

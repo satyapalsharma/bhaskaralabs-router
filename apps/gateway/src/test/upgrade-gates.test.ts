@@ -136,10 +136,16 @@ console.log("Test 6: a free lane is free at every prefix length the fleet sees")
   for (const prefix of [1_000, MEDIAN_AGENT_PREFIX, 64_000, 88_000, 200_000]) {
     check(`a flat lane costs nothing at ${prefix} tokens`, cacheSwitchPenaltyUsd(FLASH_RATE, 0, prefix) === 0);
   }
-  // Openference is flat by allowance (400 requests / 5h) rather than by
-  // subscription, and the flat flag is what keeps the penalty gate from pricing
-  // it at GLM-5.3 list and refusing every switch into it.
-  check("the second free rung is the one that meters requests", GLM_FULL_CHAIN[1].provider === "openference");
+  // 2026-10-11: Openference — flat by per-request allowance (400/5h) rather
+  // than by subscription — was removed from GLM_FULL_CHAIN: dead in
+  // production (402 window_quota_exceeded, zero successful turns over the
+  // last ~29h). Electronhub is now the chain's only free rung; restoring
+  // openference's own entry is what brings back the "flat flag overrides
+  // list-rate pricing" case this test used to pin against a second rung.
+  check(
+    "openference is gone and electronhub remains the chain's only free rung",
+    !GLM_FULL_CHAIN.some((l) => l.provider === "openference") && GLM_FULL_CHAIN[0].provider === "electronhub",
+  );
   const atList = cacheSwitchPenaltyUsd(FLASH_RATE, 1.4, MEDIAN_AGENT_PREFIX);
   check(
     "priced at list it would be refused, which is the bug the flat flag fixes",
@@ -152,13 +158,14 @@ console.log("Test 7: a leaked session can never land on a metered full lane");
 {
   // The regression this pins: a leaked session is full-tier by lock, so the
   // full branch walks the full ladder on every later turn. Unrestricted, that
-  // walk goes electronhub → openference → Pareto — and when the two free rungs
-  // are busy it reaches Pareto full, ~7x the flash price. Observed live: a
-  // leaked session went $0.0000 → $0.0044 within twelve seconds, turning the
-  // free-capacity leak into the most expensive turn the router can serve.
+  // walk goes electronhub → hyper — a metered full lane, ~9x the flash price.
+  // (Openference used to sit here as a second free rung; removed 2026-10-11,
+  // dead — no credit.) Observed live on the old ladder: a leaked session went
+  // $0.0000 → $0.0044 within twelve seconds, turning the free-capacity leak
+  // into the most expensive turn the router can serve.
   const free = await freeLanesOf(GLM_FULL_CHAIN);
   check("the free rungs are a strict prefix of the full ladder", free.length > 0 && free.length < GLM_FULL_CHAIN.length, `${free.length}/${GLM_FULL_CHAIN.length}`);
-  check("every rung in the free pool actually bills flat", free.every((l) => l.provider === "electronhub" || l.provider === "openference"), free.map((l) => l.provider).join(","));
+  check("every rung in the free pool actually bills flat", free.every((l) => l.provider === "electronhub"), free.map((l) => l.provider).join(","));
   check("no metered full lane survives the filter", !free.some((l) => l.provider === "pareto" || l.provider === "hyper" || l.provider === "llmgateway"));
   // The filter has to be able to come back empty-handed so the caller falls to
   // flash. If it always returned a lane, the restriction would be decorative.

@@ -486,24 +486,20 @@ export type Lane = {
  * ordered by effective rate, then the overflow allowlist — which is appended at
  * runtime from `overflow-models.ts` rather than hardcoded here, so an
  * unverified model can never be reached by accident.
- *
- * Two orderings here are load-bearing and should not be read as arbitrary:
- *
- * StepFun sits above TeamoRouter's free tier even though free is cheaper than
- * $0.04/$0.10. The free tier is a DAILY allowance that resets at 09:00 PT and
- * returns 402 once spent, so it is a limited resource that should absorb the
- * turns the lane above it could not, not the first turns of every session. A
- * free lane used first is a free lane exhausted by mid-afternoon, after which
- * the ladder pays StepFun's metered rate for traffic the allowance would have
- * covered.
- *
- * Pareto's lane was switched from deepseek/deepseek-v4-flash to glm-5.3-flash
- * (operator decision, 2026-09-23): the theta product speaks the GLM family, and
- * at $0.163/$0.544 the flash card sits within a rounding error of the DeepSeek
- * rung it replaced ($0.15/$0.60) — same 1M window, no ordering consequence.
  */
+// 2026-10-11: removed from this chain — all dead in production (zero
+// successful turns over the last ~29h, exclusively error responses): camel
+// (auto, 402 "no credit"), pareto (glm-5.3-flash, "Insufficient credits" + 400
+// "Only streaming requests are supported"), orca (orcarouter/free, 402 "your
+// orcarouter/free allowance is used up"), orca2 (orcarouter/auto, 402),
+// tokenharbor2 (qwen3.8-flash:free, 404 "The free offer ... has ended"), and
+// stepfun (step-3.7-flash, 429 "you have no left credit for step plan").
+// Provider definitions and PROVIDER_CLASS entries are kept as-is; restore a
+// lane's entry here (in its old slot, per the comments that remain) to
+// re-enable it once the account is topped up or the offer renews. agnes and
+// agnes2 are NOT dead — see the investigation note below — and stay exactly
+// where they were.
 export const THETA_CHAIN: readonly Lane[] = [
-  { provider: "camel", model: "auto" },
   // Staged-agnes TEST (2026-09-23): agnes serves at concurrency 4 first; when
   // those slots are full the walk reaches pareto, and only when pareto is also
   // saturated does it return to agnes — as the DB-fleet provider "agnes2", the
@@ -512,17 +508,6 @@ export const THETA_CHAIN: readonly Lane[] = [
   // twice" is otherwise impossible: health is a single provider-keyed boolean,
   // and both entries would share one predicate.
   { provider: "agnes", model: "agnes-3.0-flash" },
-  // Pareto at slot 3 (2026-09-26, final): user wants the $40/day allowance
-  // actually spent — camel+agnes absorb ~10/min first, then pareto takes the
-  // bulk until its 6 slots fill; overflow continues to the free lanes. The
-  // per-account dailyCostUsd window is the hard stop: once the $20/account
-  // burns, the walk skips pareto on its own. (Slot 2 earlier caused 429
-  // storms; slot 6 left the budget unspent. Slot 3 is the middle.)
-  { provider: "pareto", model: "glm-5.3-flash" },
-  // OrcaRouter free allowance (added 2026-09-26). 402 free_quota_exhausted is
-  // treated like teamorouter's free rung: cool briefly, retry later — when the
-  // allowance resets this is a full free rung between pareto and claudin.
-  { provider: "orca", model: "orcarouter/free" },
   // Claudin.io plan lane (added 2026-09-26): fast (~2.3s TTFT), tool-capable,
   // 6/6 parallel verified. Sits right after agnes as an early flat rung.
   { provider: "claudin", model: "claudinio" },
@@ -560,28 +545,14 @@ export const THETA_CHAIN: readonly Lane[] = [
   // Agnes on a SECOND subscription (2026-09-26): its own key, its own 16
   // concurrent (capped 15). Flat lanes end here — everything below is paid.
   { provider: "agnes3", model: "agnes-3.0-flash" },
-  // TokenHarbor free allowances (2026-09-26): deepseek-v4.1-flash:free and the
-  // limited-time qwen3.8-flash:free, each on its own provider id so one
-  // allowance's exhaustion cannot cool the other's lane. Flat lanes end here.
+  // TokenHarbor free allowance (2026-09-26): deepseek-v4.1-flash:free never
+  // charges the wallet. Flat lanes end here — everything below is paid.
   { provider: "tokenharbor", model: "deepseek-v4.1-flash:free" },
-  { provider: "tokenharbor2", model: "qwen3.8-flash:free" },
-  // qwen3.8-flash on hyper: a cheaper metered rung than step-5-preview, so the
-  // walk stops here before paying stepfun's rate (added 2026-09-24). Hyper's
-  // own health gate still applies; the last-resort glm-5.3-flash rung on hyper
-  // below is untouched and remains the exhaustion fallback.
+  // qwen3.8-flash on hyper (added 2026-09-24): a metered emergency rung ahead
+  // of the last-resort glm-5.3-flash rung on hyper below. Hyper's own health
+  // gate still applies; glm-5.3-flash remains the exhaustion fallback.
   { provider: "hyper", model: "qwen3.8-flash" },
-  // Stepfun rung switched step-5-preview → step-3.7-flash (2026-09-28): the
-  // preview model's p50 turn was 119s — past Cloudflare's 100s origin wait,
-  // so those turns died as non-JSON 502s after the client had already timed
-  // out, and the metered spend went with them. step-3.7-flash runs p50 ~11s
-  // and costs 25x less per token; as an emergency rung it actually delivers.
-  { provider: "stepfun", model: "step-3.7-flash" },
   { provider: "teamorouter", model: "glm-5.3-flash-free" },
-  // OrcaRouter "auto" — their paid router under wallet billing (added
-  // 2026-09-26). Sits between the free and paid teamorouter rungs: when the
-  // free tier 402s, the walk pays the wallet before paying teamorouter's
-  // topped-up balance.
-  { provider: "orca2", model: "orcarouter/auto" },
   // Paid sibling directly behind the free rung: when the free tier is
   // unavailable (402 free_request_quota_exhausted — an availability refusal,
   // not a daily quota) the lane cools briefly and the walk lands here, on the
@@ -594,11 +565,9 @@ export const THETA_CHAIN: readonly Lane[] = [
 /**
  * glm-5.3 full model.
  *
- * Openference appears only here: it meters requests rather than tokens, so
- * spending one on a flash call wastes a request that a full call needs. Electron
- * appears only here for a different reason — see GLM_FLASH_CHAIN. Its plan allows
- * two concurrent requests, and scarce flat capacity is worth most where the
- * metered alternative is dearest, which is this ladder.
+ * Electron appears only here — see GLM_FLASH_CHAIN for why it's absent there.
+ * Its plan allows two concurrent requests, and scarce flat capacity is worth
+ * most where the metered alternative is dearest, which is this ladder.
  *
  * TeamoRouter is absent on purpose — it carries the flash variant and DeepSeek,
  * not the full GLM model. When every lane here is unhealthy the turn is served
@@ -622,9 +591,14 @@ export const THETA_CHAIN: readonly Lane[] = [
  * (multiplier 2 against 0.5), so the 25% full-share cap prices out nearer 57%
  * of plan burn than 25% of calls.
  */
+// 2026-10-11: removed openference (glm-5.3, 900x529 + 402
+// window_quota_exceeded, zero successful turns over the last ~29h) from this
+// chain — dead in production, no credit. Provider definition and
+// PROVIDER_CLASS entry are kept; restore
+// `{ provider: "openference", model: "glm-5.3", maxInputTokens: 899_153 }`
+// here (right after electronhub) once the account regains quota.
 export const GLM_FULL_CHAIN: readonly Lane[] = [
   { provider: "electronhub", model: "glm-5.3:dev", maxInputTokens: 262_000 },
-  { provider: "openference", model: "glm-5.3", maxInputTokens: 899_153 },
   // Pareto's glm-5.3 FULL rung removed 2026-09-18: pareto has paused the full
   // model on their side (only glm-5.3-flash is running right now). Restore
   // `{ provider: "pareto", model: "glm-5.3" }` here when they bring it back.
@@ -661,9 +635,16 @@ export const GLM_FULL_CHAIN: readonly Lane[] = [
  * a flash call, so the plan's two slots are worth far more to the full ladder.
  * See GLM_FULL_CHAIN, where Electron does lead.
  *
- * The rest is descending preference as before: Pareto, Hyper, LLMGateway,
- * TeamoRouter.
+ * The rest is descending preference as before: Hyper, LLMGateway, TeamoRouter.
  */
+// 2026-10-11: removed from this chain — all dead in production (zero
+// successful turns over the last ~29h, exclusively error responses): pareto
+// (glm-5.3-flash, "Insufficient credits" + 400 "Only streaming requests are
+// supported"), tokenharbor3 (glm-5.3-flash, 402 no credit), and tokenharbor4
+// (qwen3.8-flash:free, 404 "The free offer ... has ended"). Provider
+// definitions and PROVIDER_CLASS entries are kept; restore a lane's entry
+// here (in its old slot, right after agnes4) once the account is topped up
+// or the offer renews.
 export const GLM_FLASH_CHAIN: readonly Lane[] = [
   // Agnes first (2026-09-28, operator trial): the flash ladder's metered rungs
   // were carrying everything while agnes capacity sat idle on theta — testing
@@ -671,15 +652,6 @@ export const GLM_FLASH_CHAIN: readonly Lane[] = [
   // shared lane budget: theta traffic on agnes4 can starve this entry, and
   // that starvation is itself the answer to "do we need a separate account?"
   { provider: "agnes4", model: "agnes-3.0-flash" },
-  { provider: "pareto", model: "glm-5.3-flash" },
-  // TokenHarbor agent-quota glm-5.3-flash (2026-09-26): plan-included flash,
-  // verified 200 with tools. Sits before the metered rungs so quota turns are
-  // free; own provider id (tokenharbor3) so theta cannot starve it.
-  { provider: "tokenharbor3", model: "glm-5.3-flash" },
-  // TokenHarbor limited-time qwen3.8-flash:free — a flash-capable fallback
-  // ahead of every metered lane. Split from tokenharbor2 on purpose: this
-  // ladder and theta each draw from their own concurrency budget.
-  { provider: "tokenharbor4", model: "qwen3.8-flash:free" },
   { provider: "hyper", model: "glm-5.3-flash" },
   { provider: "llmgateway", model: "glm-5.3-flash" },
   { provider: "teamorouter", model: "glm-5.3-flash" },
