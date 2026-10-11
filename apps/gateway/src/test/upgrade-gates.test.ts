@@ -8,9 +8,15 @@
 //
 // The numbers are the real ones: median agent prefix ~25k, a flat lane at the
 // head of the full ladder, and a metered full lane behind it.
+//
+// No database: which lanes bill flat comes from the fixture fleet in
+// router-fixtures.ts, not from whatever fleet table DATABASE_URL reaches.
 
 import { cacheSwitchPenaltyUsd, freeLanesOf } from "../lib/decision";
-import { ROUTER, TIER_RATES, GLM_FULL_CHAIN, GLM_FLASH_CHAIN } from "@bhaskara/shared/pricing";
+import { ROUTER, TIER_RATES, GLM_FULL_CHAIN, GLM_FLASH_CHAIN, FLAT_PROVIDERS } from "@bhaskara/shared/pricing";
+import { installRouterFixtures } from "./router-fixtures";
+
+const fixtures = await installRouterFixtures();
 
 let passed = 0;
 let failed = 0;
@@ -169,11 +175,21 @@ console.log("Test 7: a leaked session can never land on a metered full lane");
   check("no metered full lane survives the filter", !free.some((l) => l.provider === "pareto" || l.provider === "hyper" || l.provider === "llmgateway"));
   // The filter has to be able to come back empty-handed so the caller falls to
   // flash. If it always returned a lane, the restriction would be decorative.
-  const noFlat = await freeLanesOf(GLM_FLASH_CHAIN);
-  check("a ladder with no flat lane filters to nothing (caller then degrades to flash)", noFlat.length === 0, noFlat.map((l) => l.provider).join(","));
-  // The flat agnes trial lane (2026-09-28) leads the flash ladder now; the
-  // property that still matters is that metered rungs remain reachable behind
-  // it for when the trial ends or the flat lane is busy.
+  //
+  // Shown on the metered rungs of the flash ladder, not on the ladder itself:
+  // the flat agnes trial lane (2026-09-28) leads it now, so the whole ladder
+  // is no longer an example of "nothing flat". Asked of the whole ladder this
+  // passed only against a fleet table with no flat agnes4 row — it was reading
+  // the seed, not the filter.
+  const meteredFlash = GLM_FLASH_CHAIN.filter((l) => !FLAT_PROVIDERS.includes(l.provider));
+  const noFlat = await freeLanesOf(meteredFlash);
+  check(
+    "a ladder with no flat lane filters to nothing (caller then degrades to flash)",
+    meteredFlash.length > 0 && noFlat.length === 0,
+    `${noFlat.map((l) => l.provider).join(",")} of ${meteredFlash.length}`,
+  );
+  // The property that still matters there is that metered rungs remain
+  // reachable behind it for when the trial ends or the flat lane is busy.
   check(
     "the flash fallback stays reachable behind the trial lane",
     GLM_FLASH_CHAIN.some((l) => l.provider === "hyper") && GLM_FLASH_CHAIN.some((l) => l.provider === "llmgateway"),
@@ -181,11 +197,12 @@ console.log("Test 7: a leaked session can never land on a metered full lane");
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);
+fixtures.restore();
 // Throws rather than exits: this file is imported by run-all.test.ts, which
 // treats a thrown error as the failure report and keeps going. An explicit
 // process.exit here — even exit(0) on success — kills the runner mid-sweep, and
-// every test file after this one silently never ran. The pooled DB connection
-// that motivated the exit is closed by the runner's own exit at the end.
+// every test file after this one silently never ran. Nothing here opens a
+// database connection any more, so there is no pool left to motivate one.
 if (failed > 0) {
   throw new Error(`${failed} of ${passed + failed} upgrade-gate assertions failed`);
 }

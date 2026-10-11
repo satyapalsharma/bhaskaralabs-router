@@ -14,7 +14,12 @@
 // heuristic decides, never that nobody decides.** Same contract the fresh path
 // already honours.
 //
-// Needs a database: considerUpgrade reads the lane rate and writes the lock.
+// No database. considerUpgrade reads the lane rate from the fleet, asks the
+// skill matrix, and writes the lock; all three are the fixtures in
+// router-fixtures.ts. This file used to take them from whatever DATABASE_URL
+// reached, and with no fleet in reach the flat lane was priced as metered and
+// refused on the penalty gate — which the first assertion below reported as
+// "skill vetoed escalation", the one thing it was not.
 
 import { considerUpgrade, cacheSwitchPenaltyUsd, shareCapBinds } from "../lib/decision";
 import { ROUTER, GLM_FULL_CHAIN } from "@bhaskara/shared/pricing";
@@ -22,6 +27,10 @@ import type { LaneHealth } from "../router";
 import type { SessionLock } from "../lib/session-lock";
 import type { AuthContext } from "../lib/auth";
 import type { ChatMessage } from "../lib/prefix";
+import { installRouterFixtures } from "./router-fixtures";
+
+const fixtures = await installRouterFixtures();
+const { lockWrites } = fixtures;
 
 let passed = 0;
 let failed = 0;
@@ -101,8 +110,15 @@ console.log("\nTest 2: skill ON must not veto escalation on a cold matrix");
 {
   // The regression. With an empty skill_cards table skillDecide returns null, so
   // this call returned null before the fix and the session stayed on flash.
+  const before = lockWrites.length;
   const decision = await considerUpgrade({ ...inputs(true), sessionId: "test-upgrade-skill-on" });
-  check("an upgrade is still granted", decision !== null, "got null — skill vetoed escalation");
+  // A null has two causes and the detail has to keep them apart: a gate that
+  // refused logs `reeval-declined` with its name, the skill veto logs nothing.
+  check(
+    "an upgrade is still granted",
+    decision !== null,
+    "got null — a reeval-declined line above names the gate; none means skill vetoed escalation",
+  );
   check(
     "and it lands on the full tier",
     decision?.tier === "full",
@@ -118,14 +134,35 @@ console.log("\nTest 2: skill ON must not veto escalation on a cold matrix");
     !!decision && !String(decision.reason).includes("skill"),
     String(decision?.reason),
   );
+  // The grant has to reach the lock, or the next turn finds a flash lock and
+  // decides all over again. This write used to land in whichever database was
+  // configured and was never read back.
+  const written = lockWrites[before];
+  check(
+    "the grant is written to the lock as a switch to the full model",
+    lockWrites.length === before + 1 &&
+      written?.sessionId === "test-upgrade-skill-on" &&
+      written.model === "glm-5.3" &&
+      written.opts?.bumpSwitch === true,
+    JSON.stringify(lockWrites.slice(before)),
+  );
 }
 
 console.log("\nTest 3: the same turn with skill OFF behaves identically");
 {
+  const before = lockWrites.length;
   const off = await considerUpgrade({ ...inputs(false), sessionId: "test-upgrade-skill-off" });
   check("skill off still upgrades", off !== null);
   check("and reaches the full tier", off?.tier === "full", String(off?.tier));
+  check(
+    "and writes the same lock",
+    lockWrites.length === before + 1 && lockWrites[before].model === "glm-5.3" && lockWrites[before].opts?.bumpSwitch === true,
+    JSON.stringify(lockWrites.slice(before)),
+  );
 }
+
+// Everything from here down is a refusal.
+const grants = lockWrites.length;
 
 console.log("\nTest 4: a hard cap still refuses, with skill on or off");
 {
@@ -159,16 +196,24 @@ console.log("\nTest 6: an over-long prefix still refuses");
   check("prefix past the gate refuses", d === null, `tier=${d?.tier}`);
 }
 
+console.log("\nTest 7: a refusal leaves the lock alone");
+{
+  // A refusal that still moved the lock would put the session on the full
+  // model with the gate on record as having said no.
+  check(
+    "none of the four refusals above wrote one",
+    lockWrites.length === grants,
+    lockWrites.slice(grants).map((w) => w.sessionId).join(","),
+  );
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
+fixtures.restore();
 // Throws rather than exits — run-all.test.ts imports this file and reads a throw
 // as the failure report. An exit would kill the sweep, which is how thirteen test
-// files silently stopped running.
+// files silently stopped running. The exit this file used to make when run on
+// its own is gone with the DB pool that needed it: lock writes are recorded
+// now, so nothing holds the event loop open.
 if (failed > 0) {
   throw new Error(`${failed} of ${passed + failed} upgrade-escalation assertions failed`);
 }
-
-// considerUpgrade writes locks, so the DB pool holds the event loop open past the
-// last assertion. Only relevant when this file is the entry point: under the
-// runner the process belongs to the runner. Exiting unconditionally here is the
-// exact bug the throw above exists to avoid.
-if (import.meta.main) process.exit(0);

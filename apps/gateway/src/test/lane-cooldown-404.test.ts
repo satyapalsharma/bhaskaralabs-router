@@ -16,11 +16,17 @@
 //
 // `markAccountCooldown`/`clearAccountCooldown` (lib/upstream-config) write to
 // the real Postgres-backed fleet table, which is not available in this test
-// environment. They're replaced with in-memory recorders via `mock.module`
-// *before* `../providers/generic` is first imported anywhere in this process,
-// so genericChat's cooldown decision is observable without a database. No
-// other test file touches `lib/upstream-config`, so this mock does not leak
-// into anything else in the suite.
+// environment. They're replaced with in-memory recorders via `mock.module`, so
+// genericChat's cooldown decision is observable without a database.
+//
+// The mock is the real module with those two exports swapped, not a bare
+// two-function object. `lib/upstream-config` is also reached through
+// lib/decision by four other test files (upgrade-gates, upgrade-escalation,
+// hardness, calibration-contract), and run-all imports every file into one
+// process in raw readdir order. A module that has not been loaded yet is
+// replaced wholesale by its mock, so whenever this file came first those four
+// failed to link — "Export named 'getFleet' not found" — and whether it came
+// first was up to the filesystem.
 
 import { mock } from "bun:test";
 import { COOLDOWN_MS, classifyUpstreamError } from "../lib/upstream-error";
@@ -43,7 +49,11 @@ type CooldownCall = { accountId: string; providerId: string; ms: number };
 const accountCooldownCalls: CooldownCall[] = [];
 const clearCooldownCalls: string[] = [];
 
+// Copied, not referenced: the namespace is live, and after the mock below it
+// would read back the recorders.
+const actualUpstreamConfig = { ...(await import("../lib/upstream-config")) };
 mock.module("../lib/upstream-config", () => ({
+  ...actualUpstreamConfig,
   markAccountCooldown: async (accountId: string, providerId: string, ms: number) => {
     accountCooldownCalls.push({ accountId, providerId, ms });
   },
