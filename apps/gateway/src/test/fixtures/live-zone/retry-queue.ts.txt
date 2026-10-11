@@ -1,0 +1,365 @@
+// In-process job queue with per-job retry, exponential backoff and a dead-letter
+// list. Used by the webhook dispatcher: a delivery that fails is retried up to
+// `maxAttempts` times, then parked where an operator can inspect and replay it.
+//
+// Nothing here is durable. The queue is rebuilt from the outbox table on boot;
+// this module only decides WHEN a job runs and what happens when it fails.
+
+export type JobStatus = "queued" | "running" | "succeeded" | "failed" | "dead";
+
+export interface Job<T> {
+  id: string;
+  kind: string;
+  payload: T;
+  status: JobStatus;
+  attempts: number;
+  enqueuedAt: string;
+  runAfter: number;
+  lastError?: string;
+  finishedAt?: string;
+}
+
+export interface QueueOptions {
+  concurrency: number;
+  maxAttempts: number;
+  baseDelayMs: number;
+  maxDelayMs: number;
+  /** 0..1 — fraction of the delay randomised to avoid thundering herds. */
+  jitter: number;
+  now: () => number;
+  random: () => number;
+  onEvent?: (event: QueueEvent) => void;
+}
+
+export type QueueEvent =
+  | { type: "enqueued"; id: string; kind: string }
+  | { type: "started"; id: string; attempt: number }
+  | { type: "succeeded"; id: string; attempt: number; tookMs: number }
+  | { type: "retry"; id: string; attempt: number; delayMs: number; error: string }
+  | { type: "dead"; id: string; attempts: number; error: string };
+
+export type Handler<T> = (payload: T, job: Readonly<Job<T>>) => Promise<void>;
+
+/** Thrown by a handler to say "do not retry this one". */
+export class PermanentError extends Error {
+  constructor(message: string, readonly cause?: unknown) {
+    super(message);
+    this.name = "PermanentError";
+  }
+}
+
+export class QueueClosedError extends Error {
+  constructor() {
+    super("queue is closed");
+    this.name = "QueueClosedError";
+  }
+}
+
+const DEFAULTS: QueueOptions = {
+  concurrency: 4,
+  maxAttempts: 5,
+  baseDelayMs: 500,
+  maxDelayMs: 60_000,
+  jitter: 0.2,
+  now: () => Date.now(),
+  random: () => Math.random(),
+};
+
+/** Delay before attempt N+1, given N failures so far. Pure. */
+export function backoffDelay(failures: number, opts: Pick<QueueOptions, "baseDelayMs" | "maxDelayMs" | "jitter">, rand = 0.5): number {
+  if (failures <= 0) return 0;
+  const exp = Math.min(opts.maxDelayMs, opts.baseDelayMs * 2 ** (failures - 1));
+  const spread = exp * opts.jitter;
+  // rand in [0,1) maps to [-spread, +spread)
+  const jittered = exp - spread + rand * 2 * spread;
+  return Math.max(0, Math.min(opts.maxDelayMs, Math.round(jittered)));
+}
+
+export function describeError(error: unknown): string {
+  if (error instanceof Error) {
+    const cause = (error as { cause?: unknown }).cause;
+    return cause === undefined ? `${error.name}: ${error.message}` : `${error.name}: ${error.message} (caused by ${describeError(cause)})`;
+  }
+  if (typeof error === "string") return error;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return String(error);
+  }
+}
+
+export class RetryQueue<T> {
+  private readonly opts: QueueOptions;
+  private readonly handlers = new Map<string, Handler<T>>();
+  private readonly jobs = new Map<string, Job<T>>();
+  private readonly dead: Job<T>[] = [];
+  private running = 0;
+  private closed = false;
+  private seq = 0;
+
+  constructor(options: Partial<QueueOptions> = {}) {
+    this.opts = { ...DEFAULTS, ...options };
+    if (this.opts.concurrency < 1) throw new Error(`concurrency must be >= 1, got ${this.opts.concurrency}`);
+    if (this.opts.maxAttempts < 1) throw new Error(`maxAttempts must be >= 1, got ${this.opts.maxAttempts}`);
+    if (this.opts.jitter < 0 || this.opts.jitter > 1) throw new Error(`jitter must be within 0..1, got ${this.opts.jitter}`);
+  }
+
+  on(kind: string, handler: Handler<T>): this {
+    if (this.handlers.has(kind)) throw new Error(`handler for "${kind}" is already registered`);
+    this.handlers.set(kind, handler);
+    return this;
+  }
+
+  enqueue(kind: string, payload: T, id?: string): Job<T> {
+    if (this.closed) throw new QueueClosedError();
+    if (!this.handlers.has(kind)) throw new Error(`no handler registered for "${kind}"`);
+    const jobId = id ?? `job-${(++this.seq).toString().padStart(6, "0")}`;
+    const existing = this.jobs.get(jobId);
+    if (existing) {
+      // Idempotent enqueue: the outbox replays rows on boot.
+      return existing;
+    }
+    const job: Job<T> = {
+      id: jobId,
+      kind,
+      payload,
+      status: "queued",
+      attempts: 0,
+      enqueuedAt: new Date(this.opts.now()).toISOString(),
+      runAfter: this.opts.now(),
+    };
+    this.jobs.set(jobId, job);
+    this.emit({ type: "enqueued", id: jobId, kind });
+    return job;
+  }
+
+  /** Jobs that may start now, oldest `runAfter` first. */
+  ready(): Job<T>[] {
+    const now = this.opts.now();
+    return [...this.jobs.values()]
+      .filter((job) => job.status === "queued" && job.runAfter <= now)
+      .sort((a, b) => a.runAfter - b.runAfter || a.id.localeCompare(b.id));
+  }
+
+  /**
+   * Start as many ready jobs as the concurrency limit allows and resolve when
+   * the ones started by THIS call have settled. Returns how many it started.
+   */
+  async pump(): Promise<number> {
+    if (this.closed) throw new QueueClosedError();
+    const batch: Promise<void>[] = [];
+    for (const job of this.ready()) {
+      if (this.running >= this.opts.concurrency) break;
+      batch.push(this.run(job));
+    }
+    await Promise.all(batch);
+    return batch.length;
+  }
+
+  private async run(job: Job<T>): Promise<void> {
+    const handler = this.handlers.get(job.kind);
+    if (!handler) {
+      this.bury(job, `no handler registered for "${job.kind}"`);
+      return;
+    }
+    this.running++;
+    job.status = "running";
+    job.attempts++;
+    const startedAt = this.opts.now();
+    this.emit({ type: "started", id: job.id, attempt: job.attempts });
+    try {
+      await handler(job.payload, job);
+      job.status = "succeeded";
+      job.finishedAt = new Date(this.opts.now()).toISOString();
+      this.emit({ type: "succeeded", id: job.id, attempt: job.attempts, tookMs: this.opts.now() - startedAt });
+      this.jobs.delete(job.id);
+    } catch (error) {
+      const message = describeError(error);
+      job.lastError = message;
+      if (error instanceof PermanentError || job.attempts >= this.opts.maxAttempts) {
+        this.bury(job, message);
+      } else {
+        const delayMs = backoffDelay(job.attempts, this.opts, this.opts.random());
+        job.status = "queued";
+        job.runAfter = this.opts.now() + delayMs;
+        this.emit({ type: "retry", id: job.id, attempt: job.attempts, delayMs, error: message });
+      }
+    } finally {
+      this.running--;
+    }
+  }
+
+  private bury(job: Job<T>, error: string): void {
+    job.status = "dead";
+    job.lastError = error;
+    job.finishedAt = new Date(this.opts.now()).toISOString();
+    this.jobs.delete(job.id);
+    this.dead.push(job);
+    console.error(`[retry-queue] job ${job.id} (${job.kind}) is dead after ${job.attempts} attempt(s): ${error}`);
+    this.emit({ type: "dead", id: job.id, attempts: job.attempts, error });
+  }
+
+  /** Put a dead job back in the queue with a clean attempt counter. */
+  replay(id: string): Job<T> {
+    const index = this.dead.findIndex((job) => job.id === id);
+    if (index < 0) throw new Error(`no dead job with id "${id}"`);
+    const [job] = this.dead.splice(index, 1);
+    const revived: Job<T> = { ...job, status: "queued", attempts: 0, runAfter: this.opts.now(), lastError: undefined, finishedAt: undefined };
+    this.jobs.set(revived.id, revived);
+    return revived;
+  }
+
+  deadLetters(): readonly Job<T>[] {
+    return this.dead;
+  }
+
+  size(): { queued: number; running: number; dead: number } {
+    let queued = 0;
+    for (const job of this.jobs.values()) if (job.status === "queued") queued++;
+    return { queued, running: this.running, dead: this.dead.length };
+  }
+
+  /** Milliseconds until the next queued job is due, or null if none is queued. */
+  nextDueIn(): number | null {
+    let soonest: number | null = null;
+    for (const job of this.jobs.values()) {
+      if (job.status !== "queued") continue;
+      if (soonest === null || job.runAfter < soonest) soonest = job.runAfter;
+    }
+    return soonest === null ? null : Math.max(0, soonest - this.opts.now());
+  }
+
+  close(): void {
+    this.closed = true;
+  }
+
+  private emit(event: QueueEvent): void {
+    try {
+      this.opts.onEvent?.(event);
+    } catch (error) {
+      // A broken observer must never take the queue down with it.
+      console.warn(`[retry-queue] onEvent threw for ${event.type}: ${describeError(error)}`);
+    }
+  }
+}
+
+// ============================================================================
+// Self-test. `bun retry-queue.ts --self-test` — kept next to the code because
+// the backoff table below is the contract the dispatcher's alerting relies on.
+// ============================================================================
+
+interface Delivery {
+  url: string;
+  body: string;
+  signature: string;
+}
+
+const FIXED_NOW = Date.parse("2026-03-14T09:26:53.000Z");
+
+const DELIVERIES: Array<{ id: string; payload: Delivery }> = [
+  {
+    id: "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+    payload: { url: "https://hooks.example.test/a", body: '{"event":"invoice.paid"}', signature: "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08" },
+  },
+  {
+    id: "3d6f0a1e-9b2c-4f7a-8e5d-1c2b3a4d5e6f",
+    payload: { url: "https://hooks.example.test/b", body: '{"event":"invoice.failed"}', signature: "2fd4e1c67a2d28fced849ee1bb76e7391b93eb12" },
+  },
+  {
+    id: "0b8f4c2d-5e6a-4b1c-9d7e-2f3a4b5c6d7e",
+    payload: { url: "https://hooks.example.test/gone", body: "{}", signature: "da39a3ee5e6b4b0d3255bfef95601890afd80709" },
+  },
+];
+
+function assertEqual<V>(actual: V, expected: V, label: string): void {
+  const a = JSON.stringify(actual);
+  const e = JSON.stringify(expected);
+  if (a !== e) throw new Error(`${label}: expected ${e}, got ${a}`);
+}
+
+export async function selfTest(): Promise<string[]> {
+  const log: string[] = [];
+  let clock = FIXED_NOW;
+  const events: QueueEvent[] = [];
+  const queue = new RetryQueue<Delivery>({
+    concurrency: 2,
+    maxAttempts: 3,
+    baseDelayMs: 1_000,
+    maxDelayMs: 8_000,
+    jitter: 0,
+    now: () => clock,
+    random: () => 0.5,
+    onEvent: (event) => events.push(event),
+  });
+
+  const failuresLeft = new Map<string, number>([[DELIVERIES[1].id, 2]]);
+  queue.on("webhook", async (payload, job) => {
+    if (payload.url.endsWith("/gone")) throw new PermanentError("410 Gone", new Error("endpoint removed"));
+    const left = failuresLeft.get(job.id) ?? 0;
+    if (left > 0) {
+      failuresLeft.set(job.id, left - 1);
+      throw new Error(`502 from ${payload.url}`);
+    }
+  });
+
+  // Backoff table: no jitter, doubles, capped.
+  const table = [1, 2, 3, 4, 5, 6].map((n) => backoffDelay(n, { baseDelayMs: 1_000, maxDelayMs: 8_000, jitter: 0 }));
+  assertEqual(table, [1_000, 2_000, 4_000, 8_000, 8_000, 8_000], "backoff table");
+  assertEqual(backoffDelay(3, { baseDelayMs: 1_000, maxDelayMs: 8_000, jitter: 0.25 }, 0), 3_000, "jitter low edge");
+  assertEqual(backoffDelay(3, { baseDelayMs: 1_000, maxDelayMs: 8_000, jitter: 0.25 }, 1), 5_000, "jitter high edge");
+  assertEqual(backoffDelay(0, DEFAULTS), 0, "no failures, no delay");
+
+  for (const delivery of DELIVERIES) queue.enqueue("webhook", delivery.payload, delivery.id);
+  assertEqual(queue.enqueue("webhook", DELIVERIES[0].payload, DELIVERIES[0].id).enqueuedAt, "2026-03-14T09:26:53.000Z", "idempotent enqueue");
+  assertEqual(queue.size(), { queued: 3, running: 0, dead: 0 }, "after enqueue");
+
+  // Round 1: concurrency 2 means the third job waits for the next pump.
+  assertEqual(await queue.pump(), 2, "first pump starts two");
+  assertEqual(await queue.pump(), 1, "second pump starts the third");
+  assertEqual(queue.size(), { queued: 1, running: 0, dead: 1 }, "after round 1");
+  assertEqual(queue.deadLetters()[0].lastError, "PermanentError: 410 Gone (caused by Error: endpoint removed)", "permanent error is not retried");
+  assertEqual(queue.nextDueIn(), 1_000, "retry scheduled one base delay out");
+
+  // Round 2: not due yet, then due and failing again.
+  assertEqual(await queue.pump(), 0, "nothing is due before the delay");
+  clock += 1_000;
+  assertEqual(await queue.pump(), 1, "retry runs when due");
+  assertEqual(queue.nextDueIn(), 2_000, "second retry doubles");
+
+  // Round 3: third attempt succeeds.
+  clock += 2_000;
+  assertEqual(await queue.pump(), 1, "final attempt runs");
+  assertEqual(queue.size(), { queued: 0, running: 0, dead: 1 }, "drained");
+
+  const retries = events.filter((event) => event.type === "retry");
+  assertEqual(retries.length, 2, "two retries recorded");
+  assertEqual(events.filter((event) => event.type === "succeeded").length, 2, "two deliveries succeeded");
+
+  // Replay the dead letter after the endpoint comes back.
+  const revived = queue.replay(DELIVERIES[2].id);
+  assertEqual([revived.status, revived.attempts], ["queued", 0], "replay resets the job");
+  queue.close();
+  let closedError = "";
+  try {
+    await queue.pump();
+  } catch (error) {
+    closedError = describeError(error);
+  }
+  assertEqual(closedError, "QueueClosedError: queue is closed", "closed queue refuses work");
+
+  log.push(`ok ${events.length} events, ${retries.length} retries, finished at ${new Date(clock).toISOString()}`);
+  return log;
+}
+
+declare const process: { argv: string[]; exit(code: number): never } | undefined;
+
+if (typeof process !== "undefined" && process.argv.includes("--self-test")) {
+  selfTest()
+    .then((lines) => {
+      for (const line of lines) console.log(line);
+    })
+    .catch((error) => {
+      console.error(`self-test FAILED: ${describeError(error)}`);
+      process.exit(1);
+    });
+}

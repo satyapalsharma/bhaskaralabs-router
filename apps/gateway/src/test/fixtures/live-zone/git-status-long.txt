@@ -1,0 +1,69 @@
+On branch main
+Changes to be committed:
+  (use "git restore --staged <file>..." to unstage)
+	new file:   deploy/k8s/configmap.yaml
+	renamed:    docs/oncall.md -> docs/on-call.md
+	modified:   web/src/components/Button.tsx
+	modified:   web/src/components/Card.tsx
+	renamed:    web/src/components/Toast.tsx -> web/src/components/Notice.tsx
+	new file:   web/src/components/Skeleton.tsx
+	deleted:    web/src/components/Spinner.tsx
+	deleted:    web/src/pages/audit.tsx
+
+Changes not staged for commit:
+  (use "git add/rm <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   README.md
+	modified:   deploy/k8s/deployment.yaml
+	modified:   deploy/k8s/service.yaml
+	modified:   deploy/systemd/hookrelay.service
+	modified:   dispatch/retry-queue.ts
+	deleted:    docs/changelog.md
+	modified:   docs/limits.md
+	modified:   docs/retries.md
+	modified:   docs/runbook.md
+	modified:   ingest/ingest.py
+	modified:   limiter/token_bucket.rs
+	modified:   scheduler/scheduler.go
+	modified:   testdata/replay/case-01.json
+	modified:   testdata/replay/case-02.json
+	deleted:    testdata/replay/case-03.json
+	modified:   testdata/replay/case-04.json
+	modified:   testdata/replay/case-05.json
+	modified:   testdata/replay/case-06.json
+	deleted:    testdata/replay/case-07.json
+	modified:   testdata/replay/case-08.json
+	modified:   testdata/replay/case-09.json
+	modified:   testdata/replay/case-10.json
+	deleted:    testdata/replay/case-11.json
+	modified:   testdata/replay/case-12.json
+	modified:   testdata/replay/case-13.json
+	modified:   testdata/replay/case-14.json
+	modified:   testdata/replay/case-15.json
+	modified:   testdata/replay/case-16.json
+	modified:   testdata/replay/case-17.json
+	modified:   testdata/replay/case-18.json
+	modified:   web/src/components/Button.tsx
+	modified:   web/src/components/Dialog.tsx
+	modified:   web/src/components/ErrorBanner.tsx
+	modified:   web/src/components/KeyTable.tsx
+	modified:   web/src/pages/billing.tsx
+	modified:   web/src/pages/index.tsx
+	modified:   web/src/pages/keys.tsx
+	modified:   web/src/pages/settings.tsx
+	modified:   web/src/pages/usage.tsx
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	docs/on call notes.md
+	scripts/bench.sh
+	testdata/replay/case-19.json
+	testdata/replay/case-20.json
+	testdata/replay/case-21.json
+	testdata/replay/case-22.json
+	testdata/replay/case-23.json
+	testdata/replay/case-24.json
+	testdata/replay/case-25.json
+	testdata/replay/case-26.json
+	tmp/
+

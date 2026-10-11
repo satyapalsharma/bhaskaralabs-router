@@ -12,8 +12,82 @@
 //
 // INVARIANTS: kept lines byte-identical; self-check on size; deterministic.
 // Conservative by design: 40% density floor, 60-line minimum, boundaries kept.
+//
+// PROSE ONLY. Dropping 60% of the lines of a source file, a config or a path
+// listing does not shorten it, it breaks it: the agent edits against text
+// that is no longer the file. So this crusher has to be shown prose before it
+// acts — looksLikeProse() is a positive test, not a "does not look like code"
+// test, because the two failure directions are not equal. Prose it fails to
+// recognise costs tokens. Code it fails to recognise costs a corrupted file.
+// The caller adds the other half of the guard: it never offers this crusher a
+// role "tool" block at all (live-zone.ts, THE OTHER RULE), since a README
+// read through a tool is prose by any content test and still a file read.
 
 import { CrushResult } from "./smart-crusher";
+
+// A word as it appears in running text: letters, inner apostrophes/hyphens,
+// optional wrapping punctuation. `self.items`, `foo()`, `x=1`, `--flag`,
+// `src/a.ts`, `{` and `42` are not words.
+const WORD_RE = /^[("'“‘\[*_]*\p{L}+(?:['’-]\p{L}+)*[)"'”’\]*_.,;:!?]*$/u;
+// Syntax a sentence does not carry: braces, a statement-ending `;`, operators,
+// `name(` calls (but not "file(s)"), ` = ` assignment, indexing, closing
+// tags, decorator/variable sigils, and comment leaders no prose format shares.
+const CODE_RE =
+  /[{}]|;\s*$|=>|->|::|==|!=|<=|>=|&&|\|\||:=|[+\-*\/]=|\s=\s|\w\((?!(?:e?s|ies)\))|\w\[[^\]\s]*\]|<\/[A-Za-z]|\/>|^\s*(?:\/\/|\/\*|\*\/|<!--|"""|'''|[@$]\w)|^\s+\*(?:\s|\/|$)/;
+// Any one of these means the block is, or wraps, something structured: a
+// fenced code block, a merge-conflict marker, a tag-only line (`<file>`,
+// `<system-reminder>`, HTML).
+const VETO_RE = /^\s*(?:```|~~~)|^(?:<{7}|>{7})(?:\s|$)|^\s*<\/?[A-Za-z][\w:.-]*(?:\s[^>]*)?>\s*$/;
+// Line-number gutter of a file-read rendering: "    12\tcode", "12: code", "00012| code".
+const GUTTER_RE = /^\s*\d+(?:\t|→|:\s|\s*\|\s)/;
+
+export interface ProseProfile {
+  lines: number; // non-blank
+  prose: number; // sentence-like: 5+ tokens, at least 80% of them words
+  code: number; // carries code syntax
+  hash: number; // "#"-led: a Markdown heading or a Python/shell/YAML comment
+  gutter: number; // starts with a line-number gutter
+  veto: boolean;
+}
+
+export function proseProfile(text: string): ProseProfile {
+  const p: ProseProfile = { lines: 0, prose: 0, code: 0, hash: 0, gutter: 0, veto: false };
+  for (const line of text.split("\n")) {
+    const t = line.trim();
+    if (t === "") continue;
+    p.lines++;
+    if (VETO_RE.test(line)) p.veto = true;
+    if (GUTTER_RE.test(line)) p.gutter++;
+    if (t.startsWith("#")) {
+      p.hash++;
+    } else if (CODE_RE.test(line)) {
+      p.code++;
+    } else {
+      const tokens = t.split(/\s+/);
+      if (tokens.length >= 5 && tokens.filter((w) => WORD_RE.test(w)).length >= tokens.length * 0.8) p.prose++;
+    }
+  }
+  return p;
+}
+
+// Thresholds are set from real files, not taste: see live-zone-source.test.ts.
+// "#" lines get their own, looser cap because a Markdown document is allowed
+// headings while a commented-out config file is not allowed to pass as prose.
+const MIN_PROSE_SHARE = 0.6;
+const MAX_CODE_SHARE = 0.05;
+const MAX_HASH_SHARE = 0.15;
+const MAX_GUTTER_SHARE = 0.2;
+
+export function looksLikeProse(text: string): boolean {
+  const p = proseProfile(text);
+  if (p.veto || p.lines === 0) return false;
+  return (
+    p.prose >= p.lines * MIN_PROSE_SHARE &&
+    p.code <= p.lines * MAX_CODE_SHARE &&
+    p.hash <= p.lines * MAX_HASH_SHARE &&
+    p.gutter <= p.lines * MAX_GUTTER_SHARE
+  );
+}
 
 const SIGNAL_RE = /\b(error|fail|exception|warn|todo|fixme|note|important|caution|deprecated)\b/i;
 const REF_RE = /(:\d+(:\d+)?\b|\/[\w.~-]+\/|https?:\/\/|[\w.-]+\.(ts|js|py|rs|go|java|md|json|yaml|toml)\b)/;
@@ -36,6 +110,7 @@ export function densityCrush(text: string, keepRatio = 0.4, minLines = 60): Crus
   const fallback = { text: original, originalTokens: Math.ceil(original.length / 4), kept: -1, total: -1 };
   const lines = text.split("\n");
   if (lines.length < minLines) return fallback;
+  if (!looksLikeProse(text)) return fallback;
 
   const HEAD = 12;
   const TAIL = 12;

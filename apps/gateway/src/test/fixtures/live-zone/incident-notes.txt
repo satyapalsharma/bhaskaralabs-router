@@ -1,0 +1,103 @@
+Notes on the March relay outage
+
+These are my working notes from the week after the outage, written for the
+people who were not on the call. They are long because the short version has
+already gone round and left most of the interesting questions unanswered.
+
+What customers saw
+
+For a little over two hours on Saturday morning, deliveries to a small group
+of tenants arrived late or not at all. Nothing was lost in the end, because
+the outbox kept every event and the relay caught up once it was healthy, but
+several customers build billing workflows on top of these events and a late
+event is, for them, the same as a wrong one. Two of them noticed before we
+did. That alone is worth a section of its own further down.
+
+How it started
+
+The trigger was ordinary. A customer endpoint began answering slowly, then
+stopped answering. The relay is designed for this and has been for years. It
+retries with increasing delays, and after enough failures it parks the event
+where an operator can look at it. What changed this time is that the endpoint
+belonged to a tenant who had recently been moved to a much higher sending
+limit, and nobody had revisited the retry settings for a tenant of that size.
+
+With the old limit, a dead endpoint produced a trickle of retries. With the
+new one it produced a flood. Each retry held a worker for the full timeout,
+the worker pool is shared between tenants, and within a few minutes every
+worker was waiting on the same unreachable host. Healthy tenants queued up
+behind it. From the outside the whole relay looked slow, although only one
+destination in several thousand was actually broken.
+
+Why the alarms stayed quiet
+
+We alert on the rate of failed deliveries and on the age of the oldest event
+in the outbox. Neither moved quickly enough. Failures were not being recorded
+as failures, because a request that is still waiting has not failed yet. The
+outbox age did climb, but the threshold had been raised a few months earlier
+after a noisy week, and it now sat well above anything a customer would
+tolerate. Both decisions were reasonable when they were made. Together they
+left a gap wide enough for two hours to pass through.
+
+The first page came from a person, not a monitor. A support engineer saw the
+second customer message, recognised the pattern from the first, and woke the
+person on call. I would like to say that our tooling would have caught it a
+few minutes later. I do not believe that it would have.
+
+What we did on the day
+
+The person on call found the saturated pool within ten minutes, which is a
+credit to the dashboards, and then spent most of an hour trying the wrong
+remedy. Restarting the relay cleared the workers, and for a short while
+everything looked healthy. Then the outbox replayed, the same events were
+picked up again, and the pool filled exactly as before. This happened three
+times. Each restart also reset the retry counters, so the events that should
+have been parked after a handful of attempts were instead given a fresh start
+every time.
+
+The fix that worked was manual and unglamorous. We paused sending for the one
+tenant, let the pool drain, and watched the backlog for everyone else clear
+in about twenty minutes. The affected tenant was told directly, their
+endpoint came back that afternoon, and we released their events in batches.
+
+What I think we should change
+
+First, workers should not be shared without limit. A single tenant should
+never be able to occupy more than a fixed share of the pool, whatever their
+sending limit says. This is the change that would have turned the outage into
+a slow afternoon for one customer and nothing at all for the rest.
+
+Second, the retry counter has to survive a restart. It lives in memory today
+because that was simple, and because a restart used to be rare. It is no
+longer rare, and an operator reaching for a restart during an incident should
+not be quietly undoing the one protection that was working.
+
+Third, a raised sending limit should come with a review of everything that
+scales with it. We have a checklist for lowering limits and none for raising
+them, which says something about where we expected trouble to come from.
+
+Fourth, and this is the one I feel most strongly about, we should alert on
+what customers experience rather than on what the relay reports about itself.
+The age of the oldest undelivered event for each tenant is a number a
+customer would recognise. The rate of failed deliveries is not, and on the
+day it told us everything was fine.
+
+What I am less sure about
+
+There is an argument that the timeout itself is too generous, and that a
+shorter one would have freed workers quickly enough to avoid the pile up. I
+am not convinced. Several large customers have endpoints that are slow in
+perfectly healthy ways, and a shorter timeout would trade one rare outage for
+a steady stream of small ones. I would rather isolate tenants from each other
+and leave the timeout alone, but I hold that view loosely and would like to
+see the numbers before we decide.
+
+There is also the question of whether the person on call should have paused
+the tenant sooner. With hindsight, obviously. At the time, pausing a paying
+customer felt like a larger step than restarting a service, and nothing in
+our runbook said otherwise. If we want people to take the smaller, safer
+action under pressure, the runbook has to say plainly that it is allowed.
+
+Thanks to everyone who gave up their Saturday, and in particular to the
+support engineer who connected two messages that the rest of us had treated
+as unrelated.

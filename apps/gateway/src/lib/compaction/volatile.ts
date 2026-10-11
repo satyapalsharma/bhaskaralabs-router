@@ -10,6 +10,14 @@
 // bytes next turn, so no server-side transform can extend cross-turn prefix
 // cache hits. What this buys is (1) direct token savings (a 24-char timestamp
 // becomes 4 chars, thousands of times per log) and (2) better crusher grouping.
+//
+// LOGS ONLY. The mask does not know a log's timestamp from a test fixture's:
+// run on a source file it turns "2026-03-14T09:26:53Z" into "<ts>" and a
+// pinned digest into "9f86d08…", and the agent's next edit quotes text the
+// file does not contain. So the dispatcher (live-zone.ts) uses the masked text
+// to decide what a block is, and forwards it only as LogCrusher input. Nothing
+// else — git, grep, density, or a block no crusher takes — ever carries it.
+//
 // Progress-bar / spinner / counter spam lines: a line is "progress" iff it
 // carries a progress SIGNAL and consists only of safe chars (no sentence
 // punctuation like ,;:'"!? — so prose never matches). Collapse only affects

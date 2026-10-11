@@ -8,7 +8,11 @@
 
 import { CrushResult } from "./smart-crusher";
 
-const ERROR_PAT = /^(.*\b(error|fatal|critical|exception|panic|failed|failure|✗|✘|FAILED|ERROR)\b.*)$/i;
+// What a failure looks like has to cover every format looksLikeLogOutput
+// accepts, or the crusher drops the lines the detector recognised the log by:
+// go's "--- FAIL:" and jest's "FAIL file" (bare FAIL), Rust's "panicked at",
+// TAP's "not ok", and the cross marks (which `\b…\b` could never match).
+const ERROR_PAT = /\b(error|fatal|critical|exception|panic|panicked|fail|failed|failure|not ok)\b|[✗✘✕×]/i;
 const WARN_PAT = /^(.*\b(warn|warning|deprecated)\b.*)$/i;
 const STACK_PAT = /^\s+(at |in |from |File "|Traceback|…|\.\.\.)/;
 const SUMMARY_PAT = /(\d+ (passed|failed|error)|tests?\s+\d+|✓ \d+|✔ \d+|summary|====)/i;
@@ -121,13 +125,57 @@ export function looksLikeGrepOutput(text: string): boolean {
   return matches / lines.length > 0.8;
 }
 
+// A line is log evidence only when it has log STRUCTURE where a log puts it —
+// at the start of the line: a timestamp with a level, a level token, a
+// compiler diagnostic, a stack frame, a test-runner verdict, a build-tool
+// progress row. The word "error" somewhere in a line is not structure:
+// `return Err(Error::Io(e))`, `throw new Error(...)` and `logger.error(...)`
+// are code, and the previous rule (any line scoreLine() rated, at 15% of
+// lines) took error-handling-heavy source files for logs and kept only their
+// "error" lines.
+//
+// A timestamp alone is not enough either. Meeting transcripts, subtitles and
+// chat exports lead every line with one, and logCrush's premise — only the
+// errors matter — is false for all of them. It takes a level next to the
+// timestamp to say "machine log". Timestamps are matched raw and as the
+// volatile mask's `<ts>` (the mask runs before routing), with an optional
+// date in front: ISO, or Go's "2026/10/11 09:14:02".
+const LOG_TS = String.raw`(?:\d{4}[-/]\d{2}[-/]\d{2}[T ])?(?:<ts>|\d{2}:\d{2}:\d{2}(?:[.,]\d+)?(?:Z|[+-]\d{2}:?\d{2})?)`;
+const LOG_LEVEL = String.raw`(?:\[?(?:TRACE|DEBUG|INFO|NOTICE|WARN|WARNING|ERROR|FATAL|CRITICAL)\b|\[(?:trace|debug|info|notice|warn|warning|error|fatal|critical)\]|(?:level|lvl|severity)=)`;
+const LOG_LINE_RES: RegExp[] = [
+  new RegExp(`^\\[?${LOG_TS}\\]?[ \\t]+(?:\\S+[ \\t]+){0,3}${LOG_LEVEL}`), // 2026-10-11T09:14:02Z INFO …   09:14:02,120 [main] WARN …
+  new RegExp(`^${LOG_LEVEL}(?:\\]?:? +\\S|\\w)`), // INFO …   [ERROR] …   WARN: …   level=info …
+  /^(?:error|warning|note|help)(?:\[[\w-]+\])?: \S/, // rustc/gcc/clang: error[E0308]: …
+  /^[^\s:()]+(?::\d+:\d+:?|\(\d+,\d+\):) (?:- )?(?:fatal )?(?:error|warning)\b/, // src/a.ts(3,1): error TS…   a.c:3:1: warning: …
+  /^\s+at .+(?::\d+\)?|\))$/, // JS / Java stack frame
+  /^\s*File ".+", line \d+/, // Python stack frame
+  /^Traceback \(most recent call last\):/,
+  /^(?:PASS|FAIL|FAILED|ERROR)(?:$|[ \t]+\S)|^ok  \t/, // jest "PASS src/a.test.ts", go "ok  \tpkg\t0.3s", pytest "FAILED a.py::t"
+  /^(?:=== (?:RUN|PAUSE|CONT|NAME) |\s*--- (?:PASS|FAIL|SKIP): )/, // go test -v
+  /^test \S.* \.\.\. (?:ok|FAILED|ignored)\b/, // cargo test
+  /^\S+::\S+ (?:PASSED|FAILED|ERROR|SKIPPED|XFAIL|XPASS)\b/, // pytest -v
+  /^E {3,}\S/, // pytest assertion detail
+  /^(?:not )?ok \d+\b/, // TAP
+  /^\s*(?:[✓✔✗✘✕×] |\((?:pass|fail|skip|todo)\) )/, // jest/vitest/mocha/bun
+  /^\s+(?:Compiling|Checking|Finished|Running|Downloading|Downloaded|Building|Fresh|Updating|Locking|Installing|Documenting) \S/, // cargo
+  /^npm (?:WARN|ERR!|warn|error|notice)\b/,
+  /^#\d+ (?:\[|\d+\.\d+ |DONE |CACHED|ERROR)/, // docker buildkit
+  /^\[\s*\d+\/\d+\] \S/, // ninja / make / pip progress counters
+];
+
+/** Share of non-blank lines carrying log structure. Exposed for tests and tuning. */
+export function logLineShare(text: string): number {
+  const lines = text.split("\n").filter((l) => l.trim() !== "");
+  if (lines.length === 0) return 0;
+  return lines.filter((l) => LOG_LINE_RES.some((re) => re.test(l))).length / lines.length;
+}
+
+// Real build/test/app logs sit far above this (most lines are structured);
+// real source files sit far below it (see live-zone-source.test.ts for the
+// measured ceiling). The gap is the safety margin.
+const MIN_LOG_LINE_SHARE = 0.3;
+
 export function looksLikeLogOutput(text: string): boolean {
-  const lines = text.split("\n");
-  if (lines.length < 40) return false;
-  // any line that has a recognizable log structure counts (level markers, timestamps, common prefixes)
-  const hits = lines.filter((l) =>
-    /^(INFO|DEBUG|WARN|ERROR|TRACE|FATAL|CRITICAL|PASS|FAIL|TEST|BUILD|RUN)/i.test(l.trim()) ||
-    scoreLine(l) > 0.05,
-  ).length;
-  return hits / lines.length > 0.15;
+  if (text.split("\n").length < 40) return false;
+  return logLineShare(text) >= MIN_LOG_LINE_SHARE;
 }

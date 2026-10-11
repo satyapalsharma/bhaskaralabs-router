@@ -1,0 +1,140 @@
+commit f70af2a5e52ca3a84b68fd13af1e6593069bd549
+Author: Mirela Costa <mirela@hookrelay.example>
+Date:   Sun Mar 8 13:20:20 2026 +0000
+
+    ci: run go vet and the ingest self-test
+    
+    Both were only run locally. The ingest digest pin caught a format change last
+    week that CI would have let through.
+
+commit 2e9641ce21344da93a9d322e10e27452a9cb87a2
+Author: Tomasz Wrona <tomasz@hookrelay.example>
+Date:   Sun Mar 8 12:13:07 2026 +0000
+
+    docs: architecture placeholder for the dispatcher
+
+commit db38d1fb84f494d2c7aec88b8b750f3f18075cb8
+Merge: d7cee94 6810ec9
+Author: Dana Okafor <dana@hookrelay.example>
+Date:   Mon Mar 9 11:02:41 2026 +0000
+
+    Merge branch 'fix/clock-skew'
+
+commit d7cee9450c6bb03e502a06190015d80832e14fcb
+Author: Dana Okafor <dana@hookrelay.example>
+Date:   Sat Mar 7 10:59:41 2026 +0000
+
+    readme: link the limits doc
+
+commit 11115d51112e0bdcd95d0072abceeacf85e9c61c
+Author: Tomasz Wrona <tomasz@hookrelay.example>
+Date:   Sat Mar 7 16:45:15 2026 +0000
+
+    docs: stubs
+
+commit 6810ec9ab0a39d88dde40cafdeb1a30584a1060e
+Author: Mirela Costa <mirela@hookrelay.example>
+Date:   Sat Mar 7 09:52:28 2026 +0000
+
+    limiter: never move last_seen backwards
+    
+    sweep() compares against last_seen; a replayed request with an older clock
+    made a busy bucket look idle and it was dropped mid-burst.
+
+commit 3ef721421f8a37b98f8bacb60a458624b2cb7fcb
+Author: Dana Okafor <dana@hookrelay.example>
+Date:   Fri Mar 6 15:38:02 2026 +0000
+
+    deploy: k8s manifests, systemd unit, CI scripts
+
+commit 6c6e348a71cca8510ea237d8fb63c823505310d3
+Author: Mirela Costa <mirela@hookrelay.example>
+Date:   Fri Mar 6 14:31:49 2026 +0000
+
+    web: component and page stubs
+
+commit fef000070ead69e6817e402888d9345526ef5b22
+Author: Tomasz Wrona <tomasz@hookrelay.example>
+Date:   Fri Mar 6 13:24:36 2026 +0000
+
+    testdata: replay cases from the 2026-03-14 incident
+
+commit bac6d3f47aac67a97cbb07d903f4f9e5bad6ba56
+Author: Dana Okafor <dana@hookrelay.example>
+Date:   Thu Mar 5 12:17:23 2026 +0000
+
+    dispatch: dead letters, replay, self-test
+
+commit bb0b2671d58b482380ebdce0dcb2943daf93b188
+Author: Dana Okafor <dana@hookrelay.example>
+Date:   Thu Mar 5 11:10:10 2026 +0000
+
+    dispatch: retry queue skeleton
+
+commit a16ab39e3412fadad7bb2ac9c505bb614fcbeeed
+Author: Mirela Costa <mirela@hookrelay.example>
+Date:   Thu Mar 5 10:03:57 2026 +0000
+
+    scheduler: backoff after failures, capped at one hour
+    
+    A job that keeps failing was being retried every interval and filling the
+    run log. Double the delay per consecutive failure instead.
+    
+    Refs: HR-212
+
+commit 9f8f285f31a41b4b23e1f4582b87cc8a66ffbf70
+Author: Mirela Costa <mirela@hookrelay.example>
+Date:   Wed Mar 4 09:56:44 2026 +0000
+
+    scheduler: worker pool and Tick
+
+commit 72fbdc5481fff5af1ca5f7fdbd66dbde9cb335ad
+Author: Tomasz Wrona <tomasz@hookrelay.example>
+Date:   Wed Mar 4 16:49:31 2026 +0000
+
+    ingest: --fill and --strict, pinned CSV digest in tests
+
+commit 08d9b4eb946552b1e24f12418d62587b7826c934
+Author: Tomasz Wrona <tomasz@hookrelay.example>
+Date:   Wed Mar 4 15:42:18 2026 +0000
+
+    ingest: per-minute rollups, duplicate suppression
+    
+    The edge retries a request with the same id when the origin is slow, so the
+    same request id can appear twice. Count it once.
+
+commit 94f260c7324a356ae217995f3cc4c5271860501d
+Author: Tomasz Wrona <tomasz@hookrelay.example>
+Date:   Tue Mar 3 14:35:05 2026 +0000
+
+    ingest: parse access records
+
+commit e1b81814e6489c13f4e101f26b0740dd325f8a9a
+Author: Mirela Costa <mirela@hookrelay.example>
+Date:   Tue Mar 3 13:28:52 2026 +0000
+
+    limiter: audit trail and FNV digest
+    
+    Every decision is appended to an in-memory log the caller drains. The digest
+    is a cheap tamper check for shipped batches, not a MAC.
+
+commit d4eba68f1322dacdf4bafe091e8c09ec88167b3e
+Author: Dana Okafor <dana@hookrelay.example>
+Date:   Tue Mar 3 12:21:39 2026 +0000
+
+    limiter: config parser accepts N/s and N/HH:MM:SS refill
+
+commit 23a9e7bcc8c7a555aae2185fcd78feca2c80f9cb
+Author: Dana Okafor <dana@hookrelay.example>
+Date:   Mon Mar 2 11:14:26 2026 +0000
+
+    limiter: policy and bucket types
+    
+    Buckets refill continuously; a request that asks for more than the bucket
+    holds is rejected with the time it should wait.
+
+commit 5fa661e5e63c26cecce8645a3d1e387cdab71bb6
+Author: Dana Okafor <dana@hookrelay.example>
+Date:   Mon Mar 2 10:07:13 2026 +0000
+
+    Initial layout

@@ -1,0 +1,131 @@
+=== RUN   TestNewRejectsZeroWorkers
+--- PASS: TestNewRejectsZeroWorkers (0.00s)
+=== RUN   TestSpecValidation
+=== RUN   TestSpecValidation/empty_name
+=== RUN   TestSpecValidation/zero_interval
+=== RUN   TestSpecValidation/negative_timeout
+=== RUN   TestSpecValidation/missing_func
+=== RUN   TestSpecValidation/bad_window
+=== RUN   TestSpecValidation/valid
+--- PASS: TestSpecValidation (0.00s)
+    --- PASS: TestSpecValidation/empty_name (0.00s)
+    --- PASS: TestSpecValidation/zero_interval (0.00s)
+    --- PASS: TestSpecValidation/negative_timeout (0.00s)
+    --- PASS: TestSpecValidation/missing_func (0.00s)
+    --- PASS: TestSpecValidation/bad_window (0.00s)
+    --- PASS: TestSpecValidation/valid (0.00s)
+=== RUN   TestRegisterDuplicateAndRemoveUnknown
+--- PASS: TestRegisterDuplicateAndRemoveUnknown (0.00s)
+=== RUN   TestFailureBacksOffAndSuccessResets
+--- PASS: TestFailureBacksOffAndSuccessResets (0.00s)
+=== RUN   TestMaxRetryRemovesTheJob
+2026/10/11 22:07:43 ERROR scheduler: doomed failed 2 times, removing: scheduler: job doomed failed: boom
+--- PASS: TestMaxRetryRemovesTheJob (0.00s)
+=== RUN   TestTimeoutAndPanicBecomeErrors
+--- PASS: TestTimeoutAndPanicBecomeErrors (0.01s)
+=== RUN   TestStopRefusesNewWork
+--- PASS: TestStopRefusesNewWork (0.00s)
+=== RUN   TestSelfCheck
+--- PASS: TestSelfCheck (0.00s)
+=== RUN   TestBackoffCeiling
+    zz_fail_test.go:11: Backoff(20m, 9) = 1h0m0s, want 2h0m0s
+--- FAIL: TestBackoffCeiling (0.00s)
+=== RUN   TestNewRejectsZeroWorkers
+--- PASS: TestNewRejectsZeroWorkers (0.00s)
+=== RUN   TestSpecValidation
+=== RUN   TestSpecValidation/empty_name
+=== RUN   TestSpecValidation/zero_interval
+=== RUN   TestSpecValidation/negative_timeout
+=== RUN   TestSpecValidation/missing_func
+=== RUN   TestSpecValidation/bad_window
+=== RUN   TestSpecValidation/valid
+--- PASS: TestSpecValidation (0.00s)
+    --- PASS: TestSpecValidation/empty_name (0.00s)
+    --- PASS: TestSpecValidation/zero_interval (0.00s)
+    --- PASS: TestSpecValidation/negative_timeout (0.00s)
+    --- PASS: TestSpecValidation/missing_func (0.00s)
+    --- PASS: TestSpecValidation/bad_window (0.00s)
+    --- PASS: TestSpecValidation/valid (0.00s)
+=== RUN   TestRegisterDuplicateAndRemoveUnknown
+--- PASS: TestRegisterDuplicateAndRemoveUnknown (0.00s)
+=== RUN   TestFailureBacksOffAndSuccessResets
+--- PASS: TestFailureBacksOffAndSuccessResets (0.00s)
+=== RUN   TestMaxRetryRemovesTheJob
+2026/10/11 22:07:43 ERROR scheduler: doomed failed 2 times, removing: scheduler: job doomed failed: boom
+--- PASS: TestMaxRetryRemovesTheJob (0.00s)
+=== RUN   TestTimeoutAndPanicBecomeErrors
+--- PASS: TestTimeoutAndPanicBecomeErrors (0.01s)
+=== RUN   TestStopRefusesNewWork
+--- PASS: TestStopRefusesNewWork (0.00s)
+=== RUN   TestSelfCheck
+--- PASS: TestSelfCheck (0.00s)
+=== RUN   TestBackoffCeiling
+    zz_fail_test.go:11: Backoff(20m, 9) = 1h0m0s, want 2h0m0s
+--- FAIL: TestBackoffCeiling (0.00s)
+=== RUN   TestNewRejectsZeroWorkers
+--- PASS: TestNewRejectsZeroWorkers (0.00s)
+=== RUN   TestSpecValidation
+=== RUN   TestSpecValidation/empty_name
+=== RUN   TestSpecValidation/zero_interval
+=== RUN   TestSpecValidation/negative_timeout
+=== RUN   TestSpecValidation/missing_func
+=== RUN   TestSpecValidation/bad_window
+=== RUN   TestSpecValidation/valid
+--- PASS: TestSpecValidation (0.00s)
+    --- PASS: TestSpecValidation/empty_name (0.00s)
+    --- PASS: TestSpecValidation/zero_interval (0.00s)
+    --- PASS: TestSpecValidation/negative_timeout (0.00s)
+    --- PASS: TestSpecValidation/missing_func (0.00s)
+    --- PASS: TestSpecValidation/bad_window (0.00s)
+    --- PASS: TestSpecValidation/valid (0.00s)
+=== RUN   TestRegisterDuplicateAndRemoveUnknown
+--- PASS: TestRegisterDuplicateAndRemoveUnknown (0.00s)
+=== RUN   TestFailureBacksOffAndSuccessResets
+--- PASS: TestFailureBacksOffAndSuccessResets (0.00s)
+=== RUN   TestMaxRetryRemovesTheJob
+2026/10/11 22:07:43 ERROR scheduler: doomed failed 2 times, removing: scheduler: job doomed failed: boom
+--- PASS: TestMaxRetryRemovesTheJob (0.00s)
+=== RUN   TestTimeoutAndPanicBecomeErrors
+--- PASS: TestTimeoutAndPanicBecomeErrors (0.01s)
+=== RUN   TestStopRefusesNewWork
+--- PASS: TestStopRefusesNewWork (0.00s)
+=== RUN   TestSelfCheck
+--- PASS: TestSelfCheck (0.00s)
+=== RUN   TestBackoffCeiling
+    zz_fail_test.go:11: Backoff(20m, 9) = 1h0m0s, want 2h0m0s
+--- FAIL: TestBackoffCeiling (0.00s)
+=== RUN   TestNewRejectsZeroWorkers
+--- PASS: TestNewRejectsZeroWorkers (0.00s)
+=== RUN   TestSpecValidation
+=== RUN   TestSpecValidation/empty_name
+=== RUN   TestSpecValidation/zero_interval
+=== RUN   TestSpecValidation/negative_timeout
+=== RUN   TestSpecValidation/missing_func
+=== RUN   TestSpecValidation/bad_window
+=== RUN   TestSpecValidation/valid
+--- PASS: TestSpecValidation (0.00s)
+    --- PASS: TestSpecValidation/empty_name (0.00s)
+    --- PASS: TestSpecValidation/zero_interval (0.00s)
+    --- PASS: TestSpecValidation/negative_timeout (0.00s)
+    --- PASS: TestSpecValidation/missing_func (0.00s)
+    --- PASS: TestSpecValidation/bad_window (0.00s)
+    --- PASS: TestSpecValidation/valid (0.00s)
+=== RUN   TestRegisterDuplicateAndRemoveUnknown
+--- PASS: TestRegisterDuplicateAndRemoveUnknown (0.00s)
+=== RUN   TestFailureBacksOffAndSuccessResets
+--- PASS: TestFailureBacksOffAndSuccessResets (0.00s)
+=== RUN   TestMaxRetryRemovesTheJob
+2026/10/11 22:07:43 ERROR scheduler: doomed failed 2 times, removing: scheduler: job doomed failed: boom
+--- PASS: TestMaxRetryRemovesTheJob (0.00s)
+=== RUN   TestTimeoutAndPanicBecomeErrors
+--- PASS: TestTimeoutAndPanicBecomeErrors (0.01s)
+=== RUN   TestStopRefusesNewWork
+--- PASS: TestStopRefusesNewWork (0.00s)
+=== RUN   TestSelfCheck
+--- PASS: TestSelfCheck (0.00s)
+=== RUN   TestBackoffCeiling
+    zz_fail_test.go:11: Backoff(20m, 9) = 1h0m0s, want 2h0m0s
+--- FAIL: TestBackoffCeiling (0.00s)
+FAIL
+FAIL	example.com/scheduler	5.559s
+FAIL
