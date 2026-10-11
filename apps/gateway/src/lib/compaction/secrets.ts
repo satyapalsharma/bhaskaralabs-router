@@ -11,6 +11,19 @@
 //
 // INVARIANTS: pure regex replace — deterministic, idempotent, stable across
 // turns. Conservative minimum lengths avoid false positives on short words.
+//
+// A NAME IS NOT A VALUE. The key=value rule used to redact whatever followed a
+// credential-ish key, which in source code is usually another name:
+//
+//   apiKeyId: auth.apiKeyId,              →  apiKeyId: [REDACTED],
+//   const apiKey = process.env.API_KEY    →  const apiKey = [REDACTED]
+//   password = self.password.encode(...)  →  password = [REDACTED](...)
+//
+// Nothing secret was in those lines, and the agent reading them then edits
+// against text that is not in the file — or writes "[REDACTED]" into it. An
+// unquoted value is now left alone when it is a reference rather than a
+// literal (see isReference). Quoted values, token shapes, PEM blocks and
+// Bearer tokens are redacted exactly as before.
 
 const PEM_BLOCK_RE =
   /-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY(?: BLOCK)?-----[\s\S]*?-----END (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY(?: BLOCK)?-----/g;
@@ -31,8 +44,36 @@ const TOKEN_RES: Array<{ re: RegExp; label: string }> = [
 
 // key = value assignments (keeps the key name, redacts only the value).
 // Minimum 12 chars on the value skips already-masked "***" and short words.
+// The value may sit on the next line only if it is quoted (a formatter breaks
+// `const secret =\n  "…";` that way). Unquoted, a token on the next line is
+// that line's own statement: "if passwd:\n    stream.write(...)" used to read
+// as passwd = stream.write.
 const ASSIGN_RE =
-  /([A-Za-z0-9_.-]*(?:api[_-]?key|api[_-]?secret|client[_-]?secret|auth[_-]?token|access[_-]?token|refresh[_-]?token|private[_-]?token|secret|passwd|password|pwd)[A-Za-z0-9_.-]*\s*[:=]\s*['"]?)([A-Za-z0-9._~+/=-]{12,}['"]?)/gi;
+  /([A-Za-z0-9_.-]*(?:api[_-]?key|api[_-]?secret|client[_-]?secret|auth[_-]?token|access[_-]?token|refresh[_-]?token|private[_-]?token|secret|passwd|password|pwd)[A-Za-z0-9_.-]*[ \t]*[:=])(\s*)(['"]?)([A-Za-z0-9._~+/=-]{12,})/gi;
+
+// `auth.apiKeyId`, `tls_key_password`, `AdminPasswordChangeForm`: letters,
+// underscores and dots, and shaped like a name — a separator or a camelCase
+// hump. Generated secrets all but always carry a digit or base64/URL
+// punctuation; twelve letters in one case with nothing between them
+// (`correcthorsebattery`) is a word or a passphrase, not an identifier.
+const NAME_PATH_RE = /^[A-Za-z_]+(?:\.[A-Za-z_]+)*$/;
+const NAME_SHAPE_RE = /[_.]|[a-z][A-Z]/;
+// `DB_PASSWORD=value` with nothing around the `=`: shell and .env syntax,
+// where the right-hand side is a literal whatever it looks like.
+const ENV_KEY_RE = /^[A-Z][A-Z0-9_]*=$/;
+
+/** An unquoted value that names a value instead of being one. Errs toward
+ *  redacting: a name with a digit in it (`oauth2Config.clientSecret`) still
+ *  goes. What is no longer caught is an unquoted, letters-only secret that is
+ *  itself shaped like an identifier (`password: correct_horse_battery`)
+ *  outside env syntax. */
+function isReference(key: string, value: string, next: string | undefined): boolean {
+  if (ENV_KEY_RE.test(key)) return false;
+  if (next === "(" || next === "[") return true; // a call or an index
+  const name = value.replace(/\.+$/, ""); // "…is self.password." ends a sentence, not a path
+  return NAME_PATH_RE.test(name) && NAME_SHAPE_RE.test(name);
+}
+
 const BEARER_RE = /\b(Bearer\s+)([A-Za-z0-9._~+/=-]{20,})/g;
 
 export function redactSecrets(text: string): { text: string; redacted: number } {
@@ -47,11 +88,14 @@ export function redactSecrets(text: string): { text: string; redacted: number } 
       return `[REDACTED:${label}]`;
     });
   }
-  out = out.replace(ASSIGN_RE, (_m, key: string, _val: string) => {
+  out = out.replace(ASSIGN_RE, (m, key: string, gap: string, quote: string, value: string, offset: number, whole: string) => {
     // Skip values that are already redaction markers or template placeholders.
-    if (/REDACTED|\*+|\$\{|\{\{|<.+>/.test(_val)) return _m;
+    if (/REDACTED|\*+|\$\{|\{\{|<.+>/.test(value)) return m;
+    if (quote === "" && (gap.includes("\n") || isReference(key + gap, value, whole[offset + m.length]))) return m;
     redacted++;
-    return `${key}[REDACTED]`;
+    // The closing quote is not part of the match, so it stays where it was
+    // (it used to be consumed: `"hunter2…"` came out as `"[REDACTED]`).
+    return `${key}${gap}${quote}[REDACTED]`;
   });
   out = out.replace(BEARER_RE, (_m, prefix: string, _tok: string) => {
     redacted++;
