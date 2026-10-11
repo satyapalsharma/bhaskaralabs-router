@@ -78,6 +78,31 @@ export function throttleDelayMs(requestsInWindow: number, plan: Plan): number {
 
 export async function getQuotaState(userId: string, plan: string): Promise<QuotaState> {
   const p = planOf(plan);
+  const limits = {
+    thetaPer5h: p.thetaPer5h,
+    thetaExtraMonthly: p.thetaExtraMonthly,
+    glmPer5h: p.glmPer5h,
+    glmTokensPer5h: p.glmTokensPer5h,
+  };
+  // Operator keys are never capped, throttled or rejected, so the two
+  // aggregate scans over usage_ledger below are pure cost for them. For the
+  // batch key (1M+ ledger rows a month) they ran ~11 s each, 15 at a time, on
+  // the 1-CPU VM — every theta turn waited behind Postgres (2026-10-11).
+  if (p.unlimited === true) {
+    return {
+      glmThisWindow: 0,
+      glmTokensThisWindow: 0,
+      thetaThisWindow: 0,
+      thetaThisMonth: 0,
+      limits,
+      unlimitedTheta: p.thetaPer5h === null,
+      unlimited: true,
+      overThetaWindow: false,
+      overGlmCalls: false,
+      overGlmTokens: false,
+      throttleDelayMs: 0,
+    };
+  }
   const since = monthStart();
   const sinceWindow = windowStart();
 
@@ -126,14 +151,9 @@ export async function getQuotaState(userId: string, plan: string): Promise<Quota
     glmTokensThisWindow,
     thetaThisWindow,
     thetaThisMonth,
-    limits: {
-      thetaPer5h: p.thetaPer5h,
-      thetaExtraMonthly: p.thetaExtraMonthly,
-      glmPer5h: p.glmPer5h,
-      glmTokensPer5h: p.glmTokensPer5h,
-    },
+    limits,
     unlimitedTheta,
-    unlimited: p.unlimited === true,
+    unlimited: false,
     // An unlimited tier is never blocked by the window — it is throttled.
     overThetaWindow: unlimitedTheta ? false : thetaThisWindow >= thetaCap,
     overGlmCalls: glmThisWindow >= p.glmPer5h,
