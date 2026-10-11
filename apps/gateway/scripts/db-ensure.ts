@@ -77,6 +77,31 @@ await sql`ALTER TABLE usage_ledger ADD COLUMN IF NOT EXISTS router_signals TEXT`
 await sql`ALTER TABLE usage_ledger ADD COLUMN IF NOT EXISTS has_tool_calls BOOLEAN`;
 await sql`CREATE INDEX IF NOT EXISTS usage_endpoint_created_idx ON usage_ledger (endpoint_model, created_at)`;
 
+// Trial velocity filters the ledger by api_key_id. CONCURRENTLY: the ledger is
+// live and large; a failed concurrent build leaves an INVALID index that
+// IF NOT EXISTS would keep forever, so drop that first.
+const invalid = await sql`
+  SELECT 1 FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid
+  WHERE c.relname = 'usage_apikey_created_idx' AND NOT i.indisvalid`;
+if (invalid.length > 0) await sql`DROP INDEX CONCURRENTLY usage_apikey_created_idx`;
+await sql`CREATE INDEX CONCURRENTLY IF NOT EXISTS usage_apikey_created_idx ON usage_ledger (api_key_id, created_at)`;
+
+// Quota counters: usage_ledger pre-aggregated per 5-minute bucket (see
+// src/lib/usage-counters.ts). Must exist before a gateway that writes them
+// starts; backfill with scripts/usage-counters-reconcile.ts.
+await sql`
+  CREATE TABLE IF NOT EXISTS usage_counters (
+    user_id TEXT NOT NULL,
+    endpoint_model TEXT NOT NULL,
+    bucket_start TIMESTAMPTZ NOT NULL,
+    calls BIGINT NOT NULL DEFAULT 0,
+    tokens BIGINT NOT NULL DEFAULT 0,
+    equiv_usd NUMERIC(16,6) NOT NULL DEFAULT '0',
+    actual_usd NUMERIC(16,6) NOT NULL DEFAULT '0',
+    CONSTRAINT usage_counters_user_id_endpoint_model_bucket_start_pk
+      PRIMARY KEY (user_id, endpoint_model, bucket_start)
+  )`;
+
 // Skill cards: measured per-model per-capability success rates (routing asset).
 await sql`
   CREATE TABLE IF NOT EXISTS skill_cards (
@@ -93,6 +118,6 @@ await sql`CREATE UNIQUE INDEX IF NOT EXISTS skill_card_unique ON skill_cards (mo
 await sql`CREATE INDEX IF NOT EXISTS skill_card_model_idx ON skill_cards (model_id)`;
 
 console.log(
-  "db-ensure: doc_packs, request_archives, learned_lessons, usage_ledger(router_*), skill_cards OK",
+  "db-ensure: doc_packs, request_archives, learned_lessons, usage_ledger(router_*, apikey idx), usage_counters, skill_cards OK",
 );
 await sql.end();

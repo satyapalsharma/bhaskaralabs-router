@@ -1,5 +1,7 @@
 // Server-side quota/usage queries for the dashboard.
-// Mirrors gateway/src/lib/quotas.ts semantics against the shared DB. Keep the
+// Reads usage_counters, the same 5-minute buckets the gateway's quotas.ts
+// enforces against (the ledger keeps only 14 days and is too large to
+// aggregate per page view). Mirrors gateway/src/lib/quotas.ts. Keep the
 // two in step — the dashboard promises the same numbers the gateway enforces,
 // and a drift here is a support ticket ("it says I have 12 left").
 //
@@ -7,7 +9,7 @@
 // cap on tokens because a single call may carry a million-token context.
 
 import { db } from "@/db";
-import { usageLedger, subscriptions } from "@/db/schema";
+import { usageCounters, subscriptions } from "@/db/schema";
 import { user as users } from "@/db/schema";
 import { and, eq, gte, sql, desc } from "drizzle-orm";
 import { PLANS, THROTTLE, type PlanId } from "@bhaskara/shared/pricing";
@@ -15,6 +17,12 @@ import { PLANS, THROTTLE, type PlanId } from "@bhaskara/shared/pricing";
 function monthStart(): Date {
   const now = new Date();
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+}
+
+/** usage_counters bucket size; keep equal to gateway usage-counters.ts. */
+const BUCKET_MS = 5 * 60 * 1000;
+function bucketFloor(d: Date): Date {
+  return new Date(Math.floor(d.getTime() / BUCKET_MS) * BUCKET_MS);
 }
 
 export interface QuotaSnapshot {
@@ -57,51 +65,34 @@ export async function getQuotaSnapshot(userId: string): Promise<QuotaSnapshot | 
 
   const p = PLANS[plan as PlanId] ?? PLANS.trial;
   const since = monthStart();
-  const sinceWindow = new Date(Date.now() - THROTTLE.windowHours * 60 * 60 * 1000);
+  // Same 5-minute buckets the gateway enforces against (usage-counters.ts):
+  // the window starts at the bucket containing now − windowHours.
+  const windowFrom = bucketFloor(new Date(Date.now() - THROTTLE.windowHours * 60 * 60 * 1000));
+  const from = windowFrom < since ? windowFrom : since;
+  const w = windowFrom.toISOString();
+  const m = since.toISOString();
 
-  const glmRows = await db
+  const rows = await db
     .select({
-      calls: sql<number>`count(*) filter (where ${usageLedger.createdAt} >= ${sinceWindow.toISOString()})`,
-      tokens: sql<number>`coalesce(sum(
-        case when ${usageLedger.createdAt} >= ${sinceWindow.toISOString()}
-          then ${usageLedger.promptTokens} + ${usageLedger.completionTokens}
-          else 0 end
-      ), 0)`,
+      model: usageCounters.endpointModel,
+      winCalls: sql<string>`coalesce(sum(${usageCounters.calls}) filter (where ${usageCounters.bucketStart} >= ${w}), 0)`,
+      winTokens: sql<string>`coalesce(sum(${usageCounters.tokens}) filter (where ${usageCounters.bucketStart} >= ${w}), 0)`,
+      monthCalls: sql<string>`coalesce(sum(${usageCounters.calls}) filter (where ${usageCounters.bucketStart} >= ${m}), 0)`,
+      monthEquiv: sql<string>`coalesce(sum(${usageCounters.equivUsd}) filter (where ${usageCounters.bucketStart} >= ${m}), 0)`,
     })
-    .from(usageLedger)
-    .where(
-      and(
-        eq(usageLedger.userId, userId),
-        eq(usageLedger.endpointModel, "glm-5.3"),
-        gte(usageLedger.createdAt, since),
-      ),
-    );
-
-  const thetaRows = await db
-    .select({
-      month: sql<number>`count(*)`,
-      win: sql<number>`count(*) filter (where ${usageLedger.createdAt} >= ${sinceWindow.toISOString()})`,
-    })
-    .from(usageLedger)
-    .where(
-      and(
-        eq(usageLedger.userId, userId),
-        eq(usageLedger.endpointModel, "theta"),
-        gte(usageLedger.createdAt, since),
-      ),
-    );
-
-  const equivRows = await db
-    .select({ total: sql<number>`coalesce(sum(${usageLedger.userEquivalentCostUsd}::numeric), 0)` })
-    .from(usageLedger)
-    .where(and(eq(usageLedger.userId, userId), gte(usageLedger.createdAt, since)));
+    .from(usageCounters)
+    .where(and(eq(usageCounters.userId, userId), gte(usageCounters.bucketStart, from)))
+    .groupBy(usageCounters.endpointModel);
+  const glm = rows.find((r) => r.model === "glm-5.3");
+  const theta = rows.find((r) => r.model === "theta");
+  const equivMonth = rows.reduce((sum, r) => sum + Number(r.monthEquiv), 0);
 
   return {
     plan,
-    glmThisWindow: Number(glmRows[0]?.calls ?? 0),
-    glmTokensThisWindow: Number(glmRows[0]?.tokens ?? 0),
-    thetaThisWindow: Number(thetaRows[0]?.win ?? 0),
-    thetaThisMonth: Number(thetaRows[0]?.month ?? 0),
+    glmThisWindow: Number(glm?.winCalls ?? 0),
+    glmTokensThisWindow: Number(glm?.winTokens ?? 0),
+    thetaThisWindow: Number(theta?.winCalls ?? 0),
+    thetaThisMonth: Number(theta?.monthCalls ?? 0),
     limits: {
       thetaPer5h: p.thetaPer5h,
       thetaExtraMonthly: p.thetaExtraMonthly,
@@ -116,7 +107,7 @@ export async function getQuotaSnapshot(userId: string): Promise<QuotaSnapshot | 
       : null,
     trainingOptOut: user.trainingOptOut,
     cohort: user.cohort,
-    equivCostMonthUsd: Number(equivRows[0]?.total ?? 0),
+    equivCostMonthUsd: equivMonth,
   };
 }
 
@@ -133,14 +124,14 @@ export async function getRecentUsage(userId: string): Promise<DayUsage[]> {
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   const rows = await db
     .select({
-      date: sql<string>`to_char(${usageLedger.createdAt}, 'YYYY-MM-DD')`,
-      requests: sql<number>`count(*)`,
-      tokens: sql<number>`coalesce(sum(${usageLedger.promptTokens} + ${usageLedger.completionTokens}), 0)`,
-      equiv: sql<number>`coalesce(sum(${usageLedger.userEquivalentCostUsd}::numeric), 0)`,
-      actual: sql<number>`coalesce(sum(${usageLedger.actualCostUsd}::numeric), 0)`,
+      date: sql<string>`to_char(${usageCounters.bucketStart}, 'YYYY-MM-DD')`,
+      requests: sql<number>`coalesce(sum(${usageCounters.calls}), 0)`,
+      tokens: sql<number>`coalesce(sum(${usageCounters.tokens}), 0)`,
+      equiv: sql<number>`coalesce(sum(${usageCounters.equivUsd}), 0)`,
+      actual: sql<number>`coalesce(sum(${usageCounters.actualUsd}), 0)`,
     })
-    .from(usageLedger)
-    .where(and(eq(usageLedger.userId, userId), gte(usageLedger.createdAt, since)))
+    .from(usageCounters)
+    .where(and(eq(usageCounters.userId, userId), gte(usageCounters.bucketStart, bucketFloor(since))))
     .groupBy(sql`1`)
     .orderBy(sql`1`);
 

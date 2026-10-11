@@ -1,6 +1,6 @@
 // SINGLE schema source for the whole platform (web + gateway share this DB).
 // Better-auth tables: user, session, account, verification.
-// Bhaskara domain: apiKeys, subscriptions, usageLedger, rateWindows, coupons,
+// Bhaskara domain: apiKeys, subscriptions, usageLedger, usageCounters, rateWindows (unused), coupons,
 //                  couponRedemptions, waitlist, settings, providerMonthly, sessions (router lock).
 import { pgTable, text, integer, bigint, numeric, timestamp, boolean, index, uniqueIndex, primaryKey } from "drizzle-orm/pg-core";
 
@@ -119,7 +119,28 @@ export const usageLedger = pgTable(
     index("usage_user_created_idx").on(t.userId, t.createdAt),
     index("usage_session_idx").on(t.sessionId),
     index("usage_provider_idx").on(t.provider, t.createdAt),
+    // Trial velocity filters by key, not user; without this it scanned the table.
+    index("usage_apikey_created_idx").on(t.apiKeyId, t.createdAt),
   ],
+);
+
+// ── Usage counters: usage_ledger pre-aggregated per 5-minute bucket ──
+// Quota checks and the dashboard read these instead of aggregating the ledger
+// on every request (see apps/gateway/src/lib/usage-counters.ts). Written in the
+// same transaction as the ledger row; DDL also in gateway scripts/db-ensure.ts.
+export const usageCounters = pgTable(
+  "usage_counters",
+  {
+    userId: text("user_id").notNull(),
+    endpointModel: text("endpoint_model").notNull(),
+    bucketStart: timestamp("bucket_start", { withTimezone: true }).notNull(),
+    calls: bigint("calls", { mode: "number" }).notNull().default(0),
+    /** prompt + completion tokens */
+    tokens: bigint("tokens", { mode: "number" }).notNull().default(0),
+    equivUsd: numeric("equiv_usd", { precision: 16, scale: 6 }).notNull().default("0"),
+    actualUsd: numeric("actual_usd", { precision: 16, scale: 6 }).notNull().default("0"),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.endpointModel, t.bucketStart] })],
 );
 
 // ── Skill cards: measured per-model, per-capability success rates ──

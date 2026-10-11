@@ -4,6 +4,7 @@
 
 import { db } from "../db";
 import { usageLedger } from "../db/schema";
+import { recordUsage } from "./usage-counters";
 import { valueUserFacing, valueActualCost, type Usage } from "@bhaskara/shared/metering";
 import { randomUUID } from "node:crypto";
 
@@ -44,27 +45,52 @@ export async function writeLedger(entry: LedgerEntry): Promise<void> {
   const actual = valueActualCost(entry.usage);
   const equiv = entry.userEquivUsd ?? valuation.equivalentApiCost;
   const real = entry.actualCostUsd ?? actual;
-  await db.insert(usageLedger).values({
-    id: randomUUID(),
-    userId: entry.userId,
-    apiKeyId: entry.apiKeyId,
-    sessionId: entry.sessionId,
-    endpointModel: entry.endpointModel,
-    provider: entry.usage.provider,
-    upstreamModel: entry.usage.model,
-    routedTo: entry.routedTo,
-    routerEffort: entry.routerEffort,
-    promptTokens: entry.usage.promptTokens,
-    completionTokens: entry.usage.completionTokens,
-    cachedTokens: entry.usage.cachedTokens ?? 0,
-    reasoningTokens: entry.usage.reasoningTokens ?? 0,
-    userEquivalentCostUsd: equiv.toFixed(6),
-    actualCostUsd: real.toFixed(6),
-    providerMeta: entry.providerMeta ? JSON.stringify(entry.providerMeta) : null,
-    hasToolCalls: entry.hasToolCalls ?? null,
-    routerReason: entry.routerReason ?? null,
-    routerSignals: entry.routerSignals ? JSON.stringify(entry.routerSignals) : null,
-    latencyMs: entry.latencyMs,
-    ttftMs: entry.ttftMs,
+  const equivUsd = equiv.toFixed(6);
+  const actualUsd = real.toFixed(6);
+  await db.transaction(async (tx) => {
+    await tx.insert(usageLedger).values({
+      id: randomUUID(),
+      userId: entry.userId,
+      apiKeyId: entry.apiKeyId,
+      sessionId: entry.sessionId,
+      endpointModel: entry.endpointModel,
+      provider: entry.usage.provider,
+      upstreamModel: entry.usage.model,
+      routedTo: entry.routedTo,
+      routerEffort: entry.routerEffort,
+      promptTokens: entry.usage.promptTokens,
+      completionTokens: entry.usage.completionTokens,
+      cachedTokens: entry.usage.cachedTokens ?? 0,
+      reasoningTokens: entry.usage.reasoningTokens ?? 0,
+      userEquivalentCostUsd: equivUsd,
+      actualCostUsd: actualUsd,
+      providerMeta: entry.providerMeta ? JSON.stringify(entry.providerMeta) : null,
+      hasToolCalls: entry.hasToolCalls ?? null,
+      routerReason: entry.routerReason ?? null,
+      routerSignals: entry.routerSignals ? JSON.stringify(entry.routerSignals) : null,
+      latencyMs: entry.latencyMs,
+      ttftMs: entry.ttftMs,
+    });
+    // Quota counters ride in the ledger's transaction so they cannot drift from
+    // it. A failing counter write must never cost the billing row: it runs in a
+    // savepoint, is logged, and scripts/usage-counters-reconcile.ts repairs it.
+    try {
+      await tx.transaction((sp) =>
+        recordUsage(sp, {
+          userId: entry.userId,
+          endpointModel: entry.endpointModel,
+          tokens: entry.usage.promptTokens + entry.usage.completionTokens,
+          equivUsd,
+          actualUsd,
+        }),
+      );
+    } catch (err) {
+      console.error(JSON.stringify({
+        ev: "usage-counter-error",
+        user: entry.userId.slice(0, 8),
+        model: entry.endpointModel,
+        error: (err as Error).message,
+      }));
+    }
   });
 }

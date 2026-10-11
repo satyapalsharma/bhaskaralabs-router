@@ -10,13 +10,15 @@
 // Two caps, two failure modes: the call cap protects the provider relationship,
 // the token cap protects the margin.
 //
-// Backed by usage_ledger aggregation. Simple and correct; a dedicated
-// rate_windows table optimises later if the aggregate becomes hot.
+// Backed by usage_counters (5-minute buckets written with each ledger row):
+// aggregating usage_ledger per request became the gateway's bottleneck once a
+// key reached 1M+ rows a month (see usage-counters.ts).
 
 import { db } from "../db";
 import { usageLedger, apiKeys } from "../db/schema";
 import { and, eq, gte, sql } from "drizzle-orm";
 import { PLANS, THROTTLE, type Plan, type PlanId } from "@bhaskara/shared/pricing";
+import { readQuotaCounters } from "./usage-counters";
 
 export interface QuotaState {
   /** glm-5.3 calls in the trailing window. */
@@ -42,15 +44,6 @@ export interface QuotaState {
   overGlmTokens: boolean;
   /** Delay to apply before serving, in ms. 0 = serve immediately. */
   throttleDelayMs: number;
-}
-
-function monthStart(): Date {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-}
-
-function windowStart(): Date {
-  return new Date(Date.now() - THROTTLE.windowHours * 60 * 60 * 1000);
 }
 
 export function planOf(plan: string): Plan {
@@ -84,10 +77,8 @@ export async function getQuotaState(userId: string, plan: string): Promise<Quota
     glmPer5h: p.glmPer5h,
     glmTokensPer5h: p.glmTokensPer5h,
   };
-  // Operator keys are never capped, throttled or rejected, so the two
-  // aggregate scans over usage_ledger below are pure cost for them. For the
-  // batch key (1M+ ledger rows a month) they ran ~11 s each, 15 at a time, on
-  // the 1-CPU VM — every theta turn waited behind Postgres (2026-10-11).
+  // Operator keys are never capped, throttled or rejected, so even the
+  // counter read below is pure cost for them.
   if (p.unlimited === true) {
     return {
       glmThisWindow: 0,
@@ -103,45 +94,8 @@ export async function getQuotaState(userId: string, plan: string): Promise<Quota
       throttleDelayMs: 0,
     };
   }
-  const since = monthStart();
-  const sinceWindow = windowStart();
-
-  const glmRows = await db
-    .select({
-      calls: sql<number>`count(*) filter (where ${usageLedger.createdAt} >= ${sinceWindow.toISOString()})`,
-      tokens: sql<number>`coalesce(sum(
-        case when ${usageLedger.createdAt} >= ${sinceWindow.toISOString()}
-          then ${usageLedger.promptTokens} + ${usageLedger.completionTokens}
-          else 0 end
-      ), 0)`,
-    })
-    .from(usageLedger)
-    .where(
-      and(
-        eq(usageLedger.userId, userId),
-        eq(usageLedger.endpointModel, "glm-5.3"),
-        gte(usageLedger.createdAt, since),
-      ),
-    );
-
-  const thetaRows = await db
-    .select({
-      month: sql<number>`count(*)`,
-      win: sql<number>`count(*) filter (where ${usageLedger.createdAt} >= ${sinceWindow.toISOString()})`,
-    })
-    .from(usageLedger)
-    .where(
-      and(
-        eq(usageLedger.userId, userId),
-        eq(usageLedger.endpointModel, "theta"),
-        gte(usageLedger.createdAt, since),
-      ),
-    );
-
-  const glmThisWindow = Number(glmRows[0]?.calls ?? 0);
-  const glmTokensThisWindow = Number(glmRows[0]?.tokens ?? 0);
-  const thetaThisMonth = Number(thetaRows[0]?.month ?? 0);
-  const thetaThisWindow = Number(thetaRows[0]?.win ?? 0);
+  const { glmThisWindow, glmTokensThisWindow, thetaThisMonth, thetaThisWindow } =
+    await readQuotaCounters(userId, THROTTLE.windowHours);
 
   const unlimitedTheta = p.thetaPer5h === null;
   const thetaCap = p.thetaPer5h ?? Number.POSITIVE_INFINITY;
