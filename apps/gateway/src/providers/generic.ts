@@ -41,6 +41,31 @@ import { sanitizeOpenAiResponse } from "../lib/sanitize";
 export const STREAMING_REQUIRED: ReadonlySet<string> = new Set(["openference", "opencode-free"]);
 
 /**
+ * Per-provider egress split (ops knob): a random fraction of a provider's
+ * requests goes out via an ALTERNATE base URL. Agnes rate-limits by CLIENT
+ * IP (~200 req/min sustained, fixed ~5-minute penalty), so a heavy account
+ * on the VPS's direct route can spread its traffic across egress IPs
+ * without splitting it into separate DB providers. Random per request —
+ * the user-facing probability is exact only in aggregate, which is all the
+ * upstream throttle cares about.
+ *
+ * Config (env, no DB): BHASKARA_EGRESS_SPLIT_<ID> = probability (0..1),
+ * BHASKARA_EGRESS_SPLIT_<ID>_URL = the alternate base URL. <ID> is the
+ * provider id upper-cased with dashes as underscores (AGNES4 → AGNES4,
+ * OPENCODE-FREE → OPENCODE_FREE).
+ */
+function egressSplitUrl(provider: UpstreamProviderConfig): string {
+  const key = provider.id.toUpperCase().replace(/-/g, "_");
+  const p = Number(process.env[`BHASKARA_EGRESS_SPLIT_${key}`] ?? 0);
+  const alt = process.env[`BHASKARA_EGRESS_SPLIT_${key}_URL`];
+  if (p > 0 && alt && Math.random() < p) {
+    console.log(JSON.stringify({ ev: "egress-split", provider: provider.id, via: alt.slice(8, 40) }));
+    return alt;
+  }
+  return provider.baseUrl;
+}
+
+/**
  * OpenCode zen free-tier body shape (reverse-engineered gate, 2026-10-01):
  * the free models only serve requests that look like real opencode agent
  * turns — a system message carrying the opencode signature, at least five
@@ -148,7 +173,7 @@ export async function genericChat(opts: GenericChatOpts): Promise<Response> {
     provider.id,
   );
   try {
-    const url = provider.protocol === "anthropic" ? `${provider.baseUrl}/messages` : `${provider.baseUrl}/chat/completions`;
+    const url = provider.protocol === "anthropic" ? `${egressSplitUrl(provider)}/messages` : `${egressSplitUrl(provider)}/chat/completions`;
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (provider.protocol === "anthropic") {
       headers["anthropic-version"] = "2023-06-01";
