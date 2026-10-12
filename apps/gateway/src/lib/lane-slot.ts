@@ -53,6 +53,8 @@ export const LANE_BUDGET: Record<string, number> = {
   agnes4: Number(process.env.BHASKARA_LANE_BUDGET_AGNES4 ?? 30),
   // Fourth agnes sub (2026-10-12) — same 30 as its siblings.
   agnes5: Number(process.env.BHASKARA_LANE_BUDGET_AGNES5 ?? 30),
+  // Fifth agnes sub (2026-10-12, via the CF relay) — same as its siblings.
+  agnes6: Number(process.env.BHASKARA_LANE_BUDGET_AGNES6 ?? 30),
   // Opencode Go key verified 10/10 parallel; the default 8 (≈4 concurrent)
   // was capping a lane that carries ~38% of theta. 24 = 12 weight-slots for
   // the 10-account cap plus shadow-hold headroom.

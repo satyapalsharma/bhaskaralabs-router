@@ -208,6 +208,7 @@ export const FLAT_PROVIDERS: readonly string[] = [
   "agnes3",
   "agnes4",
   "agnes5",
+  "agnes6",
   "camel",
   "electronhub",
   "openference",
@@ -535,6 +536,15 @@ export const THETA_CHAIN: readonly Lane[] = [
   // when sub-1/sub-2 windows sat at ~90% under a 145/min batch. Same
   // agnes2/agnes3/agnes4 pattern — own key, own 7.5k/5h window, capped 15.
   { provider: "agnes5", model: "agnes-3.0-flash" },
+  // Agnes on a FIFTH subscription (2026-10-12, Plus plan): bought alongside
+  // the relay switch — agnes was found to rate-limit by CLIENT IP (the VPS
+  // egress was throttled at ~200 req/min sustained with a fixed ~5-minute
+  // penalty; the same keys worked instantly from other IPs). All agnes lanes
+  // now route through agnes.bhaskaralabs.com, a Cloudflare Worker relay
+  // (~/tools + wrangler; guards on `Bearer cpk-` prefix), so egress is
+  // Cloudflare's pool and per-IP throttling no longer binds. agnes6 rides
+  // the same relay from day one.
+  { provider: "agnes6", model: "agnes-3.0-flash" },
   // OpenRouter free tier (2026-09-26): nemotron-3-ULTRA 550b-a55b — 55B active
   // (lightning's 3B was too light for agent turns), 1M ctx, 1.3s with tools
   // verified. Rate limits bind per key (~20 RPM), so the account cap keeps
@@ -692,6 +702,7 @@ export const PROVIDER_CLASS: Record<string, "core" | "flat" | "bootstrap"> = {
   agnes3: "flat",
   agnes4: "flat",
   agnes5: "flat",
+  agnes6: "flat",
   electronhub: "flat",
   openference: "flat",
   stepfun: "bootstrap",
