@@ -71,6 +71,9 @@ import { sanitizeOpenAiResponse, sanitizeOpenAiChunk } from "../lib/sanitize";
  *  client's timeout. Cleared once response headers arrive (the stream body
  *  itself is exempt). Metered lanes that abort safely use the wide ceiling. */
 const LANE_TTFT_CEILING_MS = 25_000;
+
+/** Global inbound pacing — see the pacing block in the chat handler. */
+const INBOUND_PACE_DELAY_MS = Number(process.env.BHASKARA_INBOUND_PACE_DELAY_MS ?? 0);
 /** Wide ceiling for lanes where aborting mid-generation costs money or leaks a
  *  server-side zombie slot. */
 const WIDE_TTFT_CEILING_MS = 10 * 60 * 1000;
@@ -439,6 +442,16 @@ app.post("/v1/chat/completions", async (c) => {
   if (quota.throttleDelayMs > 0) {
     console.log(JSON.stringify({ ev: "throttle", user: auth.userId.slice(0, 8), delayMs: quota.throttleDelayMs, window: quota.thetaThisWindow }));
     await applyThrottle(quota.throttleDelayMs, c.req.raw.signal);
+  }
+  // ── Global inbound pacing (ops knob) ──
+  // A fixed delay added to EVERY turn, plan-independent, via
+  // BHASKARA_INBOUND_PACE_DELAY_MS. Used to shed upstream pressure without
+  // killing client batches: agnes was rate-limiting our egress IP at
+  // sustained full-batch rates (2026-10-12); 5s of pacing slowed fleet
+  // demand ~30-40% while every runner kept working — latency instead of
+  // errors, the same philosophy as the throttle above, but global.
+  if (INBOUND_PACE_DELAY_MS > 0) {
+    await applyThrottle(INBOUND_PACE_DELAY_MS, c.req.raw.signal);
   }
 
   const sessionId = deriveSessionId(auth.apiKeyId, c.req.raw.headers);
