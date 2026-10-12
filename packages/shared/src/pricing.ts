@@ -214,8 +214,18 @@ export const FLAT_PROVIDERS: readonly string[] = [
 ];
 
 /** Agnes 2.5 Flash — flat plan, tokens included. Concurrency 8 (lowered from
- * the plan's 10 on 2026-09-23 to stretch quota under heavy parallel load;
- * overridable via BHASKARA_AGNES_MAX_CONCURRENCY without a rebuild). */
+ *  the plan's 10 on 2026-09-23 to stretch quota under heavy parallel load;
+ *  overridable via BHASKARA_AGNES_MAX_CONCURRENCY without a rebuild).
+ *
+ *  Plan tiers (operator-confirmed 2026-10-12): the STANDARD sub (this one,
+ *  agnes@1/agnes2/agnes3/agnes5) is 7,500 requests / 5h and 75,000 / week.
+ *  agnes4 is on the BIG plan — 30,000 / 5h and 300,000 / week — which is why
+ *  it absorbed 21k-33k turns per 5h window under batch load without upstream
+ *  throttling. The DB lanes (agnes2/3/4/5) carry their own windows in the
+ *  upstream_accounts limits JSON (per5hRequests / perWeekRequests, enforced
+ *  by lib/account-windows.ts); this constant governs the hardcoded agnes@1
+ *  lane (sub-1) only. Concurrency 32 (DB lanes) / 48 (agnes4) was verified
+ *  live: zero 429s at 194-242 turns/min fleet-wide. */
 export const AGNES = {
   planUsd: 10.0,
   requestsPer5h: 7_500,
