@@ -207,6 +207,7 @@ export const FLAT_PROVIDERS: readonly string[] = [
   "agnes2",
   "agnes3",
   "agnes4",
+  "agnes5",
   "camel",
   "electronhub",
   "openference",
@@ -520,6 +521,10 @@ export const THETA_CHAIN: readonly Lane[] = [
   // (capped 15), placed right after opencode so the two fastest lanes carry
   // the walk before it pays anything. Same agnes2/agnes3 pattern.
   { provider: "agnes4", model: "agnes-3.0-flash" },
+  // Agnes on a FOURTH subscription (2026-10-12): spare-capacity sub bought
+  // when sub-1/sub-2 windows sat at ~90% under a 145/min batch. Same
+  // agnes2/agnes3/agnes4 pattern — own key, own 7.5k/5h window, capped 15.
+  { provider: "agnes5", model: "agnes-3.0-flash" },
   // OpenRouter free tier (2026-09-26): nemotron-3-ULTRA 550b-a55b — 55B active
   // (lightning's 3B was too light for agent turns), 1M ctx, 1.3s with tools
   // verified. Rate limits bind per key (~20 RPM), so the account cap keeps
@@ -676,6 +681,7 @@ export const PROVIDER_CLASS: Record<string, "core" | "flat" | "bootstrap"> = {
   agnes2: "flat",
   agnes3: "flat",
   agnes4: "flat",
+  agnes5: "flat",
   electronhub: "flat",
   openference: "flat",
   stepfun: "bootstrap",
