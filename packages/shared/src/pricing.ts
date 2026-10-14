@@ -113,6 +113,7 @@ export const OPENCODE: Record<string, RateCard> = {
 export const OPENCODE_FREE: Record<string, RateCard> = {
   "longcat-2.5-preview-free": { input: 0, output: 0 },
   "mimo-v2.6-flash-free": { input: 0, output: 0 },
+  "cat-jam-free": { input: 0, output: 0 },
 };
 
 /** OpenRouter free tier — :free models are $0 (20 RPM, daily cap per key). */
@@ -523,11 +524,13 @@ export const THETA_CHAIN: readonly Lane[] = [
   // Claudin.io plan lane (added 2026-09-26): fast (~2.3s TTFT), tool-capable,
   // 6/6 parallel verified. Sits right after agnes as an early flat rung.
   { provider: "claudin", model: "claudinio" },
-  // OpenCode zen lane: authenticated key (2026-09-26) lifts the anonymous IP
-  // throttle that FreeUsageLimitError'd the lane at ~47% theta share. Only
-  // space-bunny-free serves outside the OpenCode client (the rest are
-  // client-gated, and we do not spoof). Tool-capable, 8/8 parallel.
-  { provider: "opencode", model: "space-bunny-free" },
+  // OpenCode zen free tier (2026-10-13): the FreeTierError fingerprint gate now
+  // covers EVERYTHING on zen — the plain Go-key lane that space-bunny used to
+  // ride (provider "opencode") draws 403 unconditionally. All zen free models
+  // ride the opencode-free lane instead (fingerprint + session pool, no auth).
+  // space-bunny-free moved here from the dead "opencode" rung; cat-jam-free is
+  // new upstream (verified streaming 2026-10-13).
+  { provider: "opencode-free", model: "space-bunny-free" },
   // Agnes on a THIRD subscription (2026-09-28): its own key and 16 concurrent
   // (capped 15), placed right after opencode so the two fastest lanes carry
   // the walk before it pays anything. Same agnes2/agnes3 pattern.
@@ -566,6 +569,9 @@ export const THETA_CHAIN: readonly Lane[] = [
   // budget keeps this a supplement — free-tier usage caps bind per account.
   { provider: "opencode-free", model: "longcat-2.5-preview-free" },
   { provider: "opencode-free", model: "mimo-v2.6-flash-free" },
+  // cat-jam-free (2026-10-13): new zen free model, same lane/pool as the
+  // other two — another free rung for the walk to lean on.
+  { provider: "opencode-free", model: "cat-jam-free" },
   { provider: "agnes2", model: "agnes-3.0-flash" },
   // Agnes on a SECOND subscription (2026-09-26): its own key, its own 16
   // concurrent (capped 15). Flat lanes end here — everything below is paid.
