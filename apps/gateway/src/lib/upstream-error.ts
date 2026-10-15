@@ -244,6 +244,13 @@ const OVERLOAD = [
 const FREE_QUOTA = [
   /free_request_quota/i,
   /free\s+(quota|tier|allowance|plan)[^.]*(exhaust|reached|limit|spent)/i,
+  // OpenCode zen's fingerprint gate (2026-10-15): with the Go key riding
+  // along the lane serves, but the gate still blips intermittently (~1 in
+  // 20 turns) with FreeTierError. It is an AVAILABILITY blip, not a dead
+  // credential — the auth class's 30-minute ACCOUNT cooldown would idle
+  // all eight free rungs on one blip. free-quota's short LANE cooldown
+  // matches: the very next walk hop retries a sibling rung.
+  /freetiererror/i,
 ];
 
 /** A specific model id is gone upstream — retired, renamed, or never existed
