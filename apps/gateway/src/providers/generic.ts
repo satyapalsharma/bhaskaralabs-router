@@ -173,16 +173,21 @@ export async function genericChat(opts: GenericChatOpts): Promise<Response> {
     } else {
       if (provider.authStyle === "x-api-key") headers["x-api-key"] = account.apiKey;
       else if (provider.authStyle === "opencode-free") {
-        // OpenCode zen free-tier models are client-gated: the zen gateway
-        // validates x-opencode-session against sessions the real opencode
-        // client has synced. Requests are otherwise ANONYMOUS — no
-        // Authorization header, or the free models draw FreeTierError even
-        // with valid credentials. Session comes from the host-minted pool
-        // (lib/opencode-sessions.ts); the msg_ request id is minted fresh.
+        // OpenCode zen free-tier models are client-gated, and the gate
+        // TIGHTENED on 2026-10-15: anonymous access and made-up ids now draw
+        // FreeTierError even with the full fingerprint. Verified against a
+        // captured real client request: the Go key MUST ride along as a
+        // Bearer (the account's free-tier entitlement is checked), the
+        // session must come from the host-minted pool, BOTH session headers
+        // are sent, and the msg_ id must match the client's format
+        // (msg_ + 12 hex + 14 alnum). UA matches the installed binary.
+        headers["Authorization"] = `Bearer ${account.apiKey}`;
         headers["User-Agent"] = OPENCODE_FREE_UA;
         headers["x-opencode-client"] = "cli";
         headers["x-opencode-project"] = "global";
-        headers["x-opencode-session"] = await pickOpencodeSession();
+        const ocSession = await pickOpencodeSession();
+        headers["x-opencode-session"] = ocSession;
+        headers["x-opencode-session-id"] = ocSession;
         headers["x-opencode-request"] = mintOpencodeMsgId();
       } else if (provider.authStyle !== "none") headers["Authorization"] = `Bearer ${account.apiKey}`;
     }

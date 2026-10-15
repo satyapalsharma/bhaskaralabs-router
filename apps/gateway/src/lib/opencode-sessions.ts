@@ -21,9 +21,11 @@
 import { sql } from "drizzle-orm";
 import { db } from "../db";
 
-/** Must match the opencode client's own UA byte-for-byte: the gate reads it. */
+/** Must match the opencode client's own UA byte-for-byte: the gate reads it.
+ *  Bumped to 1.18.34 (the installed binary's version) when the zen gate
+ *  tightened on 2026-10-15 — captured from a real client run. */
 export const OPENCODE_FREE_UA =
-  "opencode/1.18.31 ai-sdk/provider-utils/4.0.23 runtime/bun/1.3.14";
+  "opencode/1.18.34 ai-sdk/provider-utils/4.0.23 runtime/bun/1.3.14";
 
 const ALPHA = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 
@@ -35,10 +37,11 @@ function nanoid(n: number): string {
 }
 
 /** x-opencode-request: minted fresh per turn; only the session must be
- *  pre-registered, request ids are free-form (verified). */
+ *  pre-registered, request ids are format-checked (12 hex + 14 alnum,
+ *  captured from a real client — 2026-10-15). */
 export function mintOpencodeMsgId(): string {
-  const ts = Date.now().toString(16).padStart(13, "0").slice(0, 13);
-  return `msg_${ts}${nanoid(12)}`;
+  const ts = Date.now().toString(16).padStart(12, "0").slice(0, 12);
+  return `msg_${ts}${nanoid(14)}`;
 }
 
 let pool: string[] = [];

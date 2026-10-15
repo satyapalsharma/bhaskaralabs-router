@@ -114,6 +114,11 @@ export const OPENCODE_FREE: Record<string, RateCard> = {
   "longcat-2.5-preview-free": { input: 0, output: 0 },
   "mimo-v2.6-flash-free": { input: 0, output: 0 },
   "cat-jam-free": { input: 0, output: 0 },
+  "space-bunny-free": { input: 0, output: 0 },
+  "step-5-preview-free": { input: 0, output: 0 },
+  "nemotron-3-ultra-free": { input: 0, output: 0 },
+  "big-pickle": { input: 0, output: 0 },
+  "deepseek-v4.1-flash-free": { input: 0, output: 0 },
 };
 
 /** OpenRouter free tier — :free models are $0 (20 RPM, daily cap per key). */
@@ -572,6 +577,15 @@ export const THETA_CHAIN: readonly Lane[] = [
   // cat-jam-free (2026-10-13): new zen free model, same lane/pool as the
   // other two — another free rung for the walk to lean on.
   { provider: "opencode-free", model: "cat-jam-free" },
+  // Four more zen free rungs (2026-10-15): the gate tightened (Go key must
+  // now ride along — see generic.ts opencode-free branch) but the recipe
+  // was re-verified per model: step-5, nemotron-3-ultra, big-pickle (a
+  // stealth model) and deepseek-v4.1-flash all serve 200s on the lane.
+  // muse-spark-1.3-contributor-free needs the /responses protocol — skip.
+  { provider: "opencode-free", model: "step-5-preview-free" },
+  { provider: "opencode-free", model: "nemotron-3-ultra-free" },
+  { provider: "opencode-free", model: "big-pickle" },
+  { provider: "opencode-free", model: "deepseek-v4.1-flash-free" },
   { provider: "agnes2", model: "agnes-3.0-flash" },
   // Agnes on a SECOND subscription (2026-09-26): its own key, its own 16
   // concurrent (capped 15). Flat lanes end here — everything below is paid.
