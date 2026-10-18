@@ -177,6 +177,13 @@ export const ZAI: Record<string, RateCard> = {
   "glm-5.3-flash": { input: 0, output: 0 },
 };
 
+/** 9Router — Google AI Pro accounts pooled by the operator's local 9router
+ *  instance, reached through an ngrok tunnel. Prepaid (the Google subs), so
+ *  the per-turn ledger cost is 0. */
+export const NINEROUTER: Record<string, RateCard> = {
+  "ag/gemini-3.8-flash-low": { input: 0, output: 0 },
+};
+
 /** LLMGateway — 3× allowance on the dev plan, so the effective rate is 1/3. */
 export const LLMGATEWAY: Record<string, RateCard> = {
   "glm-5.3": {
@@ -226,6 +233,7 @@ export const FLAT_PROVIDERS: readonly string[] = [
   "electronhub",
   "openference",
   "zai",
+  "ninerouter",
 ];
 
 /** Agnes 2.5 Flash — flat plan, tokens included. Concurrency 8 (lowered from
@@ -263,6 +271,7 @@ export const UPSTREAM_RATES: Record<string, Record<string, RateCard>> = {
   pareto: PARETO,
   llmgateway: LLMGATEWAY,
   zai: ZAI,
+  ninerouter: NINEROUTER,
   teamorouter: TEAMOROUTER,
   opencode: OPENCODE,
   "opencode-free": OPENCODE_FREE,
@@ -538,6 +547,10 @@ export const THETA_CHAIN: readonly Lane[] = [
   // Claudin.io plan lane (added 2026-09-26): fast (~2.3s TTFT), tool-capable,
   // 6/6 parallel verified. Sits right after agnes as an early flat rung.
   { provider: "claudin", model: "claudinio" },
+  // 9Router (2026-10-18): the operator's Google AI Pro accounts pooled on a
+  // local 9router, reached via ngrok — gemini-3.8-flash at low effort as a
+  // flat flash rung. ~1,500 requests/day per Google sub behind the pool.
+  { provider: "ninerouter", model: "ag/gemini-3.8-flash-low" },
   // OpenCode zen free tier (2026-10-13): the FreeTierError fingerprint gate now
   // covers EVERYTHING on zen — the plain Go-key lane that space-bunny used to
   // ride (provider "opencode") draws 403 unconditionally. All zen free models
@@ -757,4 +770,5 @@ export const PROVIDER_CLASS: Record<string, "core" | "flat" | "bootstrap"> = {
   llmgateway: "bootstrap",
   teamorouter: "bootstrap",
   zai: "flat",
+  ninerouter: "flat",
 };
