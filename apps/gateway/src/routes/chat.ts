@@ -25,6 +25,7 @@ import { camelChat, camelEnabled, markCamelCool } from "../providers/camel";
 import { agnesChat, agnesEnabled, markAgnesDead } from "../providers/agnes";
 import { stepfunChat, stepfunEnabled, markStepfunThrottled } from "../providers/stepfun";
 import { llmGatewayChat } from "../providers/llmgateway";
+import { zaiChat, markZaiDead, zaiAccountAlive } from "../providers/zai";
 import { hyperBudgetAvailable, reserveHyperBudget, releaseHyperBudget, markHyperDead, hyperAccountAlive } from "../lib/hyper-budget";
 import { classifyUpstreamError, describeUpstreamError, retryAfterFrom } from "../lib/upstream-error";
 import { type RouterDecision, FLASH_OF } from "../router";
@@ -44,7 +45,7 @@ import messagesApp from "./messages";
 const FLEET_DISPATCHABLE = new Set<string>();
 export async function refreshFleetDispatchable(): Promise<void> {
   const fleet = await getFleet().catch(() => new Map());
-  const hardcoded = new Set(["hyper", "agnes", "stepfun", "camel", "llmgateway"]);
+  const hardcoded = new Set(["hyper", "agnes", "stepfun", "camel", "llmgateway", "zai"]);
   FLEET_DISPATCHABLE.clear();
   for (const id of fleet.keys()) if (!hardcoded.has(id)) FLEET_DISPATCHABLE.add(id);
 }
@@ -675,6 +676,13 @@ app.post("/v1/chat/completions", async (c) => {
       const cls = classifyUpstreamError(upstream.status, errText);
       if (cls === "quota" || cls === "auth") markHyperDead(retryAfterFrom(upstream, errText) ?? undefined);
     }
+    // Z.AI 1113 "Insufficient balance or no resource package" (a coding-plan
+    // refusal, not a throttle) classifies as quota — same dead-mark contract
+    // as hyper's, so the walk stops paying doomed round trips to the plan.
+    if (usedDecision.provider === "zai") {
+      const cls = classifyUpstreamError(upstream.status, errText);
+      if (cls === "quota" || cls === "auth") markZaiDead(retryAfterFrom(upstream, errText) ?? undefined);
+    }
     // Our own admission refusal is not a lane error. Counting it as one would
     // attribute a number we chose to a provider that was never contacted, and
     // the failure rate is the signal the whole report is built on. The same
@@ -1006,6 +1014,18 @@ async function dispatchUpstream(
     // Paid fallback lane behind hyper — same model ids, no upstream caching.
     const apiKey = process.env.LLMGATEWAY_API_KEY ?? "";
     return llmGatewayChat({ model: decision.upstreamModel, body: payload, apiKey, signal }).finally(clearTtft);
+  }
+  if (decision.provider === "zai") {
+    // Z.AI GLM Coding Plan — flat lane behind hyper (prepaid sub, 0/0 rate
+    // card). A 2xx proves the key carries the coding entitlement; 1113 quota
+    // refusals dead-mark with exponential backoff in the error loop below.
+    const apiKey = process.env.ZAI_API_KEY ?? "";
+    return zaiChat({ model: decision.upstreamModel, body: payload as Record<string, unknown>, apiKey, signal })
+      .then((res) => {
+        if (res.ok) zaiAccountAlive();
+        return res;
+      })
+      .finally(clearTtft);
   }
   if (decision.provider === "camel") {
     // Camel Stream. Metered (usage.cost_details lands in ledger via

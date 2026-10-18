@@ -23,6 +23,7 @@ export type ProviderId =
   | "stepfun"
   | "camel"
   | "llmgateway"
+  | "zai"
   | "electronhub"
   | "openference"
   | "pareto"
@@ -170,6 +171,12 @@ export const TOKENHARBOR3: Record<string, RateCard> = {
   "glm-5.3-flash": { input: 0, output: 0 },
 };
 
+/** Z.AI GLM Coding Plan — prepaid subscription (included usage), so the
+ *  per-turn ledger cost is 0; the real cost is the monthly plan fee. */
+export const ZAI: Record<string, RateCard> = {
+  "glm-5.3-flash": { input: 0, output: 0 },
+};
+
 /** LLMGateway — 3× allowance on the dev plan, so the effective rate is 1/3. */
 export const LLMGATEWAY: Record<string, RateCard> = {
   "glm-5.3": {
@@ -218,6 +225,7 @@ export const FLAT_PROVIDERS: readonly string[] = [
   "camel",
   "electronhub",
   "openference",
+  "zai",
 ];
 
 /** Agnes 2.5 Flash — flat plan, tokens included. Concurrency 8 (lowered from
@@ -254,6 +262,7 @@ export const UPSTREAM_RATES: Record<string, Record<string, RateCard>> = {
   stepfun: STEPFUN,
   pareto: PARETO,
   llmgateway: LLMGATEWAY,
+  zai: ZAI,
   teamorouter: TEAMOROUTER,
   opencode: OPENCODE,
   "opencode-free": OPENCODE_FREE,
@@ -604,6 +613,10 @@ export const THETA_CHAIN: readonly Lane[] = [
   // balance the account was topped up with — before paying hyper.
   { provider: "teamorouter", model: "glm-5.3-flash" },
   { provider: "hyper", model: "glm-5.3-flash" },
+  // Z.AI GLM Coding Plan (2026-10-18): flat subscription lane right behind
+  // hyper's exhaustion fallback — 16/16 parallel verified on the coding
+  // endpoint; dead-marks on 1113 so an expired plan costs no round trips.
+  { provider: "zai", model: "glm-5.3-flash" },
   { provider: "teamorouter", model: "deepseek-flash" },
 ];
 
@@ -740,4 +753,5 @@ export const PROVIDER_CLASS: Record<string, "core" | "flat" | "bootstrap"> = {
   tokenharbor4: "bootstrap",
   llmgateway: "bootstrap",
   teamorouter: "bootstrap",
+  zai: "flat",
 };

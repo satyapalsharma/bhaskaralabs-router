@@ -15,6 +15,7 @@ import { camelEnabled, camelSlotFree } from "../providers/camel";
 import { agnesEnabled, agnesSlotFree } from "../providers/agnes";
 import { stepfunEnabled, stepfunSlotFree } from "../providers/stepfun";
 import { llmGatewayEnabled } from "../providers/llmgateway";
+import { zaiEnabled, zaiAlive } from "../providers/zai";
 import { hyperBudgetAvailable, hyperAlive } from "./hyper-budget";
 import type { LaneHealth } from "../router";
 
@@ -44,6 +45,9 @@ export async function buildLaneHealth(opts: LaneHealthOptions = {}): Promise<Lan
   set("agnes", agnesEnabled() && agnesSlotFree());
   set("stepfun", stepfunEnabled() && stepfunSlotFree());
   set("llmgateway", llmGatewayEnabled());
+  // Z.AI coding plan: enabled when the key is configured and the plan isn't
+  // dead-marked (1113 quota refusals back off exponentially — see zai.ts).
+  set("zai", zaiEnabled() && zaiAlive());
   // The account-level dead-mark binds even on the ignoreHyperBudget path: an
   // empty account is not an overage, it is a guaranteed 402 round-trip.
   set("hyper", (opts.ignoreHyperBudget ? true : await hyperBudgetAvailable()) && hyperAlive());

@@ -50,6 +50,11 @@ export const LANE_BUDGET: Record<string, number> = {
   // the old weighted budget of 8 (≈4 concurrent) was throttling the lane to
   // an eighth of its real capacity while agnes weekly-quota'd the fleet.
   hyper: Number(process.env.BHASKARA_LANE_BUDGET_HYPER ?? 32),
+  // Z.AI GLM Coding Plan (2026-10-18): request-counted like hyper — the plan's
+  // own limit is concurrent requests. Probed 16/16 parallel 200s on
+  // glm-5.3-flash via the coding endpoint; 16 is the proven floor, not the
+  // ceiling. Env knob BHASKARA_LANE_BUDGET_ZAI.
+  zai: Number(process.env.BHASKARA_LANE_BUDGET_ZAI ?? 16),
   // Agnes fleet lanes: each account carries 15 concurrent slots but the
   // default budget of 8 (≈4 in-flight at weight 2) was the binding constraint —
   // at sustained load the walk read "Lane saturated" and dropped the overflow
@@ -98,7 +103,7 @@ export const LANE_BUDGET: Record<string, number> = {
  * caps request count, and what actually breaks there is long generations
  * overlapping, which is precisely what weighting models.
  */
-export const LANE_COUNTS_REQUESTS: ReadonlySet<string> = new Set(["electronhub", "hyper"]);
+export const LANE_COUNTS_REQUESTS: ReadonlySet<string> = new Set(["electronhub", "hyper", "zai"]);
 
 /**
  * Budget for a provider with no measured ceiling.
