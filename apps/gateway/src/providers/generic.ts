@@ -39,7 +39,7 @@ import { egressPoolUrl } from "../lib/egress-pool";
  * LANE_COUNTS_REQUESTS: it is a fixed property of the provider's API, not an
  * operator dial.
  */
-export const STREAMING_REQUIRED: ReadonlySet<string> = new Set(["openference", "opencode-free"]);
+export const STREAMING_REQUIRED: ReadonlySet<string> = new Set(["openference", "opencode-free", "ninerouter"]);
 
 /**
  * Per-provider egress routing: providers in the credit-bucket egress pool

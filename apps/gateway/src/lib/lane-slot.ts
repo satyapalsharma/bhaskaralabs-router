@@ -55,6 +55,11 @@ export const LANE_BUDGET: Record<string, number> = {
   // glm-5.3-flash via the coding endpoint; 16 is the proven floor, not the
   // ceiling. Env knob BHASKARA_LANE_BUDGET_ZAI.
   zai: Number(process.env.BHASKARA_LANE_BUDGET_ZAI ?? 16),
+  // 9Router pool (2026-10-18): Google AI Pro accounts rotating behind the
+  // operator's local instance — 22/min observed organic at budget 8 with
+  // saturation hops, so the pool drains faster than the default admits.
+  // 16 until the pool's own ceiling is probed. Env knob like the others.
+  ninerouter: Number(process.env.BHASKARA_LANE_BUDGET_NINEROUTER ?? 16),
   // Agnes fleet lanes: each account carries 15 concurrent slots but the
   // default budget of 8 (≈4 in-flight at weight 2) was the binding constraint —
   // at sustained load the walk read "Lane saturated" and dropped the overflow
