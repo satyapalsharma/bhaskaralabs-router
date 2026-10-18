@@ -185,6 +185,16 @@ export const NINEROUTER: Record<string, RateCard> = {
   freee: { input: 0, output: 0 },
 };
 
+/** ISO Quant + General Compute — operator prepaid lanes at the theta tail
+ *  (2026-10-18), verified live: glm-5.3-flash on isoquant, gemma-4-31B-it on
+ *  generalcompute. Ledger cost 0; the real cost is the account balance. */
+export const ISOQUANT: Record<string, RateCard> = {
+  "glm-5.3-flash": { input: 0, output: 0 },
+};
+export const GENERALCOMPUTE: Record<string, RateCard> = {
+  "gemma-4-31B-it": { input: 0, output: 0 },
+};
+
 /** LLMGateway — 3× allowance on the dev plan, so the effective rate is 1/3. */
 export const LLMGATEWAY: Record<string, RateCard> = {
   "glm-5.3": {
@@ -235,6 +245,8 @@ export const FLAT_PROVIDERS: readonly string[] = [
   "openference",
   "zai",
   "ninerouter",
+  "isoquant",
+  "generalcompute",
 ];
 
 /** Agnes 2.5 Flash — flat plan, tokens included. Concurrency 8 (lowered from
@@ -273,6 +285,8 @@ export const UPSTREAM_RATES: Record<string, Record<string, RateCard>> = {
   llmgateway: LLMGATEWAY,
   zai: ZAI,
   ninerouter: NINEROUTER,
+  isoquant: ISOQUANT,
+  generalcompute: GENERALCOMPUTE,
   teamorouter: TEAMOROUTER,
   opencode: OPENCODE,
   "opencode-free": OPENCODE_FREE,
@@ -635,6 +649,11 @@ export const THETA_CHAIN: readonly Lane[] = [
   // endpoint; dead-marks on 1113 so an expired plan costs no round trips.
   { provider: "zai", model: "glm-5.3-flash" },
   { provider: "teamorouter", model: "deepseek-flash" },
+  // Theta tail (2026-10-18, operator-supplied prepaid lanes, both verified
+  // live): General Compute FIRST (operator call — gemma-4-31B-it), then
+  // ISO Quant (glm-5.3-flash). Last resorts after the deepseek rung.
+  { provider: "generalcompute", model: "gemma-4-31B-it" },
+  { provider: "isoquant", model: "glm-5.3-flash" },
 ];
 
 /**
@@ -775,4 +794,6 @@ export const PROVIDER_CLASS: Record<string, "core" | "flat" | "bootstrap"> = {
   teamorouter: "bootstrap",
   zai: "flat",
   ninerouter: "flat",
+  isoquant: "flat",
+  generalcompute: "flat",
 };
