@@ -649,10 +649,13 @@ export const THETA_CHAIN: readonly Lane[] = [
   // endpoint; dead-marks on 1113 so an expired plan costs no round trips.
   { provider: "zai", model: "glm-5.3-flash" },
   { provider: "teamorouter", model: "deepseek-flash" },
-  // Theta tail (2026-10-18, operator-supplied prepaid lanes, both verified
-  // live): General Compute FIRST (operator call — gemma-4-31B-it), then
-  // ISO Quant (glm-5.3-flash). Last resorts after the deepseek rung.
-  { provider: "generalcompute", model: "gemma-4-31B-it" },
+  // Theta tail (2026-10-18, operator-supplied prepaid lane, verified live):
+  // ISO Quant last — glm-5.3-flash. General Compute (gemma-4-31B-it) is
+  // DISABLED here: its CF WAF blocks request BODIES carrying code patterns
+  // ("SELECT * FROM", "rm -rf", path traversal — verified 2026-10-18: clean
+  // bodies 200, pattern-carrying bodies 403 HTML), which agent traffic is
+  // full of; every hit cooled the account 30 min. Re-add its rung here when
+  // they whitelist the key.
   { provider: "isoquant", model: "glm-5.3-flash" },
 ];
 
