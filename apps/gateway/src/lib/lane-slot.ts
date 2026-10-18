@@ -174,9 +174,28 @@ export function laneFree(providerId: string, weight = 1): boolean {
 export function laneAcquire(providerId: string, weight: number): () => void {
   laneLoad.set(providerId, laneLoadOf(providerId) + weight);
   let released = false;
+  // Failsafe reaper (2026-10-18): every path that pairs this acquire with a
+  // release is bounded (body-done, cancel→shadow-hold, sync error release),
+  // but an OK STREAMING response that gets ORPHANED — the client disconnects
+  // between dispatch resolution and the pipe starting — is dropped with no
+  // reader and no cancel, so no callback ever fires and the weight leaks for
+  // the process's lifetime. Observed three times on hyper under abort-heavy
+  // storms (load 141/32, 313/32, 640/8, ~1-2 units/min accumulating for
+  // hours). No real generation runs past ~15 minutes (the longest observed
+  // marathon turns are zai at ~13 min), so a slot held past the failsafe is
+  // by definition leaked — reap it and log. Env-tunable via
+  // BHASKARA_LANE_MAX_HOLD_MS.
+  const failsafe = setTimeout(() => {
+    if (released) return;
+    released = true;
+    laneLoad.set(providerId, Math.max(0, laneLoadOf(providerId) - weight));
+    console.log(JSON.stringify({ ev: "lane-leak-reap", lane: providerId, weight }));
+  }, Number(process.env.BHASKARA_LANE_MAX_HOLD_MS ?? 20 * 60_000));
+  failsafe.unref?.();
   return () => {
     if (released) return;
     released = true;
+    clearTimeout(failsafe);
     laneLoad.set(providerId, Math.max(0, laneLoadOf(providerId) - weight));
   };
 }

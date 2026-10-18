@@ -109,11 +109,26 @@ export function resetFiveXxStreaks(): void {
 function slotFree(accountId: string, max: number): boolean {
   return (inflight.get(accountId) ?? 0) < max;
 }
-function acquire(accountId: string): void {
+/** Same orphan-leak contract as laneAcquire: a released-guarded acquire with
+ *  a failsafe reaper (an orphaned streaming response never fires its release
+ *  callback — see lane-slot.ts), so a leaked account slot can't pin a
+ *  provider at "no healthy account" for the process's lifetime. */
+function acquire(accountId: string): () => void {
   inflight.set(accountId, (inflight.get(accountId) ?? 0) + 1);
-}
-function release(accountId: string): void {
-  inflight.set(accountId, Math.max(0, (inflight.get(accountId) ?? 1) - 1));
+  let released = false;
+  const failsafe = setTimeout(() => {
+    if (released) return;
+    released = true;
+    inflight.set(accountId, Math.max(0, (inflight.get(accountId) ?? 1) - 1));
+    console.log(JSON.stringify({ ev: "account-leak-reap", account: accountId }));
+  }, Number(process.env.BHASKARA_LANE_MAX_HOLD_MS ?? 20 * 60_000));
+  failsafe.unref?.();
+  return () => {
+    if (released) return;
+    released = true;
+    clearTimeout(failsafe);
+    inflight.set(accountId, Math.max(0, (inflight.get(accountId) ?? 1) - 1));
+  };
 }
 
 export interface GenericChatOpts {
@@ -149,10 +164,10 @@ export async function genericChat(opts: GenericChatOpts): Promise<Response> {
   // that check authoritative — two requests can both pass the check before
   // either one acquires, and only the acquire is serialized.
   const weight = costOnLane(provider.id, typeof opts.body.max_tokens === "number" ? opts.body.max_tokens : undefined);
-  acquire(account.id);
+  const releaseAccount = acquire(account.id);
   const releaseLane = laneAcquire(provider.id, weight);
   const rawRelease = () => {
-    release(account.id);
+    releaseAccount();
     releaseLane();
   };
   const [releaseNow, shadowRelease] = makeShadowRelease(
