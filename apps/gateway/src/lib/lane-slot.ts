@@ -57,9 +57,10 @@ export const LANE_BUDGET: Record<string, number> = {
   zai: Number(process.env.BHASKARA_LANE_BUDGET_ZAI ?? 16),
   // 9Router pool (2026-10-18): Google AI Pro accounts rotating behind the
   // operator's local instance — 22/min observed organic at budget 8 with
-  // saturation hops, so the pool drains faster than the default admits.
-  // 16 until the pool's own ceiling is probed. Env knob like the others.
-  ninerouter: Number(process.env.BHASKARA_LANE_BUDGET_NINEROUTER ?? 16),
+  // saturation hops. Operator-confirmed (2026-10-18): the freee route
+  // comfortably takes 32 concurrent, so the provider budget is 32 — the
+  // walk prefers the freee rung first, and ag/flash mops up free slots.
+  ninerouter: Number(process.env.BHASKARA_LANE_BUDGET_NINEROUTER ?? 32),
   // Agnes fleet lanes: each account carries 15 concurrent slots but the
   // default budget of 8 (≈4 in-flight at weight 2) was the binding constraint —
   // at sustained load the walk read "Lane saturated" and dropped the overflow
