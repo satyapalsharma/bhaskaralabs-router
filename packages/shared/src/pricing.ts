@@ -182,6 +182,7 @@ export const ZAI: Record<string, RateCard> = {
  *  the per-turn ledger cost is 0. */
 export const NINEROUTER: Record<string, RateCard> = {
   "ag/gemini-3.8-flash-low": { input: 0, output: 0 },
+  freee: { input: 0, output: 0 },
 };
 
 /** LLMGateway — 3× allowance on the dev plan, so the effective rate is 1/3. */
@@ -548,8 +549,11 @@ export const THETA_CHAIN: readonly Lane[] = [
   // 6/6 parallel verified. Sits right after agnes as an early flat rung.
   { provider: "claudin", model: "claudinio" },
   // 9Router (2026-10-18): the operator's Google AI Pro accounts pooled on a
-  // local 9router, reached via ngrok — gemini-3.8-flash at low effort as a
-  // flat flash rung. ~1,500 requests/day per Google sub behind the pool.
+  // local 9router, reached via ngrok. "freee" FIRST (operator call): it is
+  // the pool's free-tier route, so the walk burns the free quota before the
+  // subscription's ~1,500/day; ag/gemini-3.8-flash-low (the paid AI Pro
+  // route, low effort) is the rung directly behind it.
+  { provider: "ninerouter", model: "freee" },
   { provider: "ninerouter", model: "ag/gemini-3.8-flash-low" },
   // OpenCode zen free tier (2026-10-13): the FreeTierError fingerprint gate now
   // covers EVERYTHING on zen — the plain Go-key lane that space-bunny used to
