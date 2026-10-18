@@ -711,6 +711,9 @@ export const GLM_FLASH_CHAIN: readonly Lane[] = [
   // that starvation is itself the answer to "do we need a separate account?"
   { provider: "agnes4", model: "agnes-3.0-flash" },
   { provider: "hyper", model: "glm-5.3-flash" },
+  // Z.AI coding plan right behind hyper (2026-10-18) — same position as its
+  // theta-chain rung: the flat sub absorbs what hyper's budget gate refuses.
+  { provider: "zai", model: "glm-5.3-flash" },
   { provider: "llmgateway", model: "glm-5.3-flash" },
   { provider: "teamorouter", model: "glm-5.3-flash" },
 ];
