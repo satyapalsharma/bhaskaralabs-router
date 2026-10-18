@@ -240,6 +240,7 @@ export const FLAT_PROVIDERS: readonly string[] = [
   "agnes4",
   "agnes5",
   "agnes6",
+  "agnes7",
   "camel",
   "electronhub",
   "openference",
@@ -630,6 +631,10 @@ export const THETA_CHAIN: readonly Lane[] = [
   // Agnes on a SECOND subscription (2026-09-26): its own key, its own 16
   // concurrent (capped 15). Flat lanes end here — everything below is paid.
   { provider: "agnes3", model: "agnes-3.0-flash" },
+  // Agnes SIXTH subscription (2026-10-18): Plus plan (7,500/5h + 75k/week) —
+  // fresh windows when the rest of the fleet was weekly-capped. Same
+  // egress-pool membership as its siblings (per-IP throttle).
+  { provider: "agnes7", model: "agnes-3.0-flash" },
   // TokenHarbor free allowance (2026-09-26): deepseek-v4.1-flash:free never
   // charges the wallet. Flat lanes end here — everything below is paid.
   { provider: "tokenharbor", model: "deepseek-v4.1-flash:free" },
@@ -778,6 +783,7 @@ export const PROVIDER_CLASS: Record<string, "core" | "flat" | "bootstrap"> = {
   agnes4: "flat",
   agnes5: "flat",
   agnes6: "flat",
+  agnes7: "flat",
   electronhub: "flat",
   openference: "flat",
   stepfun: "bootstrap",
