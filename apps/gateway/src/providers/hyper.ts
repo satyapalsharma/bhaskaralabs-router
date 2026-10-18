@@ -2,7 +2,7 @@
 // Hyper = our legitimate CORE provider. Team account, master/sub-keys, NO pooling (ToS).
 
 import { makeShadowRelease, SHADOW_HOLD_MS } from "../lib/shadow-release";
-import { laneAcquire, laneWeight, wrapLaneRelease } from "../lib/lane-slot";
+import { laneAcquire, costOnLane, wrapLaneRelease } from "../lib/lane-slot";
 
 export const HYPER_BASE = process.env.HYPER_BASE_URL ?? "https://hyper.charm.land";
 
@@ -50,7 +50,9 @@ function hyperLaneAcquire(body: unknown): [() => void, () => void] {
     typeof body === "object" && body !== null && typeof (body as { max_tokens?: unknown }).max_tokens === "number"
       ? (body as { max_tokens: number }).max_tokens
       : undefined;
-  const releaseLane = laneAcquire("hyper", laneWeight(maxTokens));
+  // costOnLane, not laneWeight: hyper counts REQUESTS (LANE_COUNTS_REQUESTS —
+  // 32/32 parallel probed 2026-10-16), so a big turn costs the same 1.
+  const releaseLane = laneAcquire("hyper", costOnLane("hyper", maxTokens));
   return makeShadowRelease(releaseLane, SHADOW_HOLD_MS.hyper ?? 15_000, "hyper");
 }
 

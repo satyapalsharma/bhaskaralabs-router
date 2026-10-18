@@ -42,7 +42,14 @@ export const LANE_BUDGET: Record<string, number> = {
   //
   // Override per deployment without a rebuild: BHASKARA_LANE_BUDGET_PARETO.
   pareto: Number(process.env.BHASKARA_LANE_BUDGET_PARETO ?? 8),
-  hyper: 8,
+  // Hyper (2026-10-16): probed empirically — 32 simultaneous requests on
+  // BOTH qwen3.8-flash and glm-5.3-flash returned 32/32 200s, no 429s at all
+  // (docs publish no number; the FAQ is JS-rendered, so the ladder test IS
+  // the documentation). Hyper counts REQUESTS (see LANE_COUNTS_REQUESTS),
+  // so the budget is 32 in-flight requests, matching the proven ceiling —
+  // the old weighted budget of 8 (≈4 concurrent) was throttling the lane to
+  // an eighth of its real capacity while agnes weekly-quota'd the fleet.
+  hyper: Number(process.env.BHASKARA_LANE_BUDGET_HYPER ?? 32),
   // Agnes fleet lanes: each account carries 15 concurrent slots but the
   // default budget of 8 (≈4 in-flight at weight 2) was the binding constraint —
   // at sustained load the walk read "Lane saturated" and dropped the overflow
@@ -91,7 +98,7 @@ export const LANE_BUDGET: Record<string, number> = {
  * caps request count, and what actually breaks there is long generations
  * overlapping, which is precisely what weighting models.
  */
-export const LANE_COUNTS_REQUESTS: ReadonlySet<string> = new Set(["electronhub"]);
+export const LANE_COUNTS_REQUESTS: ReadonlySet<string> = new Set(["electronhub", "hyper"]);
 
 /**
  * Budget for a provider with no measured ceiling.
