@@ -20,6 +20,7 @@ import { db } from "../db";
 import { usageLedger } from "../db/schema";
 import { and, eq, gte, sql } from "drizzle-orm";
 import { ROUTER, TIER_RATES, chainFor, PLANS, type EndpointModel, type Lane, type PlanId } from "@bhaskara/shared/pricing";
+import { hyperPrimaryWindow, hyperTrickleRemaining, hyperTrickleClaim } from "./hyper-schedule";
 import type { AuthContext } from "./auth";
 import { estimateTokens, type ChatMessage } from "./prefix";
 import { capabilityArray, capabilityVector } from "../router/capability";
@@ -323,7 +324,25 @@ export async function decideTurn(
  * Dud escalation: consecutive chat-mode duds on huge tool prompts (40k in,
  * <1k out) skip the weak lanes entirely. A rescue must never fail, so it stays
  * on metered lanes — see RESCUE_CHAIN for the ordering and why it changed.
+ *
+ * Hyper/qwen3.8-flash schedule (2026-10-19): the operator's hyper quota
+ * resets 03:00 IST and goes to waste if idle — see lib/hyper-schedule.ts.
+ * During the day the rung is promoted to the FRONT while the IST hour has
+ * trickle slots left (exactly N turns/hour burn the daily quota, the rest
+ * flow to agnes); from 23:30 to 04:00 IST it is unconditionally FIRST so
+ * the leftover quota is dumped before the reset.
  */
+function thetaChainScheduled(): readonly Lane[] {
+  const chain = chainFor("theta", "flash");
+  const idx = chain.findIndex((l) => l.provider === "hyper" && l.model === "qwen3.8-flash");
+  if (idx <= 0) return chain;
+  if (hyperPrimaryWindow() || hyperTrickleRemaining() > 0) {
+    const promoted = chain[idx]!;
+    return [promoted, ...chain.slice(0, idx), ...chain.slice(idx + 1)];
+  }
+  return chain;
+}
+
 async function decideTheta(
   sessionId: string,
   messages: ChatMessage[],
@@ -348,7 +367,12 @@ async function decideTheta(
     );
   }
 
-  const lane = resolveLane("theta", "flash", health, prefixTokens, exclude);
+  const lane = pickLane(thetaChainScheduled(), health, prefixTokens, exclude);
+  // Claim the trickle slot only when the decision actually landed on the
+  // scheduled rung — the chain promotion is a peek, this is the consume.
+  if (lane && lane.provider === "hyper" && lane.model === "qwen3.8-flash" && !hyperPrimaryWindow()) {
+    hyperTrickleClaim();
+  }
   if (!lane) {
     // Nothing left. Hyper is the last resort even past budget: an overage is
     // better than refusing a request the user already paid for.
