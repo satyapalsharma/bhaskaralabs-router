@@ -111,7 +111,7 @@ export const LANE_BUDGET: Record<string, number> = {
  * caps request count, and what actually breaks there is long generations
  * overlapping, which is precisely what weighting models.
  */
-export const LANE_COUNTS_REQUESTS: ReadonlySet<string> = new Set(["electronhub", "hyper", "zai"]);
+export const LANE_COUNTS_REQUESTS: ReadonlySet<string> = new Set(["electronhub", "hyper", "zai", "ninerouter"]);
 
 /**
  * Budget for a provider with no measured ceiling.

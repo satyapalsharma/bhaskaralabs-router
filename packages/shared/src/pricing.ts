@@ -565,11 +565,11 @@ export const THETA_CHAIN: readonly Lane[] = [
   { provider: "claudin", model: "claudinio" },
   // 9Router (2026-10-18): the operator's Google AI Pro accounts pooled on a
   // local 9router, reached via ngrok. "freee" FIRST (operator call): it is
-  // the pool's free-tier route, so the walk burns the free quota before the
-  // subscription's ~1,500/day; ag/gemini-3.8-flash-low (the paid AI Pro
-  // route, low effort) is the rung directly behind it.
+  // the pool's free-tier route, so the walk burns the free quota before
+  // anything paid. The ag/gemini-3.8-flash-low rung (the PAID AI Pro route)
+  // moved after the agnes fleet (2026-10-19, operator call): with agnes
+  // windows open, the subscription quota should not burn.
   { provider: "ninerouter", model: "freee" },
-  { provider: "ninerouter", model: "ag/gemini-3.8-flash-low" },
   // OpenCode zen free tier (2026-10-13): the FreeTierError fingerprint gate now
   // covers EVERYTHING on zen — the plain Go-key lane that space-bunny used to
   // ride (provider "opencode") draws 403 unconditionally. All zen free models
@@ -635,6 +635,11 @@ export const THETA_CHAIN: readonly Lane[] = [
   // fresh windows when the rest of the fleet was weekly-capped. Same
   // egress-pool membership as its siblings (per-IP throttle).
   { provider: "agnes7", model: "agnes-3.0-flash" },
+  // 9Router's PAID route (ag/gemini-3.8-flash-low), parked behind the whole
+  // agnes fleet per the operator (2026-10-19): with agnes windows open the
+  // AI Pro quota must not burn; when the 5h windows cap, this is the first
+  // strong rung the walk lands on after them.
+  { provider: "ninerouter", model: "ag/gemini-3.8-flash-low" },
   // TokenHarbor free allowance (2026-09-26): deepseek-v4.1-flash:free never
   // charges the wallet. Flat lanes end here — everything below is paid.
   { provider: "tokenharbor", model: "deepseek-v4.1-flash:free" },
