@@ -940,7 +940,7 @@ async function dispatchUpstream(
     }));
     return new Response(
       JSON.stringify({ error: { message: "Lane saturated", type: "api_error" } }),
-      { status: 503, headers: { "Content-Type": "application/json", [SATURATED_HEADER]: decision.provider } },
+      { status: 503, headers: { "Content-Type": "application/json", [SATURATED_HEADER]: "1" } },
     );
   }
   // A lane in model-level cooldown (e.g. teamorouter's free model out of free
@@ -950,7 +950,7 @@ async function dispatchUpstream(
   if (laneCooling(decision.provider, decision.upstreamModel)) {
     return new Response(
       JSON.stringify({ error: { message: "Lane cooling down", type: "api_error" } }),
-      { status: 503, headers: { "Content-Type": "application/json", [SATURATED_HEADER]: decision.provider } },
+      { status: 503, headers: { "Content-Type": "application/json", [SATURATED_HEADER]: "1" } },
     );
   }
   // `stream_options` is a streaming-only parameter, and some harnesses send it
@@ -1171,23 +1171,19 @@ app.get("/health", async (c) => {
   return c.json({ ok: true, lanes: health });
 });
 
-// Client-facing model catalog. Endpoint models are always listed; public
-// models from the DB fleet (admin panel) extend the catalog — private ones
-// stay routable but hidden (OpenRouter private-model semantics).
+// Client-facing model catalog (2026-10-19, operator call): clients see ONLY
+// the endpoint models. The DB fleet's public models used to be merged in
+// here for the admin panel's convenience, but that catalog is what API
+// clients enumerate — it exposed upstream identities (claudinio,
+// nemotron-*-free, orca-*, deepseek-v4.1-flash:free, …) that clients must
+// never learn. The fleet's aliases remain CALLABLE (the POST path resolves
+// them); they are just no longer advertised.
 app.get("/v1/models", async (c) => {
   const endpointModels = [
     { id: "glm-5.3", object: "model", owned_by: "bhaskara" },
     { id: "theta", object: "model", owned_by: "bhaskara" },
   ];
-  try {
-    const fleetModels = await getPublicModels();
-    const extra = fleetModels
-      .filter((m) => !endpointModels.some((e) => e.id === m.id))
-      .map((m) => ({ id: m.id, object: "model", owned_by: "bhaskara-fleet" }));
-    return c.json({ object: "list", data: [...endpointModels, ...extra] });
-  } catch {
-    return c.json({ object: "list", data: endpointModels });
-  }
+  return c.json({ object: "list", data: endpointModels });
 });
 
 // Boot + periodic refresh of DB-fleet dispatchability (admin panel additions
