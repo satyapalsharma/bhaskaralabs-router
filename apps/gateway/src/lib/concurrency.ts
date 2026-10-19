@@ -60,11 +60,28 @@ export function acquireConcurrency(apiKeyId: string, limit: number): Concurrency
   if (current >= limit) return null;
   inFlight.set(apiKeyId, current + 1);
   let released = false;
+  // Failsafe reaper (2026-10-19): an orphaned turn — the client disconnects
+  // between lease acquisition and any completion path — never fires its
+  // release, and for a super key (limit 128) a storm's worth of leaked leases
+  // pinned the counter past the ceiling: every subsequent request drew an
+  // instant 429 at the edge (observed on the i9-linux batch key). No real
+  // turn runs past ~15 minutes, so a lease held past the failsafe is by
+  // definition leaked — reap it and log. Same pattern as lane-slot's reaper.
+  const failsafe = setTimeout(() => {
+    if (released) return;
+    released = true;
+    const n = (inFlight.get(apiKeyId) ?? 1) - 1;
+    if (n <= 0) inFlight.delete(apiKeyId);
+    else inFlight.set(apiKeyId, n);
+    console.log(JSON.stringify({ ev: "lease-leak-reap", key: apiKeyId.slice(0, 8) }));
+  }, Number(process.env.BHASKARA_LANE_MAX_HOLD_MS ?? 20 * 60_000));
+  failsafe.unref?.();
   return {
     limit,
     release: () => {
       if (released) return;
       released = true;
+      clearTimeout(failsafe);
       const n = (inFlight.get(apiKeyId) ?? 1) - 1;
       if (n <= 0) inFlight.delete(apiKeyId);
       else inFlight.set(apiKeyId, n);

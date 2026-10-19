@@ -419,15 +419,20 @@ app.post("/v1/chat/completions", async (c) => {
   // priced feature funded by the extra monthly pool. Refusing immediately beats
   // queueing: a queued request still holds a client connection and a slot
   // budget, and a 429 with Retry-After is what every harness understands.
-  const lease = acquireConcurrency(auth.apiKeyId, concurrencyLimit(auth.plan, quota.unlimitedTheta));
+  const leaseLimit = concurrencyLimit(auth.plan, quota.unlimitedTheta);
+  const lease = acquireConcurrency(auth.apiKeyId, leaseLimit);
   if (!lease) {
     c.header("Retry-After", "5");
     return c.json(
       {
         error: {
-          message: quota.unlimitedTheta
+          // Limit-aware: "one request at a time" is the single-stream tier's
+          // contract; a super key (limit 128) hitting this means leaked leases
+          // or a genuine burst, and the single-stream wording misled operators
+          // into diagnosing the wrong plan (observed 2026-10-19).
+          message: leaseLimit === 1
             ? "Concurrency limit reached: your plan runs one request at a time. Add the extra pool to run more in parallel."
-            : "Too many concurrent requests for your plan.",
+            : "Too many concurrent requests for your plan right now — retry shortly.",
           type: "rate_limit_error",
         },
       },
