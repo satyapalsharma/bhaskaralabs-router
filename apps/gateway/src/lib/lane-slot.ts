@@ -121,7 +121,29 @@ export const LANE_COUNTS_REQUESTS: ReadonlySet<string> = new Set(["electronhub",
  */
 export const LANE_BUDGET_DEFAULT = 8;
 
+/**
+ * Per-model admission caps (provider:model → max in-flight REQUESTS), for
+ * parking ONE model's burn rate without touching its siblings on the same
+ * provider. ninerouter/freee (2026-10-19, operator call): the Google free
+ * quota was draining at ~40/min at the provider budget of 32 — half the
+ * admission so it lasts across the day; ag/gemini-3.8-flash-low (the paid
+ * route on the same provider) keeps the full 32. A model keyed here uses its
+ * OWN budget bucket, not the provider's.
+ */
+export const LANE_MODEL_BUDGETS: Record<string, number> = {
+  "ninerouter:freee": Number(process.env.BHASKARA_LANE_BUDGET_NINEROUTER_FREEE ?? 16),
+};
+
 const laneLoad = new Map<string, number>();
+
+/** The bucket a request on (provider, model) is charged to: the model's own
+ *  when a per-model cap exists, the provider's otherwise. */
+function laneBucketFor(providerId: string, modelId?: string): { key: string; budget: number } {
+  if (modelId && LANE_MODEL_BUDGETS[`${providerId}:${modelId}`] != null) {
+    return { key: `${providerId}:${modelId}`, budget: LANE_MODEL_BUDGETS[`${providerId}:${modelId}`]! };
+  }
+  return { key: providerId, budget: laneBudgetFor(providerId) };
+}
 
 /**
  * Budget units a request costs.
@@ -162,9 +184,11 @@ export function laneLoadOf(providerId: string): number {
   return laneLoad.get(providerId) ?? 0;
 }
 
-/** True when the lane has room for a request of this weight. */
-export function laneFree(providerId: string, weight = 1): boolean {
-  return laneLoadOf(providerId) + weight <= laneBudgetFor(providerId);
+/** True when the lane has room for a request of this weight. A per-model
+ *  capped model (LANE_MODEL_BUDGETS) is checked against its own bucket. */
+export function laneFree(providerId: string, weight = 1, modelId?: string): boolean {
+  const b = laneBucketFor(providerId, modelId);
+  return (laneLoad.get(b.key) ?? 0) + weight <= b.budget;
 }
 
 /**
@@ -174,8 +198,9 @@ export function laneFree(providerId: string, weight = 1): boolean {
  * including aborts — `wrapLaneRelease` exists so that pairing is structural
  * rather than something each dispatch branch has to remember.
  */
-export function laneAcquire(providerId: string, weight: number): () => void {
-  laneLoad.set(providerId, laneLoadOf(providerId) + weight);
+export function laneAcquire(providerId: string, weight: number, modelId?: string): () => void {
+  const bucket = laneBucketFor(providerId, modelId).key;
+  laneLoad.set(bucket, (laneLoad.get(bucket) ?? 0) + weight);
   let released = false;
   // Failsafe reaper (2026-10-18): every path that pairs this acquire with a
   // release is bounded (body-done, cancel→shadow-hold, sync error release),
@@ -191,15 +216,15 @@ export function laneAcquire(providerId: string, weight: number): () => void {
   const failsafe = setTimeout(() => {
     if (released) return;
     released = true;
-    laneLoad.set(providerId, Math.max(0, laneLoadOf(providerId) - weight));
-    console.log(JSON.stringify({ ev: "lane-leak-reap", lane: providerId, weight }));
+    laneLoad.set(bucket, Math.max(0, (laneLoad.get(bucket) ?? 0) - weight));
+    console.log(JSON.stringify({ ev: "lane-leak-reap", lane: bucket, weight }));
   }, Number(process.env.BHASKARA_LANE_MAX_HOLD_MS ?? 20 * 60_000));
   failsafe.unref?.();
   return () => {
     if (released) return;
     released = true;
     clearTimeout(failsafe);
-    laneLoad.set(providerId, Math.max(0, laneLoadOf(providerId) - weight));
+    laneLoad.set(bucket, Math.max(0, (laneLoad.get(bucket) ?? 0) - weight));
   };
 }
 

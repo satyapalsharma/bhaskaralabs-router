@@ -934,7 +934,7 @@ async function dispatchUpstream(
   // is never mistaken for a provider fault: nothing upstream was contacted and
   // the lane's health is untouched.
   const laneWeightWanted = costOnLane(decision.provider, typeof originalBody.max_tokens === "number" ? originalBody.max_tokens : undefined);
-  if (!laneFree(decision.provider, laneWeightWanted)) {
+  if (!laneFree(decision.provider, laneWeightWanted, decision.upstreamModel)) {
     console.log(JSON.stringify({
       ev: "lane-saturated",
       lane: decision.provider,

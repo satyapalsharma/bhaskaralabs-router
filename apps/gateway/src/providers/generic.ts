@@ -165,7 +165,7 @@ export async function genericChat(opts: GenericChatOpts): Promise<Response> {
   // either one acquires, and only the acquire is serialized.
   const weight = costOnLane(provider.id, typeof opts.body.max_tokens === "number" ? opts.body.max_tokens : undefined);
   const releaseAccount = acquire(account.id);
-  const releaseLane = laneAcquire(provider.id, weight);
+  const releaseLane = laneAcquire(provider.id, weight, modelId);
   const rawRelease = () => {
     releaseAccount();
     releaseLane();
